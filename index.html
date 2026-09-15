@@ -811,6 +811,7 @@ html[data-theme="light"] #seasonRecapOverlay{background:rgba(25,54,34,.34)}html[
 const API_URL='https://script.google.com/macros/s/AKfycbxC38rlABSICaLkd8X1hsqBuOHYhgtg7naei1UyyRPKyHIqW818K4jSIbd74zG-nMqy/exec';
 const API_PROXY_URL='https://hidden-cake-595d.supi24.workers.dev/';
 const SYSTEM_TARGETS={picking:2.57,scanner:98,missing:.34,undelivered:.24,rating:4.7,notcollected:.24,pofr:98};
+function targetForMetric(name){const k=norm(cleanMetricName(name));if(k.includes('picking time'))return SYSTEM_TARGETS.picking;if(k.includes('scanner'))return SYSTEM_TARGETS.scanner;if(k.includes('missing')||k.includes('incorrect'))return SYSTEM_TARGETS.missing;if(k.includes('undelivered'))return SYSTEM_TARGETS.undelivered;if(k.includes('not collected')||k==='ui')return SYSTEM_TARGETS.notcollected;if(k.includes('pofr')||k.includes('perfect order fulfilment')||k.includes('perfect order fulfillment'))return SYSTEM_TARGETS.pofr;if(k.includes('rating'))return SYSTEM_TARGETS.rating;return null;}
 const IGNORED=['packing time per item','venue related cs tickets ratio','merchant rejection ratio','avg packing time'];
 const state={bootstrap:null,worker:null,player:null,history:null,team:null,stores:null,storeHistory:null,quickLeaderboard:null,teamMetric:null,teamMetricCache:{},teamMetricLoading:{},range:'all',rangeStart:'',rangeEnd:'',storeRangeStart:'',storeRangeEnd:'',teamMode:'all',lbMode:'people',compareWorker:'',compareStore:'',storeRange:'all',inbound:null,leaderMetric:null,achievementMode:'all'};
 let charts={};
@@ -1123,7 +1124,7 @@ function storeNetworkBestRows(storeName, metricIndex, monthIndex, lower){const s
 function achievementPersonalBest(){const weeks=state.history?.weeks||[];if(weeks.length<2)return false;const last=weeks.at(-1);const defs=[['Avg Picking Time','Picking Time',true],['Items Picked Via Scanner Ratio','Scanner Ratio',false],['Missing Incorrect Items Rate','Missing Incorrect',true],['Perfect Order Fulfilment Ratio','Perfect Order Fulfillment Ratio','POFR',false]];return defs.some(([a,b,c])=>{const cur=getMetricValFromWeek(last,[a,b,c])?.value;const prev=weeks.slice(0,-1).map(w=>getMetricValFromWeek(w,[a,b,c])?.value).filter(v=>n(v)!=null);if(cur==null||!prev.length)return false;return c===true?cur<Math.min(...prev):c===false?cur>Math.max(...prev):false})}
 function achievementBeatAverage(){const weeks=state.history?.weeks||[];if(weeks.length<2)return false;const base=weeks.slice(-13,-1),last=weeks.at(-1);let count=0;[['Avg Picking Time',true],['Items Picked Via Scanner Ratio',false],['Missing Incorrect Items Rate',true],['Perfect Order Fulfilment Ratio',false]].forEach(([name,lower])=>{const cur=getMetricValFromWeek(last,[name])?.value;const vals=base.map(w=>getMetricValFromWeek(w,[name])?.value).filter(v=>n(v)!=null);if(cur!=null&&vals.length){const avg=vals.reduce((a,b)=>a+b,0)/vals.length;if(lower?cur<avg:cur>avg)count++}});return count>=3}
 function achievementStoreStats(){if(!state.storeHistory)return null;const store=findHolesoviceName();if(!store)return null;const defs=state.storeHistory.headers||[], labels=state.storeHistory.labels||[], mi={pofr:defs.findIndex(d=>norm(d).includes('pofr')||norm(d).includes('perfect order fulfilment')),scanner:defs.findIndex(d=>norm(d).includes('scanner')),missing:defs.findIndex(d=>norm(d).includes('missing incorrect')),undelivered:defs.findIndex(d=>norm(d).includes('undelivered'))};return {store,st:state.storeHistory.stores[store],labels,month:labels.length-1,mi}}
-function achievementStoreElite(){const x=achievementStoreStats();if(!x||x.month<0)return false;const v=k=>x.st.history?.[x.mi[k]]?.[x.month];return v('pofr')>=98&&v('scanner')>=98&&v('missing')!=null&&v('missing')<=.34&&v('undelivered')!=null&&v('undelivered')<=.24}
+function achievementStoreElite(){const x=achievementStoreStats();if(!x||x.month<0)return false;const defs=state.storeHistory?.headers||[];const v=k=>{const idx=x.mi[k];if(idx<0)return null;return normalizeStoreMetricValue(x.st.history?.[idx]?.[x.month],defs[idx]||k)};return v('pofr')>=98&&v('scanner')>=98&&v('missing')!=null&&v('missing')<=.34&&v('undelivered')!=null&&v('undelivered')<=.24}
 function achievementStoreNetwork(){const x=achievementStoreStats();if(!x||x.month<0)return false;let count=0;[['pofr',false],['scanner',false],['missing',true],['undelivered',true]].forEach(([k,lower])=>{const idx=x.mi[k],name=(state.storeHistory?.headers||[])[idx]||k,cur=normalizeMetricValue(x.st.history?.[idx]?.[x.month],name),avg=storeNetworkAverageExcluding(x.store,idx,x.month);if(cur==null||avg==null)return;if(lower?cur<avg:cur>avg)count++});return count>=3}
 function achievementDefinitions(){const rank=playerSeasonData(state.worker),perf=performanceScoreFromLatest(state.player)||0,weeks=state.history?.weeks||[],latest=weeks.at(-1);let streak=0;for(let i=weeks.length-1;i>=0;i--){const w=weeks[i];let good=0;const p=getMetricValFromWeek(w,['Avg Picking Time','Picking Time']),sc=getMetricValFromWeek(w,['Items Picked Via Scanner Ratio','Scanner Ratio']),mi=getMetricValFromWeek(w,['Missing Incorrect Items Rate','Missing Incorrect']),po=getMetricValFromWeek(w,['Perfect Order Fulfilment Ratio','Perfect Order Fulfillment Ratio','POFR']);if(p?.value<=2.57)good++;if(sc?.value>=98)good++;if(mi?.value<=.34)good++;if(po?.value>=98)good++;if(good>=3)streak++;else break}const anyQuest=latest?questDefsForWeek(latest).some(q=>q.done):false;return[
 {id:'first',icon:'🌟',title:'First Blood',desc:'Splň první osobní quest.',rarity:'UNCOMMON',done:anyQuest},
@@ -1614,14 +1615,14 @@ async function renderBottlenecks(){
       venueLate:makeMetric('Venue Late',indexes.venueLate)
     };
     const targetPacks=[
-      {...metrics.picking,target:2.57,lower:true,weight:1.0},
-      {...metrics.missing,target:.34,lower:true,weight:1.25},
-      {...metrics.scanner,target:98,lower:false,weight:.8},
-      {...metrics.pofr,target:98,lower:false,weight:.8},
-      {...metrics.undelivered,target:.24,lower:true,weight:1.1},
+      {...metrics.picking,target:targetForMetric(metrics.picking.name),lower:true,weight:1.0},
+      {...metrics.missing,target:targetForMetric(metrics.missing.name),lower:true,weight:1.25},
+      {...metrics.scanner,target:targetForMetric(metrics.scanner.name),lower:false,weight:.8},
+      {...metrics.pofr,target:targetForMetric(metrics.pofr.name),lower:false,weight:.8},
+      {...metrics.undelivered,target:targetForMetric(metrics.undelivered.name),lower:true,weight:1.1},
       {...metrics.badGoods,target:2.00,lower:true,weight:.9},
-      {...metrics.goodsRating,target:4.70,lower:false,weight:.9}
-    ].filter(p=>p.index>=0);
+      {...metrics.goodsRating,target:targetForMetric(metrics.goodsRating.name),lower:false,weight:.9}
+    ].filter(p=>p.index>=0&&p.target!=null);
     const monitorPacks=[metrics.notCollected,metrics.venueLate].filter(p=>p.index>=0);
     const people=Object.keys(peopleMap);
 
@@ -1653,9 +1654,9 @@ async function renderBottlenecks(){
       return {name,total,issues};
     });
     const bad=detail.filter(x=>x.issues.length).sort((a,b)=>b.total-a.total);
-    const counts={};targetDetails.forEach(p=>{counts[p.key]=detail.filter(x=>x.issues.some(i=>i.key===p.key)).length});
-    const rankedCategories=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
-    const topCategory=rankedCategories[0]||['—',0];
+    const counts={}; const severity={}; targetDetails.forEach(p=>{counts[p.key]=detail.filter(x=>x.issues.some(i=>i.key===p.key)).length;severity[p.key]=detail.reduce((sum,x)=>sum+(x.issues.find(i=>i.key===p.key)?.score||0),0)});
+    const rankedCategories=Object.keys(counts).map(key=>[key,counts[key],severity[key]||0]).sort((a,b)=>b[2]-a[2]);
+    const topCategory=rankedCategories[0]||['—',0,0];
     const priority=topCategory[1]>=Math.max(3,Math.ceil(people.length*.3))?'Týmová':'Individuální';
     setText('diagTop',topCategory[0]);setText('diagPeople',topCategory[1]);setText('diagPriority',priority);
 
@@ -1713,7 +1714,8 @@ function storeRanksForMode(mode){
       const vals=(st.history?.[x.i]||[]).filter(v=>n(v)!=null); if(!vals.length)return;
       const normalizedVals=vals.map(v=>normalizeMetricValue(v,x.d)).filter(v=>v!=null); if(!normalizedVals.length)return;
       const avg=normalizedVals.reduce((a,b)=>a+b,0)/normalizedVals.length; const nm=norm(x.d); let score=null;
-      if(nm.includes('missing')||nm.includes('undelivered')) score=avg>0?Math.max(0,Math.min(120,.34/avg*100)):120;
+      if(nm.includes('missing')) score=avg>0?Math.max(0,Math.min(120,.34/avg*100)):120;
+       else if(nm.includes('undelivered')) score=avg>0?Math.max(0,Math.min(120,.24/avg*100)):120;
       else if(nm.includes('pofr')||nm.includes('scanner')) score=Math.max(0,Math.min(120,avg));
       if(score!=null)scores.push(score);
     });
