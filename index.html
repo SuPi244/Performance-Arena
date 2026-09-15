@@ -745,7 +745,7 @@ html[data-theme="light"] #seasonRecapOverlay{background:rgba(25,54,34,.34)}html[
 <section class="page" id="page-correlation"><div class="hero"><div class="eyebrow">Analýza</div><h2>Korelace</h2><p>Porovnání dvou metrik napříč týmem. Dashboard automaticky vyhodnotí sílu vztahu a přidá jednoduchou interpretaci.</p></div><div class="section"><div class="toolbar"><select class="tool select" id="corrX"></select><select class="tool select" id="corrY"></select></div></div><div class="section subgrid"><div class="summary-card"><span class="summary-label">Korelace r</span><span class="summary-value" id="corrR">—</span></div><div class="summary-card"><span class="summary-label">Vzorek</span><span class="summary-value" id="corrN">—</span></div><div class="summary-card"><span class="summary-label">Síla vztahu</span><span class="summary-value" id="corrStrength">—</span></div></div><div class="section panel"><div class="chart-wrap"><canvas id="corrChart"></canvas></div><div class="notice" id="corrSummary">—</div></div></section>
 <section class="page" id="page-bottlenecks"><div class="hero"><div class="eyebrow">Diagnostika</div><h2>Bottlenecks</h2><p>Identifikuje největší odchylky od cíle a ukáže, co má tým řešit jako první — rychlost, kvalitu nebo přesnost.</p></div><div class="section subgrid"><div class="summary-card"><span class="summary-label">Největší problém</span><span class="summary-value" id="diagTop">—</span></div><div class="summary-card"><span class="summary-label">Ohrožených lidí</span><span class="summary-value" id="diagPeople">—</span></div><div class="summary-card"><span class="summary-label">Priorita</span><span class="summary-value" id="diagPriority">—</span></div></div><div class="section" id="diagnosticOverview"></div><div class="section"><div class="section-head"><h3>TOP PRIORITY</h3><span>největší odchylky</span></div><div id="bottleneckList"></div></div></section>
 <section class="page" id="page-leaderboard"><div class="hero"><div class="eyebrow">Competitive arena</div><h2>Season Leaderboard</h2><p>Sezónní pořadí, metrikové žebříčky a detail hráče.</p></div><div class="section"><div class="toolbar"><button class="tool lb-mode active" data-mode="people">👥 Lidé</button><button class="tool lb-mode" data-mode="stores">🏪 Stores</button><select class="tool select" id="lbMetric" style="max-width:340px"></select></div></div><div class="section"><div class="section-head"><h3 id="lbHeading">SEASON TOP</h3><span id="lbMeta">—</span></div><div class="lb-podium" id="leaderboardPodium"></div></div><div class="section panel"><div class="lb-list" id="leaderboardList"></div></div></section>
-<section class="page" id="page-store"><div class="hero"><div class="eyebrow">Store arena</div><h2>Store přehled</h2><p>Měsíční KPI, mini-grafy a porovnání dvou prodejen v duchu původního dashboardu.</p></div><div class="section"><div class="toolbar range-toolbar"><select class="tool select" id="storeSelect"></select><label class="date-tool">Od <input class="date-input" id="storeDateStart" type="date"/></label><label class="date-tool">Do <input class="date-input" id="storeDateEnd" type="date"/></label><button class="tool range-clear" id="storeDateClear">Celá historie</button><select class="tool select" id="storeCompare"><option value="">Bez srovnání</option></select></div></div><div class="section"><div class="section-head"><h3>KLÍČOVÉ STORE KPI</h3><span id="storeMeta">—</span></div><div class="metric-grid" id="storeKpis"></div></div><div class="section"><div class="section-head"><h3>🏪 STORE CHALLENGES</h3><span><button class="tool store-page-quest-switch active" data-sqmode="active" style="padding:5px 7px">Aktivní měsíc</button> <button class="tool store-page-quest-switch" data-sqmode="history" style="padding:5px 7px">Splněné</button></span></div><div id="storePageQuestContext" style="font-size:10px;color:var(--muted);margin-bottom:10px"></div><div class="store-quest-grid" id="storePageQuestList"></div></div></section>
+<section class="page" id="page-store"><div class="hero"><div class="eyebrow">Store arena</div><h2>Store přehled</h2><p>Měsíční KPI, mini-grafy a porovnání dvou prodejen v duchu původního dashboardu.</p></div><div class="section"><div class="toolbar range-toolbar"><select class="tool select" id="storeSelect"></select><label class="date-tool">Od <input class="date-input" id="storeDateStart" type="date"/></label><label class="date-tool">Do <input class="date-input" id="storeDateEnd" type="date"/></label><button class="tool range-clear" id="storeDateClear">Celá historie</button><select class="tool select" id="storeCompare"><option value="">Bez srovnání</option></select></div></div><div class="section"><div class="section-head"><h3>KLÍČOVÉ STORE KPI</h3><span id="storeMeta">—</span></div><div class="metric-grid" id="storeKpis"></div></div><div class="section"><div class="section-head"><h3>OSTATNÍ STORE METRIKY</h3><span>všechny další dostupné metriky</span></div><div class="metric-grid" id="storeMetrics"></div></div><div class="section"><div class="section-head"><h3>🏪 STORE CHALLENGES</h3><span><button class="tool store-page-quest-switch active" data-sqmode="active" style="padding:5px 7px">Aktivní měsíc</button> <button class="tool store-page-quest-switch" data-sqmode="history" style="padding:5px 7px">Splněné</button></span></div><div id="storePageQuestContext" style="font-size:10px;color:var(--muted);margin-bottom:10px"></div><div class="store-quest-grid" id="storePageQuestList"></div></div></section>
 <div class="notice" id="globalNotice">Načítám data…</div><div class="notice error hidden" id="fatal"></div>
 </main></div></div>
 <div class="overlay" id="profileOverlay"><div class="modal"><div class="modal-head"><div><div class="eyebrow">Player selector</div><h2 style="margin:5px 0 0">Vyber profil</h2></div><button class="close" id="closeProfile">✕</button></div><div class="section"><input class="tool" id="profileSearch" placeholder="Hledat jméno…" style="width:100%;padding:10px"/></div><div class="team-list" id="profileChoices"></div></div></div>
@@ -763,7 +763,23 @@ const cacheInFlight={};
 function cacheKey(action,params={}){return CACHE_PREFIX+action+'|'+Object.keys(params).sort().map(k=>k+'='+String(params[k])).join('&')}
 function readCache(action,params={}){try{const x=JSON.parse(localStorage.getItem(cacheKey(action,params))||'null');return x&&x.data?x:null}catch(e){return null}}
 function writeCache(action,params,data){try{localStorage.setItem(cacheKey(action,params),JSON.stringify({ts:Date.now(),data}))}catch(e){}}
-function apiRaw(action,params={}){return new Promise((resolve,reject)=>{const cb='__arena_'+Date.now()+'_'+Math.random().toString(36).slice(2);const s=document.createElement('script');let done=false;const cleanup=()=>{if(done)return;done=true;clearTimeout(t);delete window[cb];s.remove()};const t=setTimeout(()=>{cleanup();reject(new Error('API timeout after 30s'))},30000);window[cb]=d=>{cleanup();resolve(d)};s.onerror=()=>{cleanup();reject(new Error('API request failed'))};const q=new URLSearchParams({api:'1',action,callback:cb,...params});s.src=API_URL+'?'+q.toString();document.body.appendChild(s)})}
+function apiRaw(action,params={}){return new Promise((resolve,reject)=>{
+  const cb='__arena_cb_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2);
+  const s=document.createElement('script');
+  let done=false;
+  const finish=(err,data)=>{if(done)return;done=true;clearTimeout(timer);try{delete window[cb]}catch(e){};if(s.parentNode)s.parentNode.removeChild(s);err?reject(err):resolve(data)};
+  const timer=setTimeout(()=>finish(new Error('API timeout after 30s')),30000);
+  window[cb]=(data)=>finish(null,data);
+  s.async=false;
+  s.defer=false;
+  s.type='text/javascript';
+  s.charset='utf-8';
+  s.referrerPolicy='no-referrer';
+  s.onerror=()=>finish(new Error('API request failed'));
+  const q=new URLSearchParams({api:'1',action,callback:cb,_cb:String(Date.now()),...params});
+  s.src=API_URL+'?'+q.toString();
+  (document.head||document.documentElement).appendChild(s);
+})}
 function api(action,params={}){const cached=readCache(action,params);const ttl=CACHE_TTLS[action]||10*60*1000;if(cached){if(Date.now()-cached.ts>ttl&&!cacheInFlight[cacheKey(action,params)]){cacheInFlight[cacheKey(action,params)]=apiRaw(action,params).then(d=>{if(d&&d.ok!==false)writeCache(action,params,d)}).catch(()=>{}).finally(()=>delete cacheInFlight[cacheKey(action,params)]);}return Promise.resolve(cached.data)}if(cacheInFlight[cacheKey(action,params)])return cacheInFlight[cacheKey(action,params)];const job=apiRaw(action,params).then(d=>{if(!d||d.ok===false)throw new Error(d?.error||('API '+action+' error'));writeCache(action,params,d);return d}).finally(()=>delete cacheInFlight[cacheKey(action,params)]);cacheInFlight[cacheKey(action,params)]=job;return job}
 function norm(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/fulfilmen\s+t/g,'fulfilment').replace(/preparati\s+on/g,'preparation').replace(/purchase\s+s/g,'purchases').replace(/\s+/g,' ').trim()}
 function esc(s){return String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
@@ -772,7 +788,7 @@ function n(v){return typeof v==='number'&&Number.isFinite(v)?v:null}
 function fmt(v,d=2){return n(v)===null?'—':v.toLocaleString('cs-CZ',{maximumFractionDigits:d})}
 function pct(v){return n(v)===null?'—':fmt(v,2)+'%'}
 function isIgnored(s){const x=norm(s);return IGNORED.some(i=>x.includes(i))}
-function isPct(name){const x=norm(name);return x.includes('%')||x.includes('ratio')||x.includes('rate')||x.includes('refund')||x.includes('venue late')||x.includes('venue lateness')||x.includes('bad goods rating')||x==='pofr'||x==='mi'||x==='ui'}
+function isPct(name){const x=norm(name);return x.includes('%')||x.includes('ratio')||x.includes('rate')||x.includes('refund')||x.includes('venue late')||x.includes('venue lateness')||x.includes('bad goods rating')||x==='pofr'||x==='mi'||x==='ui'||x==='wa'||x.includes('wa ')||x.includes('outer case')||x.includes('tasks')}
 function lowerBetter(name){const x=norm(name);return x.includes('time')||x.includes('missing')||x.includes('incorrect')||x.includes('error')||x.includes('late')||x.includes('ticket')||x.includes('bad')||x.includes('refund')||x.includes('undelivered')||x.includes('not collected')||x==='mi'||x==='ui'}
 function cleanMetricName(s){return String(s||'').replace(/Fulfilmen\s+t/gi,'Fulfilment').replace(/Preparati\s+on/gi,'Preparation').replace(/Purchase\s+s/gi,'Purchases').replace(/\s+Copy$/i,'').replace(/\s+/g,' ').trim()}
 function normalizeMetricValue(v,name){
@@ -787,9 +803,19 @@ function normalizeMetricValue(v,name){
   if(ratioMetric && Math.abs(x)<=1) return x*100;
 
   // Most operational percentage metrics are already stored as percentage points.
-  // Example: 0.40 means 0.40%, not 40%.
-  // Venue Late follows the same rule; tiny fractional source values are the only
-  // case that still need conversion (e.g. 0.001 -> 0.1%).
+  // Very small decimal fractions are still source ratios: 0.005 -> 0.5%.
+  // Values such as 0.40 are already percentage points and remain 0.40%.
+  if(
+    key==='mi' || key==='ui' ||
+    key.includes('missing incorrect') ||
+    key.includes('uncollected items ratio') ||
+    key.includes('not collected items ratio') ||
+    key.includes('wa') ||
+    key.includes('outer case') ||
+    key.includes('tasks')
+  ){
+    return Math.abs(x)<0.1 ? x*100 : x;
+  }
   if(key.includes('venue late preparation') || key.includes('venue lateness')) return Math.abs(x)<=0.01 ? x*100 : x;
   return x;
 }
