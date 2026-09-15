@@ -2147,11 +2147,11 @@ function setupLogin(b){
   const sel=document.getElementById('loginProfile');
   const names=[...(b.workers||[])];
   const opts=[];
-  if(names.includes('Admin')) opts.push('<option value="Admin">Admin</option>');
+  opts.push('<option value="Admin">Admin</option>');
   names.filter(n=>n!=='Admin').forEach(n=>opts.push('<option value="'+esc(n)+'">'+esc(n)+'</option>'));
   sel.innerHTML=opts.join('');
   const saved=sessionStorage.getItem('arenaLoginProfile');
-  if(saved && names.includes(saved)) sel.value=saved;
+  if(saved && (saved==='Admin' || names.includes(saved))) sel.value=saved;
   const submit=()=>{
     const profile=sel.value;
     const pass=document.getElementById('loginPassword').value;
