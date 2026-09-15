@@ -753,6 +753,7 @@ html[data-theme="light"] #seasonRecapOverlay{background:rgba(25,54,34,.34)}html[
 <div class="loading-overlay" id="loadingOverlay"><div class="loading-card"><div class="loader-orb"><span></span></div><div class="loading-title">Načítám Performance Arena</div><div class="loading-sub" id="loadingStage">Připravuji profil…</div><div class="loading-progress"><span id="loadingProgress"></span></div><div class="loading-tip" id="loadingTip"></div></div></div>
 <script>
 const API_URL='https://script.google.com/macros/s/AKfycbxC38rlABSICaLkd8X1hsqBuOHYhgtg7naei1UyyRPKyHIqW818K4jSIbd74zG-nMqy/exec';
+const API_PROXY_URL='https://hidden-cake-595d.supi24.workers.dev/';
 const SYSTEM_TARGETS={picking:2.57,scanner:98,missing:.34,undelivered:.24,rating:4.7,notcollected:.24,pofr:98};
 const IGNORED=['packing time per item','venue related cs tickets ratio','merchant rejection ratio','avg packing time'];
 const state={bootstrap:null,worker:null,player:null,history:null,team:null,stores:null,storeHistory:null,quickLeaderboard:null,teamMetric:null,teamMetricCache:{},teamMetricLoading:{},range:'all',rangeStart:'',rangeEnd:'',storeRangeStart:'',storeRangeEnd:'',teamMode:'all',lbMode:'people',compareWorker:'',compareStore:'',storeRange:'all',inbound:null,leaderMetric:null,achievementMode:'all'};
@@ -763,23 +764,29 @@ const cacheInFlight={};
 function cacheKey(action,params={}){return CACHE_PREFIX+action+'|'+Object.keys(params).sort().map(k=>k+'='+String(params[k])).join('&')}
 function readCache(action,params={}){try{const x=JSON.parse(localStorage.getItem(cacheKey(action,params))||'null');return x&&x.data?x:null}catch(e){return null}}
 function writeCache(action,params,data){try{localStorage.setItem(cacheKey(action,params),JSON.stringify({ts:Date.now(),data}))}catch(e){}}
-function apiRaw(action,params={}){return new Promise((resolve,reject)=>{
-  const cb='__arena_cb_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2);
-  const s=document.createElement('script');
-  let done=false;
-  const finish=(err,data)=>{if(done)return;done=true;clearTimeout(timer);try{delete window[cb]}catch(e){};if(s.parentNode)s.parentNode.removeChild(s);err?reject(err):resolve(data)};
-  const timer=setTimeout(()=>finish(new Error('API timeout after 30s')),30000);
-  window[cb]=(data)=>finish(null,data);
-  s.async=false;
-  s.defer=false;
-  s.type='text/javascript';
-  s.charset='utf-8';
-  s.referrerPolicy='no-referrer';
-  s.onerror=()=>finish(new Error('API request failed'));
-  const q=new URLSearchParams({api:'1',action,callback:cb,_cb:String(Date.now()),...params});
-  s.src=API_URL+'?'+q.toString();
-  (document.head||document.documentElement).appendChild(s);
-})}
+function apiRaw(action,params={}){
+  if(API_PROXY_URL && !API_PROXY_URL.includes('PASTE_YOUR_CLOUDFLARE_WORKER_URL_HERE')){
+    const u=new URL(API_PROXY_URL);
+    Object.entries({api:'1',action,...params,_cb:String(Date.now())+Math.random().toString(36).slice(2)}).forEach(([k,v])=>u.searchParams.set(k,String(v)));
+    return fetch(u.toString(),{method:'GET',cache:'no-store',credentials:'omit',headers:{'Accept':'application/json'}})
+      .then(r=>{if(!r.ok)throw new Error('API HTTP '+r.status);return r.json()})
+      .then(d=>{if(!d||d.ok===false)throw new Error(d?.error||('API '+action+' error'));return d});
+  }
+  return new Promise((resolve,reject)=>{
+    const cb='__arena_cb_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2);
+    const s=document.createElement('script');
+    let done=false;
+    const finish=(err,data)=>{if(done)return;done=true;clearTimeout(timer);try{delete window[cb]}catch(e){};if(s.parentNode)s.parentNode.removeChild(s);err?reject(err):resolve(data)};
+    const timer=setTimeout(()=>finish(new Error('API timeout after 30s')),30000);
+    window[cb]=(data)=>finish(null,data);
+    s.async=false;s.defer=false;s.type='text/javascript';s.charset='utf-8';s.referrerPolicy='no-referrer';
+    s.onerror=()=>finish(new Error('API request failed'));
+    const q=new URLSearchParams({api:'1',action,callback:cb,_cb:String(Date.now()),...params});
+    s.src=API_URL+'?'+q.toString();
+    (document.head||document.documentElement).appendChild(s);
+  })
+}
+
 function api(action,params={}){const cached=readCache(action,params);const ttl=CACHE_TTLS[action]||10*60*1000;if(cached){if(Date.now()-cached.ts>ttl&&!cacheInFlight[cacheKey(action,params)]){cacheInFlight[cacheKey(action,params)]=apiRaw(action,params).then(d=>{if(d&&d.ok!==false)writeCache(action,params,d)}).catch(()=>{}).finally(()=>delete cacheInFlight[cacheKey(action,params)]);}return Promise.resolve(cached.data)}if(cacheInFlight[cacheKey(action,params)])return cacheInFlight[cacheKey(action,params)];const job=apiRaw(action,params).then(d=>{if(!d||d.ok===false)throw new Error(d?.error||('API '+action+' error'));writeCache(action,params,d);return d}).finally(()=>delete cacheInFlight[cacheKey(action,params)]);cacheInFlight[cacheKey(action,params)]=job;return job}
 function norm(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/fulfilmen\s+t/g,'fulfilment').replace(/preparati\s+on/g,'preparation').replace(/purchase\s+s/g,'purchases').replace(/\s+/g,' ').trim()}
 function esc(s){return String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
