@@ -699,7 +699,63 @@ html[data-theme="light"] .rank-stop{background:#edf8f0!important;border-color:#c
 html[data-theme="light"] .season-countdown{background:linear-gradient(135deg,#e5f6ea,#d4efdb);border-color:#9ed0aa;box-shadow:0 10px 25px rgba(40,90,55,.08)}html[data-theme="light"] .sc-label,html[data-theme="light"] .sc-sub{color:#496556}html[data-theme="light"] .sc-value{color:#166534}
 html[data-theme="light"] #seasonRecapOverlay{background:rgba(25,54,34,.34)}html[data-theme="light"] .season-recap-card{background:linear-gradient(145deg,#e7f5ea,#cfe8d5);border-color:#9fc9aa;box-shadow:0 30px 90px rgba(42,69,53,.20)}html[data-theme="light"] .season-recap-stat,html[data-theme="light"] .season-recap-item{background:rgba(255,255,255,.42);border-color:#b8d8c0}
 @media(max-width:700px){.season-recap-grid{grid-template-columns:1fr 1fr}.season-countdown{margin-top:11px}.sc-value{font-size:16px}}
-</style></head>
+</style>
+<style id="mobile-performance-boost">
+/* ===== Mobile performance pass ===== */
+@media (max-width: 700px){
+  /* Avoid expensive compositing/blur layers on phones. */
+  body::before, body::after{display:none!important;animation:none!important;filter:none!important}
+  *,*::before,*::after{scroll-behavior:auto!important}
+  .sidebar,.hero,.card,.panel,.metric-card,.stat-card,.badge-card,.lb-podium-card,.leader-row,
+  .quest,.achievement-card,.rundown-card,.login-card,.modal,.profile-hero,.xp-box,.hero-tags .tag,
+  .api-status,.topbar,.nav button,.side-btn{
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+  }
+  .sidebar,.hero,.card,.panel,.metric-card,.stat-card,.badge-card,.lb-podium-card,.leader-row,
+  .quest,.achievement-card,.rundown-card,.login-card,.modal,.profile-hero,.xp-box{
+    box-shadow:none!important;
+  }
+  /* Reduce shadows/glows which are especially costly during scrolling. */
+  #homeRank,body[data-tier="MASTER"] #homeRank,body[data-tier="MASTER"] #homeTier,
+  body[data-tier="GOLD"] #homeRank,body[data-tier="GOLD"] #homeTier,
+  body[data-tier="SILVER"] #homeRank,body[data-tier="SILVER"] #homeTier,
+  body[data-tier="BRONZE"] #homeRank,body[data-tier="BRONZE"] #homeTier{
+    box-shadow:none!important;
+  }
+  .page.active>.hero{box-shadow:none!important}
+  .dot{box-shadow:none!important;animation:none!important}
+  /* Disable hover-only motion on touch devices. */
+  .lb-podium-card:hover,.hero-tags .tag:hover{transform:none!important;box-shadow:none!important}
+  /* Keep charts readable but cheaper to render. */
+  .chart-wrap{height:240px!important}
+  .chart-card{min-height:260px!important}
+  .spark{height:72px!important}
+  canvas{max-width:100%!important}
+  /* Prevent layout thrash from oversized controls. */
+  .shell{padding-bottom:22px!important}
+  .topbar{margin-bottom:10px!important}
+  .hero{padding:15px!important}
+  .hero-grid{gap:12px!important}
+  .hero h2{font-size:26px!important}
+  .xp-box{padding:12px!important}
+  .lvl{font-size:34px!important}
+  /* Compact the navigation and eliminate expensive sticky behavior. */
+  .sidebar{position:static!important}
+  .nav{gap:4px!important}
+  .nav button{padding:9px 10px!important}
+  /* Modals and overlays: no blur, smaller shadow, less paint work. */
+  .overlay,#loginOverlay,#rundownOverlay{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+  .overlay{background:rgba(0,0,0,.78)!important}
+  #loginOverlay{background:rgba(7,11,18,.98)!important}
+  #rundownOverlay{background:rgba(5,10,8,.94)!important}
+}
+@media (prefers-reduced-motion: reduce), (max-width:700px){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+}
+</style>
+
+</head>
 <body><div class="ambient-particles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
 <div id="loginOverlay">
 <div class="login-card">
@@ -726,7 +782,7 @@ html[data-theme="light"] #seasonRecapOverlay{background:rgba(25,54,34,.34)}html[
 </aside>
 <main>
 <section class="page active" id="page-home">
-<div class="hero"><div class="hero-grid"><div><div class="eyebrow">Season Hub · Léto 2026</div><h2 id="homeName">Načítám profil…</h2><p>Sezónní Rank/ELO, aktuální výkon, streaky a týdenní questy na jednom místě.</p><div class="hero-tags"><span class="tag gold">LIVE DATA</span><span class="tag green" id="homeTier">UNRANKED</span><span class="tag blue" id="homeRank">RANK —</span><span class="tag">SEASON ACTIVE</span></div><div class="rank-pop"><div class="rank-emblem" id="rankCrest">🏅</div><div class="rank-copy"><strong id="rankHeadline">Season Rank</strong><span id="rankSubline">Čekám na data…</span></div></div><div class="season-countdown" id="seasonCountdown"><div class="sc-icon">⏳</div><div><div class="sc-label">DO KONCE SEZÓNY</div><div class="sc-value" id="seasonCountdownValue">—</div><div class="sc-sub" id="seasonCountdownSub">Sezóna se dopočítá z aktuálních dat</div></div></div></div><div class="xp-box"><div class="xp-head"><div><div class="lvl" id="homeLevel">LVL 1</div><div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.11em">Season level</div></div><div class="xp-num" id="homeXp">0 / 1000 XP</div></div><div class="bar"><span id="xpBar" style="width:0%"></span></div></div></div></div>
+<div class="hero"><div class="hero-grid"><div><div class="eyebrow">Season Hub · Léto 2026</div><h2 id="homeName">Načítám profil…</h2><p>Sezónní Rank/ELO, aktuální výkon, streaky a týdenní questy na jednom místě.</p><div class="hero-tags"><span class="tag gold">LIVE DATA</span><span class="tag green" id="homeTier">UNRANKED</span><span class="tag blue" id="homeRank">RANK —</span><span class="tag">SEASON ACTIVE</span></div><div class="rank-pop"><div class="rank-emblem" id="rankCrest">💎</div><div class="rank-copy"><strong id="rankHeadline">Season Rank</strong><span id="rankSubline">Čekám na data…</span></div></div><div class="season-countdown" id="seasonCountdown"><div class="sc-icon">⏳</div><div><div class="sc-label">DO KONCE SEZÓNY</div><div class="sc-value" id="seasonCountdownValue">—</div><div class="sc-sub" id="seasonCountdownSub">Sezóna se dopočítá z aktuálních dat</div></div></div></div><div class="xp-box"><div class="xp-head"><div><div class="lvl" id="homeLevel">LVL 1</div><div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.11em">Season level</div></div><div class="xp-num" id="homeXp">0 / 1000 XP</div></div><div class="bar"><span id="xpBar" style="width:0%"></span></div></div></div></div>
 <div class="section"><div class="section-head"><h3>SEASON SNAPSHOT</h3><span id="seasonMeta">Načítám…</span></div><div class="cards"><div class="card"><div class="name">Season ELO</div><div class="val" id="sElo">—</div><div class="sub" id="sEloDiff">vs. předchozí období</div></div><div class="card"><div class="name">Season Rank</div><div class="val" id="sRank">—</div><div class="sub">celková sezóna</div></div><div class="card"><div class="name">Performance</div><div class="val" id="sPerf">—</div><div class="sub">aktuální týden</div></div><div class="card"><div class="name">Streak</div><div class="val" id="sStreak">—</div><div class="sub">splněných týdnů</div></div></div></div>
 <div class="section"><div class="scan-strip" id="homeScanStrip"></div></div><div class="section grid2"><section class="panel"><div class="section-head"><h3>⚔️ AKTIVNÍ VÝZVY</h3><span>reward loop</span></div><div id="questList"></div></section><section class="panel"><div class="section-head"><h3>🏅 ODZNAKY</h3><span>season progress</span></div><div class="badge-row badge-showcase" id="badgeList"></div></section></div>
 <div class="section"><div class="panel"><div class="section-head"><h3>⭐ RANK PROGRESS</h3><span id="rankProgressText">—</span></div><div class="bar"><span id="rankBar" style="width:0%"></span></div><div class="rank-scale"><span class="rank-stop bronze">🔰<b>Bronze</b><em>900</em></span><span class="rank-stop silver">🛡️<b>Silver</b><em>1000</em></span><span class="rank-stop gold">🥇<b>Gold</b><em>1100</em></span><span class="rank-stop master">💎<b>Master</b><em>1200+</em></span></div><div class="rank-current-range"><span id="rankFrom">—</span><strong id="rankTo">—</strong></div></div></div>
@@ -948,7 +1004,7 @@ function checkSeasonTransition(){
   localStorage.setItem('arenaLastSeasonKey',snap.key);
   localStorage.setItem('arenaLastSeasonSnapshot',JSON.stringify(snap));
 }
-function renderHome(){if(!state.player)return;renderSeasonCountdown();const p=state.player,lb=playerSeasonData(state.worker),sc=performanceScoreFromLatest(p),st=streak(state.history),xp=Math.round((lb.elo-900)*20+Math.max(0,st)*200),lvl=Math.max(1,Math.floor(xp/1000)+1),within=((xp%1000)+1000)%1000,t=tier(lb.elo);document.body.dataset.tier=t[0];setText('homeName',p.worker);setText('homeTier',t[0]);setText('homeRank','#'+lb.rank);setText('rankCrest',lb.rank===1?'👑':lb.rank===2?'🥈':lb.rank===3?'🥉':t[0]==='MASTER'?'💎':t[0]==='GOLD'?'🥇':t[0]==='SILVER'?'🛡️':'🔰');setText('rankHeadline',lb.rank==='—'?'Season Rank':'Rank #'+lb.rank+' · '+t[0]);setText('rankSubline',lb.elo+' ELO · '+(lb.rank==='—'?'sezónní data se dopočítají později':'další hodnost '+nextRankLabel(lb.elo)));setText('sElo',lb.elo+' b.');setText('sRank','#'+lb.rank);setText('sPerf',sc==null?'—':fmt(sc,1));setText('sStreak',st);setText('homeLevel','LVL '+lvl);setText('homeXp',within+' / 1000 XP');document.getElementById('xpBar').style.width=(within/10)+'%';setText('seasonMeta',state.team?.labels?.length?('13týdenní sezónní okno · '+state.team.labels.length+' týdnů dostupných'):'Aktuální rank · sezónní detail se dopočítá při otevření žebříčku');const rankBar=document.getElementById('rankBar');const rankMin=900,rankMax=1200;const rankPct=Math.min(100,Math.max(0,((lb.elo-rankMin)/(rankMax-rankMin))*100));rankBar.style.width=rankPct+'%';setText('rankProgressText',lb.elo+' ELO · '+t[0]);setText('rankFrom',lb.elo<1000?'900':lb.elo<1100?'1000':lb.elo<1200?'1100':'1200+');setText('rankTo',lb.elo<1000?'1000':lb.elo<1100?'1100':lb.elo<1200?'1200':'MAX');const b=badges(state.worker);document.getElementById('badgeList').innerHTML=b.map(x=>`<div class="badge-card"><div class="badge-icon-xl">${x[0]}</div><div class="badge-title-xl">${x[1]}</div></div>`).join('')||'<span class="empty-badges">Zatím žádné sezónní odznaky</span>';renderQuests();renderHomeScanStrip();renderHomeBreakdown();renderAchievements();renderStoreQuests().catch(e=>{console.warn('store quests',e);const b=document.getElementById('homeStoreQuestList');if(b)b.innerHTML='<div class=\"notice error\">Store Challenges se nepodařilo načíst.</div>';});animateWidth('xpBar',within/10,850);const rankPct2=Math.min(100,Math.max(0,((lb.elo-900)/(1200-900))*100));animateWidth('rankBar',rankPct2,1000);animateCards('badgeList');animateCards('homeQuestList');animateCards('homeStoreQuestList')}
+function renderHome(){if(!state.player)return;renderSeasonCountdown();const p=state.player,lb=playerSeasonData(state.worker),sc=performanceScoreFromLatest(p),st=streak(state.history),xp=Math.round((lb.elo-900)*20+Math.max(0,st)*200),lvl=Math.max(1,Math.floor(xp/1000)+1),within=((xp%1000)+1000)%1000,t=tier(lb.elo);document.body.dataset.tier=t[0];setText('homeName',p.worker);setText('homeTier',t[0]);setText('homeRank','#'+lb.rank);setText('rankCrest',t[0]==='MASTER'?'💎':lb.rank===1?'👑':lb.rank===2?'🥈':lb.rank===3?'🥉':t[0]==='GOLD'?'🥇':t[0]==='SILVER'?'🛡️':'🔰');setText('rankHeadline',lb.rank==='—'?'Season Rank':'Rank #'+lb.rank+' · '+t[0]);setText('rankSubline',lb.elo+' ELO · '+(lb.rank==='—'?'sezónní data se dopočítají později':'další hodnost '+nextRankLabel(lb.elo)));setText('sElo',lb.elo+' b.');setText('sRank','#'+lb.rank);setText('sPerf',sc==null?'—':fmt(sc,1));setText('sStreak',st);setText('homeLevel','LVL '+lvl);setText('homeXp',within+' / 1000 XP');document.getElementById('xpBar').style.width=(within/10)+'%';setText('seasonMeta',state.team?.labels?.length?('13týdenní sezónní okno · '+state.team.labels.length+' týdnů dostupných'):'Aktuální rank · sezónní detail se dopočítá při otevření žebříčku');const rankBar=document.getElementById('rankBar');const rankMin=900,rankMax=1200;const rankPct=Math.min(100,Math.max(0,((lb.elo-rankMin)/(rankMax-rankMin))*100));rankBar.style.width=rankPct+'%';setText('rankProgressText',lb.elo+' ELO · '+t[0]);setText('rankFrom',lb.elo<1000?'900':lb.elo<1100?'1000':lb.elo<1200?'1100':'1200+');setText('rankTo',lb.elo<1000?'1000':lb.elo<1100?'1100':lb.elo<1200?'1200':'MAX');const b=badges(state.worker);document.getElementById('badgeList').innerHTML=b.map(x=>`<div class="badge-card"><div class="badge-icon-xl">${x[0]}</div><div class="badge-title-xl">${x[1]}</div></div>`).join('')||'<span class="empty-badges">Zatím žádné sezónní odznaky</span>';renderQuests();renderHomeScanStrip();renderHomeBreakdown();renderAchievements();renderStoreQuests().catch(e=>{console.warn('store quests',e);const b=document.getElementById('homeStoreQuestList');if(b)b.innerHTML='<div class=\"notice error\">Store Challenges se nepodařilo načíst.</div>';});animateWidth('xpBar',within/10,850);const rankPct2=Math.min(100,Math.max(0,((lb.elo-900)/(1200-900))*100));animateWidth('rankBar',rankPct2,1000);animateCards('badgeList');animateCards('homeQuestList');animateCards('homeStoreQuestList')}
 function seasonMetricPoints(name,mine,teamAvg){
   const x=normalizeMetricValue(mine,name);
   if(x===null)return 0;
