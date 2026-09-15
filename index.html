@@ -772,7 +772,7 @@ function n(v){return typeof v==='number'&&Number.isFinite(v)?v:null}
 function fmt(v,d=2){return n(v)===null?'—':v.toLocaleString('cs-CZ',{maximumFractionDigits:d})}
 function pct(v){return n(v)===null?'—':fmt(v,2)+'%'}
 function isIgnored(s){const x=norm(s);return IGNORED.some(i=>x.includes(i))}
-function isPct(name){const x=norm(name);return x.includes('%')||x.includes('ratio')||x.includes('rate')||x.includes('refund')||x.includes('venue late')||x.includes('venue lateness')||x.includes('bad goods rating')||x==='pofr'||x==='mi'||x==='ui'||x==='tasks'||x==='wa'||x==='outer case'}
+function isPct(name){const x=norm(name);return x.includes('%')||x.includes('ratio')||x.includes('rate')||x.includes('refund')||x.includes('venue late')||x.includes('venue lateness')||x.includes('bad goods rating')||x==='pofr'||x==='mi'||x==='ui'}
 function lowerBetter(name){const x=norm(name);return x.includes('time')||x.includes('missing')||x.includes('incorrect')||x.includes('error')||x.includes('late')||x.includes('ticket')||x.includes('bad')||x.includes('refund')||x.includes('undelivered')||x.includes('not collected')||x==='mi'||x==='ui'}
 function cleanMetricName(s){return String(s||'').replace(/Fulfilmen\s+t/gi,'Fulfilment').replace(/Preparati\s+on/gi,'Preparation').replace(/Purchase\s+s/gi,'Purchases').replace(/\s+Copy$/i,'').replace(/\s+/g,' ').trim()}
 function normalizeMetricValue(v,name){
@@ -793,7 +793,7 @@ function normalizeMetricValue(v,name){
   if(key.includes('venue late preparation') || key.includes('venue lateness')) return Math.abs(x)<=0.01 ? x*100 : x;
   return x;
 }
-function formatMetricDisplay(x,name){if(x===null||x===undefined||n(x)===null)return '—';const title=cleanMetricName(name);const key=norm(title);if(isPct(title))return fmt(x,2)+'%';if(key.includes('time'))return fmt(x,2)+' m';if(key.includes('rating'))return fmt(x,2);if(key.includes('inbound'))return fmt(x,0)+' ks';if(key.includes('hours'))return fmt(x,2)+' h';if(key.includes('uph')||key.includes('productivity'))return fmt(x,1);return fmt(x,2)}
+function formatMetricDisplay(x,name){if(x===null||x===undefined||n(x)===null)return '—';const title=cleanMetricName(name);const key=norm(title);if(isPct(title))return fmt((key==='mi'||key==='ui'||key.includes('missing incorrect')||key.includes('uncollected items ratio')||key.includes('not collected items ratio'))?x: x, ((key==='mi'||key==='ui')&&Math.abs(x)<0.1)?3:2)+'%';if(key.includes('time'))return fmt(x,2)+' m';if(key.includes('rating'))return fmt(x,2);if(key.includes('inbound'))return fmt(x,0)+' ks';if(key.includes('hours'))return fmt(x,2)+' h';if(key.includes('uph')||key.includes('productivity'))return fmt(x,1);return fmt(x,2)}
 function formatVal(v,name){return formatMetricDisplay(normalizeMetricValue(v,name),name)}
 function formatNormVal(v,name){return formatMetricDisplay(v,name)}
 function metricDefsFor(){return state.history?.metricDefinitions||state.player?.metricDefinitions||[]}
@@ -1057,7 +1057,20 @@ function storeMetricIndex(headers, aliases){
   i=hs.findIndex(h=>{const x=norm(h); return aa.some(a=>x.includes(a));});
   return i;
 }
-function normalizeStoreMetricValue(v,name){return normalizeMetricValue(v,name)}
+function normalizeStoreMetricValue(v,name){
+  const x=n(v);
+  if(x===null)return null;
+  const title=cleanMetricName(name);
+  const key=norm(title);
+  // Store UI/MI values can arrive from Sheets either as percentage points
+  // (e.g. 0.40 = 0.40%) or as fractional ratios (e.g. 0.004 = 0.40%).
+  // Only very small values are treated as fractions so normal 0.40% values
+  // are not incorrectly turned into 40%.
+  if(key==='mi'||key==='ui'||key.includes('missing incorrect')||key.includes('missing items ratio')||key.includes('uncollected items ratio')||key.includes('not collected items ratio')){
+    return Math.abs(x)<0.1 ? x*100 : x;
+  }
+  return normalizeMetricValue(x,title);
+}
 function storeAllRound(s){
   return !!s && s.pofr!=null&&s.pofr>=98 && s.uph!=null && s.ui!=null&&s.ui<=.24 && s.mi!=null&&s.mi<=.34;
 }
