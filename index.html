@@ -1828,10 +1828,12 @@ function checkSeasonTransition(){
 const storeCardCache=new Map();
 function czk(v){if(v===null||v===undefined||v==='')return'—';const n=Number(v);return Number.isFinite(n)?new Intl.NumberFormat('cs-CZ',{style:'currency',currency:'CZK',maximumFractionDigits:0}).format(n):'—'}
 function liveFmt(v,kind='number'){if(v===null||v===undefined||v==='')return'—';const n=Number(v);if(!Number.isFinite(n))return'—';if(kind==='percent')return n.toLocaleString('cs-CZ',{maximumFractionDigits:2})+' %';if(kind==='int'||kind==='count')return Math.round(n).toLocaleString('cs-CZ');if(kind==='points')return n.toLocaleString('cs-CZ',{maximumFractionDigits:2})+' b.';return n.toLocaleString('cs-CZ',{maximumFractionDigits:2})}
-async function loadStoreCardLive(worker){
+async function loadStoreCardLive(worker,opts={}){
  const key=String(worker||'').trim();if(!key)return null;
+ const force=opts===true||opts?.force===true;
+ if(force)storeCardCache.delete(key);
  if(storeCardCache.has(key))return storeCardCache.get(key);
- const p=fetch(STORE_CARD_API_URL,{method:'POST',headers:{'Content-Type':'application/json','apikey':'sb_publishable_EA9Sbn8ayjr0eHaI2m0s6A_Yct2lL8a'},body:JSON.stringify({worker:key})})
+ const p=fetch(STORE_CARD_API_URL,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json','apikey':'sb_publishable_EA9Sbn8ayjr0eHaI2m0s6A_Yct2lL8a'},body:JSON.stringify({worker:key,_cb:Date.now()})})
    .then(async r=>{const d=await r.json().catch(()=>({}));if(!r.ok||d?.ok===false)throw new Error(d?.error||('HTTP '+r.status));return d})
    .catch(e=>{console.warn('Store Card live',e);return null});
  storeCardCache.set(key,p);return p;
@@ -3139,9 +3141,35 @@ async function openDiagnosticPerson(name){
 window.openDetail=openDetail;
 window.openDiagnosticPerson=openDiagnosticPerson;
 
+function liveLeaderboardMetricDefs(){
+  return state.storeCard?.projection?.leaderboard_metric_definitions||[];
+}
+function liveLeaderboardMetricDef(id){
+  return liveLeaderboardMetricDefs().find(x=>x.id===id)||null;
+}
+function formatLiveLeaderboardValue(v,def){
+  const x=Number(v);if(!Number.isFinite(x))return'—';
+  const unit=def?.unit||'number';
+  if(unit==='count')return Math.round(x).toLocaleString('cs-CZ');
+  if(unit==='percent')return fmt(x,2)+' %';
+  if(unit==='points')return fmt(x,1)+' b.';
+  if(unit==='minutes')return fmt(x,2)+' min';
+  if(unit==='rating')return fmt(x,2);
+  return fmt(x,2);
+}
+function leaderboardValueText(x,mode){
+  if(mode==='level')return 'LVL '+x.level;
+  if(x.elo!=null)return x.elo+' b.';
+  if(x.level!=null)return 'LVL '+x.level;
+  if(x.live)return formatLiveLeaderboardValue(x.value,x.liveDef);
+  return formatVal(x.value,x.metric);
+}
 function leaderboardMetricOptions(){
   if(state.lbMode==='people'){
-    return '<option value="elo">⭐ Celkový Rank (Hodnost & Body za Sezónu)</option><option value="level">🎮 Company Level & XP</option>'+(state.bootstrap.metrics||[]).filter(m=>!isIgnored(m.name)).map(m=>`<option value="metric:${m.index}">${esc(cleanMetricName(m.name))}</option>`).join('');
+    const liveDefs=liveLeaderboardMetricDefs();
+    const live=liveDefs.length?'<optgroup label="⚡ LIVE DATA HUB · AKTUÁLNÍ MĚSÍC">'+liveDefs.map(d=>`<option value="live:${esc(d.id)}">${esc(d.label)}</option>`).join('')+'</optgroup>':'';
+    const legacy=(state.bootstrap.metrics||[]).filter(m=>!isIgnored(m.name)).map(m=>`<option value="metric:${m.index}">${esc(cleanMetricName(m.name))}</option>`).join('');
+    return '<option value="elo">⭐ Celkový Rank (Hodnost & Body za Sezónu)</option><option value="level">🎮 Company Level & XP</option>'+live+(legacy?'<optgroup label="📚 HISTORICKÉ GA METRIKY">'+legacy+'</optgroup>':'');
   }
   const defs=state.storeHistory?.headers||[];
   return '<option value="store_score">🏪 Store Score</option>'+defs.map((name,i)=>`<option value="store:${i}">${esc(cleanMetricName(name))}</option>`).join('');
@@ -3207,6 +3235,20 @@ function seasonProgressFor(name){return lifetimeProgressFor(name)}
 function playerLeaderboardRows(mode,data){
   if(mode==='elo') return seasonRank();
   if(mode==='level') return Object.keys(state.team?.people||{}).map(name=>{const lv=seasonProgressFor(name);return {name,rank:null,elo:null,tier:null,value:lv.xp,xp:lv.xp,level:lv.level,streak:lv.streak,quests:lv.quests,metric:'Company Level'}}).sort((a,b)=>b.level-a.level||b.xp-a.xp||a.name.localeCompare(b.name)).map((x,i)=>({...x,rank:i+1}));
+
+  if(mode.startsWith('live:')){
+    const id=mode.slice(5),def=liveLeaderboardMetricDef(id);
+    if(!def)return [];
+    const rows=(state.storeCard?.projection?.leaderboard||[]).map(x=>{
+      const raw=x?.live_metrics?.[id],value=Number(raw);
+      if(raw===null||raw===undefined||!Number.isFinite(value))return null;
+      return {name:x.display_name,rank:null,elo:null,value,metric:def.label,live:true,liveDef:def,sourceRank:x.rank};
+    }).filter(Boolean);
+    if(id==='store_card_points')rows.sort((a,b)=>Number(a.sourceRank)-Number(b.sourceRank));
+    else rows.sort((a,b)=>def.lower_is_better?(a.value-b.value):(b.value-a.value)||a.name.localeCompare(b.name,'cs'));
+    return rows.map((x,i)=>({...x,rank:i+1}));
+  }
+
   const idx=parseInt(mode.split(':')[1],10), metric=(state.bootstrap.metrics||[]).find(m=>m.index===idx);
   if(!metric || !data)return [];
   const activePeople=state.team?.people||{};
@@ -3219,13 +3261,18 @@ function playerLeaderboardRows(mode,data){
   const rows=Object.keys(data.people||{}).map(name=>{
     const resolved=resolveActiveName(name);
     if(!resolved||seen.has(resolved))return null;
-    const vals=(data.people[name]?.history||[]).map(v=>normalizeMetricValue(v,metric.name)).filter(v=>v!=null);
-    if(!vals.length)return null;
+    const hist=data.people[name]?.history||[];
+    let latest=null,period=null;
+    for(let i=hist.length-1;i>=0;i--){
+      const v=normalizeMetricValue(hist[i],metric.name);
+      if(v!=null){latest=v;period=(data.labels||[])[i]||null;break;}
+    }
+    if(latest==null)return null;
     seen.add(resolved);
-    return {name:resolved,avg:vals.reduce((a,b)=>a+b,0)/vals.length};
+    return {name:resolved,value:latest,period};
   }).filter(Boolean);
-  rows.sort((a,b)=>lowerBetter(metric.name)?a.avg-b.avg:b.avg-a.avg);
-  return rows.map((x,i)=>({name:x.name,rank:i+1,elo:null,value:x.avg,metric:metric.name}));
+  rows.sort((a,b)=>lowerBetter(metric.name)?a.value-b.value:b.value-a.value);
+  return rows.map((x,i)=>({name:x.name,rank:i+1,elo:null,value:x.value,metric:metric.name,period:x.period}));
 }
 
 function bindProfileClickTargets(){
@@ -3270,17 +3317,26 @@ async function renderLeaderboard(){
   if(old && [...sel.options].some(o=>o.value===old)) sel.value=old;
   const mode=sel.value||'elo';
   setText('lbHeading',state.lbMode==='people'?(mode==='elo'?'SEASON TOP':mode==='level'?'COMPANY LEVEL LEADERBOARD':'METRIC LEADERBOARD'):'STORE LEADERBOARD');
-  setText('lbMeta',state.lbMode==='people'?(mode==='elo'?'Season ELO · 13týdenní okno':mode==='level'?'Company Level & XP · celoživotní questy':'Průměr sezónní historie'):'Měsíční historie · pořadí podle zvoleného KPI');
+  const liveMode=mode.startsWith('live:');
+  setText('lbMeta',state.lbMode==='people'
+    ?(mode==='elo'?'Season ELO · 13týdenní okno'
+      :mode==='level'?'Company Level & XP · celoživotní questy'
+      :liveMode?'Live Data Hub · aktuální měsíc · obnoveno při otevření žebříčku'
+      :'Nejnovější dostupná hodnota · historická GA data')
+    :'Měsíční historie · pořadí podle zvoleného KPI');
   let list=[];
   if(state.lbMode==='people'){
     if(mode==='elo' || mode==='level'){
       await ensureTeam();
       list=playerLeaderboardRows(mode,null);
+    }else if(mode.startsWith('live:')){
+      if(!state.storeCard&&state.worker)state.storeCard=await loadStoreCardLive(state.worker);
+      list=playerLeaderboardRows(mode,null);
     }else if(mode.startsWith('metric:')){
       const idx=parseInt(mode.split(':')[1],10), metric=(state.bootstrap.metrics||[]).find(m=>m.index===idx);
       if(metric){
         await ensureTeam();
-        const data=await ensureTeamMetric(metric.name);
+        const data=await ensureTeamMetric(metric.name,true);
         state.leaderMetric=data;
         list=playerLeaderboardRows(mode,data);
       }
@@ -3291,15 +3347,17 @@ async function renderLeaderboard(){
   const podium=list.slice(0,3);
   const podiumHtml=podium.map((x,i)=>{
     const medal=['🥇','🥈','🥉'][i], current=x.name===state.worker?' lb-current':'';
-    const value=mode==='level'?('LVL '+x.level):(x.elo!=null?(x.elo+' b.'):(x.level!=null?('LVL '+x.level):formatVal(x.value,x.metric)));
-    const sub=mode==='level'?`${x.xp||0} XP · Level ${x.level} · #${x.rank}`:(x.elo!=null?`${x.tier} · Rank #${x.rank}`:(x.level!=null?`${x.xp||0} XP · Level ${x.level} · #${x.rank}`:cleanMetricName(x.metric||'Store Score')));
+    const value=leaderboardValueText(x,mode);
+    const sub=mode==='level'?`${x.xp||0} XP · Level ${x.level} · #${x.rank}`:(x.elo!=null?`${x.tier} · Rank #${x.rank}`:(x.level!=null?`${x.xp||0} XP · Level ${x.level} · #${x.rank}`:(cleanMetricName(x.metric||'Store Score')+(x.period?' · '+x.period:''))));
     return `<div class="lb-podium-card p${i+1}${current}" data-detail-name="${state.lbMode==='people'?esc(x.name):''}"><div class="lb-medal">${medal}</div><div class="lb-podium-name">${esc(x.name)}</div><div class="lb-podium-sub">${esc(sub)}</div><div class="lb-podium-elo">${esc(value)}</div>${x.name===state.worker?'<div class="lb-trend" style="color:#86EFAC">● TY</div>':''}</div>`;
   }).join('');
   document.getElementById('leaderboardPodium').innerHTML=podiumHtml||'<div class="notice">Žádná data pro tento žebříček.</div>';
   const rows=list.slice(3).map(x=>{
     const mine=x.name===state.worker?' lb-current':'';
     if(x.elo!=null){const t=tier(x.elo);return `<div class="leader-row${mine}" data-detail-name="${esc(x.name)}"><div class="leader-rank">#${x.rank}</div><div><div class="leader-name">${esc(x.name)}${mine?' · TY':''}</div><div class="leader-meta" style="color:${t[1]}">${t[0]}${x.status&&x.status!=='FULL'?' · '+x.status:''} · Season ELO</div></div><div class="leader-value">${x.elo} b.</div><div class="leader-action">DETAIL →</div></div>`} if(x.level!=null){return `<div class="leader-row${mine}" data-detail-name="${esc(x.name)}"><div class="leader-rank">#${x.rank}</div><div><div class="leader-name">${esc(x.name)}${mine?' · TY':''}</div><div class="leader-meta">LVL ${x.level} · ${x.value} XP · celoživotně</div></div><div class="leader-value">LVL ${x.level}<small style="display:block;font-size:10px;color:var(--muted);margin-top:3px">${x.xp||0} XP</small></div><div class="leader-action">DETAIL →</div></div>`}
-    return `<div class="leader-row${mine}" data-detail-name="${state.lbMode==='people'?esc(x.name):''}"><div class="leader-rank">#${x.rank}</div><div><div class="leader-name">${esc(x.name)}${mine?' · TY':''}</div><div class="leader-meta">${esc(cleanMetricName(x.metric||'Store Score'))}</div></div><div class="leader-value">${formatNormVal(x.value,x.metric||'')}</div><div class="leader-action">${x.rank<=5?'TOP 5':''}</div></div>`;
+    const metricMeta=cleanMetricName(x.metric||'Store Score')+(x.period?' · '+x.period:'');
+    const metricValue=x.live?formatLiveLeaderboardValue(x.value,x.liveDef):formatNormVal(x.value,x.metric||'');
+    return `<div class="leader-row${mine}" data-detail-name="${state.lbMode==='people'?esc(x.name):''}"><div class="leader-rank">#${x.rank}</div><div><div class="leader-name">${esc(x.name)}${mine?' · TY':''}</div><div class="leader-meta">${esc(metricMeta)}</div></div><div class="leader-value">${esc(metricValue)}</div><div class="leader-action">${x.rank<=5?'TOP 5':''}</div></div>`;
   }).join('');
   document.getElementById('leaderboardList').innerHTML=rows||'<div class="notice">Žádná další data.</div>';
 
@@ -3566,10 +3624,14 @@ async function getCompleteTeamHistoryMetric(metricName){
   return {ok:true,version:'frontend-team-history-complete-v1',metric:actualMetric,labels,people,summary:{average:vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null,best:bestVals[0]??null,count:Object.keys(people).length}};
 }
 
-async function ensureTeamMetric(metricName){
+async function ensureTeamMetric(metricName,force=false){
   if(!metricName) throw new Error('Chybí týmová metrika.');
-  if(state.teamMetricCache[metricName]) return state.teamMetricCache[metricName];
-  if(state.teamMetricLoading[metricName]) return state.teamMetricLoading[metricName];
+  if(force){
+    delete state.teamMetricCache[metricName];
+    try{localStorage.removeItem(cacheKey('team_metric',{metric:metricName}))}catch(e){}
+  }
+  if(!force&&state.teamMetricCache[metricName]) return state.teamMetricCache[metricName];
+  if(!force&&state.teamMetricLoading[metricName]) return state.teamMetricLoading[metricName];
   const job=(async()=>{
     // These two metrics are stored in team_history for the complete roster.
     // Prefer that source so the Team Trends chart does not silently show only
@@ -3579,7 +3641,7 @@ async function ensureTeamMetric(metricName){
       const complete=await getCompleteTeamHistoryMetric(metricName);
       if(complete){ state.teamMetricCache[metricName]=complete; return complete; }
     }
-    const d=await api('team_metric',{metric:metricName});
+    const d=force?await apiRaw('team_metric',{metric:metricName}):await api('team_metric',{metric:metricName});
     const peopleRaw=d?.people||{};
     const hasUsable=Object.keys(peopleRaw).some(name=>(peopleRaw[name]?.history||[]).some(v=>n(v)!=null));
     if(!hasUsable){
@@ -3785,7 +3847,7 @@ function drawStore(){
   const storeRangeTxt=(state.storeRangeStart||state.storeRangeEnd)?` ${state.storeRangeStart||'…'} – ${state.storeRangeEnd||'…'}`:(state.storeRange==='all'?'celá historie':`posledních ${state.storeRange} měsíců`);
   setText('storeMeta',labels.length+' měsíců ·'+storeRangeTxt);
 }
-async function openPage(page){if(loginRole!=='admin'&&page==='correlation')return;document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-'+page).classList.add('active');document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));if(page==='personal'){if(!state.history)state.history=await api('player_history',{worker:state.worker});if(!state.team){try{state.team=await api('team_history')}catch(e){console.warn('team_history for personal average',e)}}buildMetricCards();renderPersonalFriendlySummary();renderHubTrend();}if(page==='home'){renderHome(); if(!state.team) ensureTeam().catch(()=>{}); if(!state.storeHistory) ensureStores().catch(()=>{})}if(page==='efficiency'||page==='bonuses'){renderStoreCardLive()}if(page==='achievements'){renderAchievements(); if(!state.team) ensureTeam().catch(()=>{}); if(!state.storeHistory) ensureStores().catch(()=>{})} if(page==='team'){renderTeam()}if(page==='correlation'){await renderCorrelation()}if(page==='bottlenecks'){if(!state.team){try{state.team=await api('team_history')}catch(e){console.warn('team_history for diagnostics',e)}}await renderBottlenecks()}if(page==='leaderboard'){if(state.lbMode==='people')await ensureTeam();else await ensureStores();state.leaderMetric=null;renderLeaderboard()}if(page==='store'){await ensureStores();renderStoreCardLive();renderStoreQuests().catch(()=>{})}}
+async function openPage(page){if(loginRole!=='admin'&&page==='correlation')return;document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-'+page).classList.add('active');document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));if(page==='personal'){if(!state.history)state.history=await api('player_history',{worker:state.worker});if(!state.team){try{state.team=await api('team_history')}catch(e){console.warn('team_history for personal average',e)}}buildMetricCards();renderPersonalFriendlySummary();renderHubTrend();}if(page==='home'){renderHome(); if(!state.team) ensureTeam().catch(()=>{}); if(!state.storeHistory) ensureStores().catch(()=>{})}if(page==='efficiency'||page==='bonuses'){renderStoreCardLive()}if(page==='achievements'){renderAchievements(); if(!state.team) ensureTeam().catch(()=>{}); if(!state.storeHistory) ensureStores().catch(()=>{})} if(page==='team'){renderTeam()}if(page==='correlation'){await renderCorrelation()}if(page==='bottlenecks'){if(!state.team){try{state.team=await api('team_history')}catch(e){console.warn('team_history for diagnostics',e)}}await renderBottlenecks()}if(page==='leaderboard'){if(state.lbMode==='people'){await ensureTeam();if(state.worker){try{state.storeCard=await loadStoreCardLive(state.worker,{force:true})}catch(e){console.warn('live leaderboard refresh',e)}}}else await ensureStores();state.leaderMetric=null;renderLeaderboard()}if(page==='store'){await ensureStores();renderStoreCardLive();renderStoreQuests().catch(()=>{})}}
 
 function syncDateBounds(){const startInput=document.getElementById('personalDateStart'),endInput=document.getElementById('personalDateEnd');if(startInput&&endInput&&state.history?.weeks?.length){const spans=historyWeekSpans(state.history),first=spans[0]?.start,last=spans.at(-1)?.end;if(first){const v=first.toISOString().slice(0,10);startInput.min=v;endInput.min=v}if(last){const v=last.toISOString().slice(0,10);startInput.max=v;endInput.max=v}}}
 function setLoading(stage,progress,tip){const el=document.getElementById('loadingStage'),bar=document.getElementById('loadingProgress'),t=document.getElementById('loadingTip');if(el)el.textContent=stage||'';if(bar)bar.style.width=Math.max(4,Math.min(100,progress||0))+'%';if(t&&tip)t.textContent=tip;}
@@ -3800,7 +3862,7 @@ if(pStart&&pEnd){state.rangeStart=localStorage.getItem('arenaPersonalRangeStart'
 document.getElementById('closeBadgeLegend')?.addEventListener('click',closeBadgeLegend);document.getElementById('badgeLegendOverlay')?.addEventListener('click',e=>{if(e.target.id==='badgeLegendOverlay')closeBadgeLegend()});document.addEventListener('click',e=>{const b=e.target.closest('#badgeList .badge,#detailBadges .badge');if(b){e.preventDefault();openBadgeLegend(state.worker)}});document.addEventListener('keydown',e=>{if(e.key==='Escape')closeBadgeLegend()});
 document.querySelectorAll('.achievement-filter').forEach(b=>{b.onclick=()=>{document.querySelectorAll('.achievement-filter').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.achievementMode=b.dataset.amode;renderAchievements();}});document.querySelectorAll('.quest-switch').forEach(b=>b.onclick=()=>{document.querySelectorAll('.quest-switch').forEach(x=>x.classList.remove('active'));b.classList.add('active');homeQuestMode=b.dataset.qmode;renderHomeQuests();});document.querySelectorAll('.store-quest-switch').forEach(b=>b.onclick=()=>{document.querySelectorAll('.store-quest-switch').forEach(x=>x.classList.remove('active'));b.classList.add('active');homeStoreQuestMode=b.dataset.sqmode;renderStoreQuests().catch(()=>{});});document.querySelectorAll('.store-page-quest-switch').forEach(b=>b.onclick=()=>{document.querySelectorAll('.store-page-quest-switch').forEach(x=>x.classList.remove('active'));b.classList.add('active');homeStoreQuestMode=b.dataset.sqmode;renderStoreQuests().catch(()=>{});});document.querySelectorAll('.team-filter').forEach(b=>b.onclick=()=>{document.querySelectorAll('.team-filter').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.teamMode=b.dataset.mode;renderTeam()});const sStart=document.getElementById('storeDateStart'),sEnd=document.getElementById('storeDateEnd');
 if(sStart&&sEnd){state.storeRangeStart=localStorage.getItem('arenaStoreRangeStart')||'';state.storeRangeEnd=localStorage.getItem('arenaStoreRangeEnd')||'';sStart.value=state.storeRangeStart;sEnd.value=state.storeRangeEnd;const applyStoreDates=()=>{if(sStart.value&&sEnd.value&&sStart.value>sEnd.value){const x=sStart.value;sStart.value=sEnd.value;sEnd.value=x;}state.storeRangeStart=sStart.value||'';state.storeRangeEnd=sEnd.value||'';state.storeRange=(state.storeRangeStart||state.storeRangeEnd)?'custom':'all';localStorage.setItem('arenaStoreRangeStart',state.storeRangeStart);localStorage.setItem('arenaStoreRangeEnd',state.storeRangeEnd);drawStore()};sStart.onchange=applyStoreDates;sEnd.onchange=applyStoreDates;document.getElementById('storeDateClear')?.addEventListener('click',()=>{sStart.value='';sEnd.value='';state.storeRangeStart='';state.storeRangeEnd='';state.storeRange='all';localStorage.removeItem('arenaStoreRangeStart');localStorage.removeItem('arenaStoreRangeEnd');drawStore()});}
-document.querySelectorAll('.lb-mode').forEach(b=>b.onclick=async()=>{document.querySelectorAll('.lb-mode').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.lbMode=b.dataset.mode;if(state.lbMode==='people')await ensureTeam();else await ensureStores();state.leaderMetric=null;renderLeaderboard()});document.getElementById('lbMetric').onchange=()=>{state.leaderMetric=null;renderLeaderboard();};const tm=document.getElementById('teamMetric');if(tm)tm.onchange=()=>renderTeam();}
+document.querySelectorAll('.lb-mode').forEach(b=>b.onclick=async()=>{document.querySelectorAll('.lb-mode').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.lbMode=b.dataset.mode;if(state.lbMode==='people'){await ensureTeam();if(state.worker){try{state.storeCard=await loadStoreCardLive(state.worker,{force:true})}catch(e){console.warn('live leaderboard refresh',e)}}}else await ensureStores();state.leaderMetric=null;renderLeaderboard()});document.getElementById('lbMetric').onchange=()=>{state.leaderMetric=null;renderLeaderboard();};const tm=document.getElementById('teamMetric');if(tm)tm.onchange=()=>renderTeam();}
 let loginProfile='';
 let loginRole='user';
 let loginBootstrap=null;
