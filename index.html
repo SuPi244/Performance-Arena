@@ -1816,7 +1816,7 @@ function onTimeInfo(eff={}){
  const excluded=Number(eff.tardiness_excluded_count??0);
  const detail=late.slice(0,3).map(s=>shortCsDate(s.shift_date)+' +'+fmt(Number(s.tardiness_min||0),0)+' min').join(' · ');
  const display=sample>0?(count+' / '+sample+' směn včas'):'—';
- let status=sample<3?('Zatím '+sample+' '+shiftWord(sample)+' · minimum 3'):late.length?((late.length===1?'1 směna':' '+late.length+' směny')+' mimo toleranci'+(detail?' · '+detail:'')):'Všechny započítané směny včas';
+ let status=sample<3?('Zatím '+sample+' '+shiftWord(sample)+' · minimum 3'):late.length?((late.length+' '+shiftWord(late.length))+' mimo toleranci'+(detail?' · '+detail:'')):'Všechny započítané směny včas';
  if(excluded>0)status+=' · '+excluded+' '+(excluded===1?'výjimka ignorována':'výjimky ignorovány');
  return {sample,count,pct,late,excluded,display,status,detail};
 }
@@ -2688,7 +2688,7 @@ function buildMetricCards(){
   const rangeTxt=(state.rangeStart||state.rangeEnd)?` ${state.rangeStart||'…'} – ${state.rangeEnd||'…'}`:(range==='all'?'celá historie':`posledních ${range} týdnů`);
   setText('personalMeta',shown+' týdnů · '+state.history.metricDefinitions.length+' metrik · '+rangeTxt);
 }
-async async function renderInbound(){
+async function renderInbound(){
   const box=document.getElementById('personalInbound');
   if(!box)return;
 
