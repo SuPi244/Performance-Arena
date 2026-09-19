@@ -272,4 +272,37 @@ document.addEventListener('click',async e=>{
   $('#pvActions').innerHTML='';await refresh();
  }catch(err){alert('Stock Count import selhal: '+(err.message||err));b.disabled=false;b.textContent=old}
 });
-</script></body></html>
+</script>
+<script>
+// Store Metrics parser is isolated from auth/bootstrap.
+document.addEventListener('click',async e=>{
+ const b=e.target.closest('.storeMetricsAnalyze');if(!b)return;
+ const old=b.textContent;b.disabled=true;b.textContent='Analyzuji…';
+ try{
+  const {data:{session}}=await sb.auth.getSession();if(!session)throw new Error('Relace vypršela.');
+  const {data:imp,error}=await sb.from('imports').select('storage_path').eq('id',b.dataset.id).single();if(error)throw error;
+  b.textContent='Čtu PDF…';const extracted_text=await extractPdfClient(imp.storage_path);b.textContent='Parsování…';
+  const res=await fetch('https://yhpgqkklnymfiacrztqf.supabase.co/functions/v1/parse-store-metrics',{method:'POST',headers:{Authorization:'Bearer '+session.access_token,apikey:'sb_publishable_EA9Sbn8ayjr0eHaI2m0s6A_Yct2lL8a','Content-Type':'application/json'},body:JSON.stringify({import_id:b.dataset.id,mode:'preview',extracted_text})});
+  const out=await res.json().catch(()=>({}));if(!res.ok)throw new Error(out.detail||out.error||('HTTP '+res.status));
+  currentPreview={id:b.dataset.id,out,extracted_text,storeMetrics:true};
+  $('#previewCard').classList.remove('hidden');$('#pvPeriod').textContent=(out.period_start||'—')+' → '+(out.period_end||'—');$('#pvPeople').textContent=out.venue_count??'—';$('#pvMetrics').textContent=out.metric_count??'—';$('#pvObs').textContent=out.observation_count??'—';
+  const metrics=out.metrics||[],rows=out.rows||[];
+  $('#pvStatus').innerHTML='<span class="ok">Store Metrics preview připraven ✓</span> · venues: '+esc(rows.length);
+  $('#pvBody').innerHTML='<div class="pv-table-wrap"><table class="pv-table"><thead><tr><th>Venue</th>'+metrics.map(m=>'<th>'+esc(m.label)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr><td>'+esc(r.venue)+'</td>'+metrics.map(m=>'<td>'+esc(r.values?.[m.metric_id]??'—')+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
+  $('#pvActions').innerHTML=out.holesovice?'<button class="storeMetricsConfirm">Potvrdit Store Metrics import</button>':'<span class="warn">Holešovice row chybí — commit blokován</span>';
+  $('#previewCard').scrollIntoView({behavior:'smooth'});
+ }catch(err){alert('Store Metrics analýza selhala: '+(err.message||err))}finally{b.disabled=false;b.textContent=old}
+});
+
+document.addEventListener('click',async e=>{
+ const b=e.target.closest('.storeMetricsConfirm');if(!b||!currentPreview?.storeMetrics)return;
+ const old=b.textContent;b.disabled=true;b.textContent='Zapisuji…';
+ try{
+  const {data:{session}}=await sb.auth.getSession();if(!session)throw new Error('Relace vypršela.');
+  const res=await fetch('https://yhpgqkklnymfiacrztqf.supabase.co/functions/v1/parse-store-metrics',{method:'POST',headers:{Authorization:'Bearer '+session.access_token,apikey:'sb_publishable_EA9Sbn8ayjr0eHaI2m0s6A_Yct2lL8a','Content-Type':'application/json'},body:JSON.stringify({import_id:currentPreview.id,mode:'commit',extracted_text:currentPreview.extracted_text})});
+  const out=await res.json().catch(()=>({}));if(!res.ok)throw new Error(out.detail||out.error||('HTTP '+res.status));
+  $('#pvStatus').innerHTML='<span class="ok">Store Metrics import dokončen ✓</span> · zapsáno '+esc(out.inserted_count)+' store metrics';$('#pvActions').innerHTML='';await refresh();
+ }catch(err){alert('Store Metrics import selhal: '+(err.message||err));b.disabled=false;b.textContent=old}
+});
+</script>
+</body></html>
