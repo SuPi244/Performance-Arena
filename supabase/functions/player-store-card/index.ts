@@ -127,6 +127,41 @@ function preferredWeeklyTotal(rows:any[],dailyIds:string[],weeklyIds:string[]){
   }
   return any?total:null;
 }
+
+function workedHoursForDates(shifts:any[],dates:Set<string>){
+  if(!dates.size)return 0;
+  return sum((shifts||[])
+    .filter((s:any)=>dates.has(String(s.shift_date||""))&&finite(s.worked_hours)!==null)
+    .map((s:any)=>s.worked_hours));
+}
+function preferredWeeklyObserved(rows:any[],shifts:any[],dailyIds:string[],weeklyIds:string[]){
+  const relevant=new Set([...dailyIds,...weeklyIds]);
+  const weekKeys=[...new Set((rows||[])
+    .filter((r:any)=>relevant.has(r.metric_id))
+    .map((r:any)=>weekStart(r.period_start)).filter(Boolean))] as string[];
+  const out=new Map<string,{value:number,hours:number,dates:Set<string>,source:"daily"|"weekly",period_start:string,period_end:string}>();
+  for(const w of weekKeys){
+    const wr=(rows||[]).filter((r:any)=>weekStart(r.period_start)===w);
+    const daily=preferredGroupedValues(wr,dailyIds,(r:any)=>String(r.period_start||""));
+    if(daily.size){
+      const dates=new Set<string>([...daily.keys()]);
+      out.set(w,{value:mapSum(daily),hours:workedHoursForDates(shifts,dates),dates,source:"daily",period_start:[...dates].sort()[0],period_end:[...dates].sort().at(-1)!});
+      continue;
+    }
+    for(const id of weeklyIds){
+      const rs=wr.filter((r:any)=>r.metric_id===id&&finite(r.value)!==null);
+      if(!rs.length)continue;
+      const period_start=rs.map((r:any)=>String(r.period_start||w)).sort()[0]||w;
+      const period_end=rs.map((r:any)=>String(r.period_end||dateAdd(w,6))).sort().at(-1)||dateAdd(w,6);
+      const dates=new Set<string>((shifts||[])
+        .filter((s:any)=>String(s.shift_date||"")>=period_start&&String(s.shift_date||"")<=period_end&&finite(s.worked_hours)!==null)
+        .map((s:any)=>String(s.shift_date)));
+      out.set(w,{value:sum(rs.map((r:any)=>r.value)),hours:workedHoursForDates(shifts,dates),dates,source:"weekly",period_start,period_end});
+      break;
+    }
+  }
+  return out;
+}
 function weightedByPeriod(rows:any[],valueId:string,weightId:string){
   const groups=new Map<string,{v:number[],w:number[]}>();
   for(const r of rows){
@@ -425,42 +460,39 @@ Deno.serve(async req=>{
     );
 
     // Weekly efficiency history for the graph selector.
-    const histDaily=new Map<string,{outbound:number,inbound:number,orders:number,hours:number,hasOutbound:boolean,hasInbound:boolean,hasOrders:boolean,missing:number[],undelivered:number[]}>();
-    for(const s of historyShifts||[]){
-      const d=String(s.shift_date||"");
-      if(!histDaily.has(d))histDaily.set(d,{outbound:0,inbound:0,orders:0,hours:0,hasOutbound:false,hasInbound:false,hasOrders:false,missing:[],undelivered:[]});
-      histDaily.get(d)!.hours+=Number(s.worked_hours||0);
-    }
-    const histOutboundByDay=preferredGroupedValues(historyRows||[],["daily_items_picked_count","daily_item_count_total"],(r:any)=>String(r.period_start||""));
-    const histOrdersByDay=preferredGroupedValues(historyRows||[],["daily_picking_app_task_count"],(r:any)=>String(r.period_start||""));
-    const histInboundByDay=summedGroupedValues(historyRows||[],["inbound_normal_units","inbound_icy_units","inbound_freez_units"],(r:any)=>String(r.period_start||""));
-    const histDates=new Set<string>([...histOutboundByDay.keys(),...histOrdersByDay.keys(),...histInboundByDay.keys(),...(historyRows||[]).map((r:any)=>String(r.period_start||""))]);
-    for(const d of histDates){
-      if(!histDaily.has(d))histDaily.set(d,{outbound:0,inbound:0,orders:0,hours:0,hasOutbound:false,hasInbound:false,hasOrders:false,missing:[],undelivered:[]});
-      const g=histDaily.get(d)!;
-      if(histOutboundByDay.has(d)){g.outbound=histOutboundByDay.get(d)!;g.hasOutbound=true}
-      if(histOrdersByDay.has(d)){g.orders=histOrdersByDay.get(d)!;g.hasOrders=true}
-      if(histInboundByDay.has(d)){g.inbound=histInboundByDay.get(d)!;g.hasInbound=true}
-    }
-    for(const r of historyRows||[]){
-      const d=String(r.period_start||"");
-      if(!histDaily.has(d))continue;
-      const g=histDaily.get(d)!,v=finite(r.value);
-      if(v===null)continue;
-      if(r.metric_id==="missing_incorrect_items_rate")g.missing.push(v);
-      if(r.metric_id==="daily_undelivered_items_ratio")g.undelivered.push(v);
-    }
+    // Prefer daily output when a week has daily rows; otherwise use the weekly GA total.
+    // This keeps Orders / Units visible even before every Daily Picking export is loaded.
+    const histOutboundWeeks=preferredWeeklyObserved(historyRows||[],historyShifts||[],
+      ["daily_items_picked_count","daily_item_count_total"],["item_count_total"]);
+    const histOrdersWeeks=preferredWeeklyObserved(historyRows||[],historyShifts||[],
+      ["daily_picking_app_task_count"],["picking_app_task_count"]);
+    const histInboundByDay=summedGroupedValues(historyRows||[],
+      ["inbound_normal_units","inbound_icy_units","inbound_freez_units"],(r:any)=>String(r.period_start||""));
+
+    const histWeekKeys=new Set<string>([
+      ...histOutboundWeeks.keys(),
+      ...histOrdersWeeks.keys(),
+      ...[...histInboundByDay.keys()].map(d=>weekStart(d)).filter(Boolean) as string[]
+    ]);
     const effWeeks=new Map<string,{outbound:number,inbound:number,orders:number,totalHours:number,outboundHours:number,inboundHours:number,ordersHours:number,missing:number[],undelivered:number[]}>();
-    for(const [d,g] of histDaily){
-      const w=weekStart(d);if(!w)continue;
-      if(!effWeeks.has(w))effWeeks.set(w,{outbound:0,inbound:0,orders:0,totalHours:0,outboundHours:0,inboundHours:0,ordersHours:0,missing:[],undelivered:[]});
-      const x=effWeeks.get(w)!;
-      x.outbound+=g.outbound;x.inbound+=g.inbound;x.orders+=g.orders;
-      if(g.hasOutbound||g.hasInbound)x.totalHours+=g.hours;
-      if(g.hasOutbound)x.outboundHours+=g.hours;
-      if(g.hasInbound)x.inboundHours+=g.hours;
-      if(g.hasOrders)x.ordersHours+=g.hours;
-      x.missing.push(...g.missing);x.undelivered.push(...g.undelivered);
+    for(const w of histWeekKeys){
+      const out=histOutboundWeeks.get(w),ord=histOrdersWeeks.get(w);
+      const inboundDates=new Set<string>([...histInboundByDay.keys()].filter(d=>weekStart(d)===w));
+      const inbound=mapSum(new Map([...histInboundByDay].filter(([d])=>weekStart(d)===w)));
+      const inboundHours=workedHoursForDates(historyShifts||[],inboundDates);
+      const totalDates=new Set<string>([...(out?.dates||[]),...inboundDates]);
+      const wr=(historyRows||[]).filter((r:any)=>weekStart(r.period_start)===w);
+      effWeeks.set(w,{
+        outbound:out?.value||0,
+        inbound,
+        orders:ord?.value||0,
+        totalHours:workedHoursForDates(historyShifts||[],totalDates),
+        outboundHours:out?.hours||0,
+        inboundHours,
+        ordersHours:ord?.hours||0,
+        missing:wr.filter((r:any)=>r.metric_id==="missing_incorrect_items_rate").map((r:any)=>finite(r.value)).filter((v:any)=>v!==null),
+        undelivered:wr.filter((r:any)=>r.metric_id==="daily_undelivered_items_ratio").map((r:any)=>finite(r.value)).filter((v:any)=>v!==null)
+      });
     }
     const effLabels=[...effWeeks.keys()].sort();
     const effVals=(kind:string)=>effLabels.map(w=>{
@@ -547,14 +579,23 @@ Deno.serve(async req=>{
       orders_per_hour:g.hours>0&&g.hasOrders?g.orders/g.hours:null
     })).sort((a,b)=>a.date.localeCompare(b.date));
 
-    const outbound_units=dayRows.filter(x=>x.hasOutbound).reduce((a,x)=>a+x.outbound,0);
-    const inbound_units=dayRows.filter(x=>x.hasInbound).reduce((a,x)=>a+x.inbound,0);
+    const outboundObservedWeeks=preferredWeeklyObserved(personalRows||[],shifts,
+      ["daily_items_picked_count","daily_item_count_total"],["item_count_total"]);
+    const orderObservedWeeks=preferredWeeklyObserved(personalRows||[],shifts,
+      ["daily_picking_app_task_count"],["picking_app_task_count"]);
+    const outboundObservedDates=new Set<string>([...outboundObservedWeeks.values()].flatMap((x:any)=>[...x.dates]));
+    const orderObservedDates=new Set<string>([...orderObservedWeeks.values()].flatMap((x:any)=>[...x.dates]));
+    const inboundObservedDates=new Set<string>([...inboundByDay.keys()]);
+    const totalObservedDates=new Set<string>([...outboundObservedDates,...inboundObservedDates]);
+
+    const outbound_units=[...outboundObservedWeeks.values()].reduce((a:any,x:any)=>a+Number(x.value||0),0);
+    const inbound_units=mapSum(inboundByDay);
     const total_units=outbound_units+inbound_units;
-    const orders=dayRows.filter(x=>x.hasOrders).reduce((a,x)=>a+x.orders,0);
-    const observed_worked_hours=dayRows.filter(x=>x.hasOutbound||x.hasInbound).reduce((a,x)=>a+x.hours,0);
-    const outbound_observed_hours=dayRows.filter(x=>x.hasOutbound).reduce((a,x)=>a+x.hours,0);
-    const inbound_observed_hours=dayRows.filter(x=>x.hasInbound).reduce((a,x)=>a+x.hours,0);
-    const orders_observed_hours=dayRows.filter(x=>x.hasOrders).reduce((a,x)=>a+x.hours,0);
+    const orders=[...orderObservedWeeks.values()].reduce((a:any,x:any)=>a+Number(x.value||0),0);
+    const observed_worked_hours=workedHoursForDates(shifts,totalObservedDates);
+    const outbound_observed_hours=workedHoursForDates(shifts,outboundObservedDates);
+    const inbound_observed_hours=workedHoursForDates(shifts,inboundObservedDates);
+    const orders_observed_hours=workedHoursForDates(shifts,orderObservedDates);
 
     const qualityFactor=Math.max(0,1-Number(live.missing_items_ratio||0)/100-Number(live.undelivered_items_ratio||0)/100);
     const total_units_per_worked_hour=observed_worked_hours>0?total_units/observed_worked_hours:null;
@@ -650,7 +691,7 @@ Deno.serve(async req=>{
         delta_pct:round(trendDelta,1)
       },
       by_shift_type,
-      note:"Efficiency is contextual, not a Rank/ELO score. Outbound = Items Picked Count (fallback Item Count Total); Orders = Picking App Task Count. Hours are counted only on days where the corresponding output source is observed, so missing reports are not treated as zero performance. Reliability uses completed shifts only; explicit attendance exceptions affect tardiness/on-time only, never worked hours or efficiency."
+      note:"Efficiency is contextual, not a Rank/ELO score. Orders = Picking App Task Count; Outbound = Items Picked Count (fallback Item Count Total). Daily output is preferred when present for a week; otherwise the weekly GA total is used with Quinyx worked hours from the same covered period. Shift-type breakdown stays daily-only because weekly totals cannot be truthfully assigned to Morning/Afternoon. Reliability uses completed shifts only."
     };
 
     // Team/store live MTD estimate + projection inputs.
@@ -670,18 +711,26 @@ Deno.serve(async req=>{
     const teamCurrentShifts=(shiftRows||[]).filter((r:any)=>activeIds.has(r.person_id));
 
     const tby=rowsByMetric(teamCurrent);
-    const teamOutboundByPersonDay=preferredGroupedValues(teamCurrent,["daily_items_picked_count","daily_item_count_total"],(r:any)=>`${r.person_id}|${r.period_start}`);
-    const teamInboundByPersonDay=summedGroupedValues(teamCurrent,["inbound_normal_units","inbound_icy_units","inbound_freez_units"],(r:any)=>`${r.person_id}|${r.period_start}`);
-    const storeOutbound=teamOutboundByPersonDay.size?mapSum(teamOutboundByPersonDay):null;
-    const storeInbound=teamInboundByPersonDay.size?mapSum(teamInboundByPersonDay):null;
-    const observedTeamKeys=new Set<string>([...teamOutboundByPersonDay.keys(),...teamInboundByPersonDay.keys()]);
+    let storeOutbound=0,storeInbound=0,storeObservedWorked=0;
+    const teamPersonIds=[...new Set(teamCurrent.map((r:any)=>r.person_id).filter(Boolean))];
+    for(const pid of teamPersonIds){
+      const rows=teamCurrent.filter((r:any)=>r.person_id===pid);
+      const ps=teamCurrentShifts.filter((s:any)=>s.person_id===pid&&finite(s.worked_hours)!==null);
+      const outWeeks=preferredWeeklyObserved(rows,ps,["daily_items_picked_count","daily_item_count_total"],["item_count_total"]);
+      const ib=summedGroupedValues(rows,["inbound_normal_units","inbound_icy_units","inbound_freez_units"],(r:any)=>String(r.period_start||""));
+      const outDates=new Set<string>([...outWeeks.values()].flatMap((x:any)=>[...x.dates]));
+      const ibDates=new Set<string>([...ib.keys()]);
+      const observed=new Set<string>([...outDates,...ibDates]);
+      storeOutbound+=[...outWeeks.values()].reduce((a:any,x:any)=>a+Number(x.value||0),0);
+      storeInbound+=mapSum(ib);
+      storeObservedWorked+=workedHoursForDates(ps,observed);
+    }
     const storeWorked=sum(teamCurrentShifts.map((x:any)=>x.worked_hours));
-    const storeObservedWorked=sum(teamCurrentShifts.filter((x:any)=>observedTeamKeys.has(`${x.person_id}|${x.shift_date}`)).map((x:any)=>x.worked_hours));
 
     const liveStore={
       month:frame.key,
       through:frame.today,
-      uph:storeObservedWorked>0?round((Number(storeOutbound||0)+Number(storeInbound||0))/storeObservedWorked,2):null,
+      uph:storeObservedWorked>0?round((storeOutbound+storeInbound)/storeObservedWorked,2):null,
       pofr:round(weightedAcrossPeople(teamCurrent,"perfect_order_fulfilment_ratio","picking_app_task_count"),2),
       missing_items_ratio:round(weightedAcrossPeople(teamCurrent,"missing_incorrect_items_rate","item_count_total"),2),
       undelivered_items_ratio:round(weightedAcrossPeople(teamCurrent,"daily_undelivered_items_ratio","daily_item_count_total"),2),
@@ -885,11 +934,13 @@ Deno.serve(async req=>{
     const teamEffVals:number[]=[];
     for(const p of activePeople||[]){
       const rows=teamByPerson.get(p.id)||[];
-      const out=preferredGroupedValues(rows,["daily_items_picked_count","daily_item_count_total"],(r:any)=>String(r.period_start||""));
+      const ps=teamCurrentShifts.filter((s:any)=>s.person_id===p.id&&finite(s.worked_hours)!==null);
+      const outWeeks=preferredWeeklyObserved(rows,ps,["daily_items_picked_count","daily_item_count_total"],["item_count_total"]);
       const ib=summedGroupedValues(rows,["inbound_normal_units","inbound_icy_units","inbound_freez_units"],(r:any)=>String(r.period_start||""));
-      const observed=new Set<string>([...out.keys(),...ib.keys()]);
-      const h=sum(teamCurrentShifts.filter((s:any)=>s.person_id===p.id&&observed.has(String(s.shift_date))).map((s:any)=>s.worked_hours));
-      const u=mapSum(out)+mapSum(ib);
+      const outDates=new Set<string>([...outWeeks.values()].flatMap((x:any)=>[...x.dates]));
+      const observed=new Set<string>([...outDates,...ib.keys()]);
+      const h=workedHoursForDates(ps,observed);
+      const u=[...outWeeks.values()].reduce((a:any,x:any)=>a+Number(x.value||0),0)+mapSum(ib);
       if(h>0)teamEffVals.push(u/h);
     }
     const teamEffAvg=avg(teamEffVals);
@@ -900,7 +951,7 @@ Deno.serve(async req=>{
 
     return J({
       ok:true,
-      version:"player-store-card-v6",
+      version:"player-store-card-v7",
       person:{
         person_key:person.person_key,
         display_name:person.display_name,
