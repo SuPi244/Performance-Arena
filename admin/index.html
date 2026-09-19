@@ -165,7 +165,10 @@ document.addEventListener('click',async e=>{
   $('#previewCard').classList.remove('hidden');$('#pvPeriod').textContent=(out.period_start||'—')+(out.period_end&&out.period_end!==out.period_start?' → '+out.period_end:'');$('#pvPeople').textContent=out.matched_rows??'—';$('#pvMetrics').textContent='3';$('#pvObs').textContent=out.row_count??'—';
   $('#pvStatus').innerHTML='<span class="ok">Inbound preview připraven ✓</span> · unresolved: '+(out.unresolved?.length||0);
   const rows=out.rows||[];$('#pvBody').innerHTML='<div class="pv-table-wrap"><table><thead><tr><th>Datum</th><th>GA</th><th>Typ</th><th>Units</th><th>Match</th></tr></thead><tbody>'+rows.map(x=>'<tr><td>'+esc(x.date)+'</td><td>'+esc(x.alias)+'</td><td>'+esc(x.bucket.toUpperCase())+'</td><td>'+esc(x.value)+'</td><td>'+(x.person_id?'<span class="ok">✓</span>':'<span class="warn">⚠</span>')+'</td></tr>').join('')+'</tbody></table></div>';
-  $('#pvActions').innerHTML='<span class="muted">Preview pouze pro kontrolu — commit zapnu po ověření skutečného PDF.</span>';$('#previewCard').scrollIntoView({behavior:'smooth'});
+  currentPreview={id:b.dataset.id,out,extracted_text,inbound:true};
+  const unknown=(out.unknown_user_rows||0);
+  $('#pvActions').innerHTML=(out.unresolved?.length?'<span class="warn">Nejdřív vyřešit známé identity: '+out.unresolved.map(esc).join(', ')+'</span>':'<button class="inboundConfirm">Potvrdit Inbound import</button>'+(unknown?' <span class="muted">· '+esc(unknown)+' řádků unknow_userID bude bezpečně přeskočeno</span>':''));
+  $('#previewCard').scrollIntoView({behavior:'smooth'});
  }catch(err){
   $('#previewCard').classList.remove('hidden');$('#pvPeriod').textContent='—';$('#pvPeople').textContent='—';$('#pvMetrics').textContent='—';$('#pvObs').textContent='—';
   $('#pvStatus').innerHTML='<span class="err">Inbound parser: '+esc(err.message||err)+'</span>';
@@ -173,5 +176,17 @@ document.addEventListener('click',async e=>{
   $('#pvBody').innerHTML='<pre style="white-space:pre-wrap;text-align:left">'+esc(typeof extracted_text==='string'?extracted_text.slice(0,30000):'PDF text nebyl dostupný')+'</pre>';
   $('#previewCard').scrollIntoView({behavior:'smooth'});
  }finally{b.disabled=false;b.textContent=old}
+});
+
+document.addEventListener('click',async e=>{
+ const b=e.target.closest('.inboundConfirm');if(!b||!currentPreview?.inbound)return;
+ const old=b.textContent;b.disabled=true;b.textContent='Zapisuji…';
+ try{
+  const {data:{session}}=await sb.auth.getSession();if(!session)throw new Error('Relace vypršela.');
+  const res=await fetch('https://yhpgqkklnymfiacrztqf.supabase.co/functions/v1/parse-inbound',{method:'POST',headers:{Authorization:'Bearer '+session.access_token,apikey:'sb_publishable_EA9Sbn8ayjr0eHaI2m0s6A_Yct2lL8a','Content-Type':'application/json'},body:JSON.stringify({import_id:currentPreview.id,mode:'commit',extracted_text:currentPreview.extracted_text})});
+  const out=await res.json().catch(()=>({}));if(!res.ok)throw new Error(out.detail||out.error||('HTTP '+res.status));
+  $('#pvStatus').innerHTML='<span class="ok">Inbound import dokončen ✓</span> · zapsáno '+esc(out.inserted_count)+' observations';
+  $('#pvActions').innerHTML='';await refresh();
+ }catch(err){alert('Inbound import selhal: '+(err.message||err));b.disabled=false;b.textContent=old}
 });
 </script></body></html>
