@@ -4,6 +4,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Performance Arena — Data Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs" type="module"></script>
 <style>
 :root{--bg:#07130f;--panel:#0d1d17;--panel2:#12271f;--line:#244537;--text:#eefaf4;--muted:#92b4a4;--green:#46e58d;--red:#ff7b7b;--amber:#ffc65c}
 *{box-sizing:border-box}body{margin:0;font:15px/1.45 Inter,system-ui,sans-serif;background:radial-gradient(circle at 15% 0,#123728 0,transparent 35%),var(--bg);color:var(--text)}
@@ -41,15 +42,28 @@ $('#logout').onclick=async()=>{await sb.auth.signOut();location.reload()}
 async function refresh(){let[{data:i,error},{count}]=await Promise.all([sb.from('imports').select('*').order('created_at',{ascending:false}).limit(100),sb.from('unresolved_identities').select('*',{count:'exact',head:true}).eq('status','unresolved')]);if(error)return;$('#importCount').textContent=i.length;$('#unresolvedCount').textContent=count??0;$('#lastImport').textContent=i[0]?new Date(i[0].created_at).toLocaleString('cs-CZ'):'žádný';$('#history').innerHTML=i.length?i.map(x=>'<tr><td>'+esc(x.filename)+'</td><td>'+esc(x.report_type||'—')+'</td><td>'+esc(x.period_start||'—')+'</td><td><span class="pill">'+esc(x.status)+'</span></td><td>'+new Date(x.created_at).toLocaleString('cs-CZ')+'</td><td>'+(x.report_type==='ga_metrics'&&x.status==='staged'?'<button class="secondary" onclick="analyzeGA(\''+x.id+'\',this)">Analyzovat</button>':'—')+'</td></tr>').join(''):'<tr><td colspan="5" class="muted">Zatím žádné importy.</td></tr>'}
 const d=$('#drop'),p=$('#picker');d.onclick=()=>p.click();['dragenter','dragover'].forEach(n=>d.addEventListener(n,e=>{e.preventDefault();d.classList.add('over')}));['dragleave','drop'].forEach(n=>d.addEventListener(n,e=>{e.preventDefault();d.classList.remove('over')}));d.ondrop=e=>upload([...e.dataTransfer.files]);p.onchange=e=>upload([...e.target.files]);
 async function upload(fs){for(const f of fs){let row=document.createElement('div');row.className='file';row.innerHTML='<span>'+esc(f.name)+'</span><span class="muted">kontrola…</span>';$('#files').prepend(row);try{let h=await hash(f),{data:dup}=await sb.from('imports').select('id').eq('file_hash',h).maybeSingle();if(dup){row.lastElementChild.innerHTML='<span class="warn">už importováno</span>';continue}let path=new Date().toISOString().slice(0,10)+'/'+crypto.randomUUID()+'_'+f.name.replace(/[^a-zA-Z0-9._-]+/g,'_');let{error:e}=await sb.storage.from('arena-imports').upload(path,f);if(e)throw e;let{error:x}=await sb.from('imports').insert({file_hash:h,filename:f.name,report_type:type(f.name),storage_path:path,status:'staged',parser_version:'datahub-v1',metadata:{size:f.size,mime:f.type||null}});if(x){await sb.storage.from('arena-imports').remove([path]);throw x}row.lastElementChild.innerHTML='<span class="ok">uloženo ✓</span>'}catch(e){row.lastElementChild.innerHTML='<span class="err">'+esc(e.message||e)+'</span>'}}p.value='';await refresh();msg($('#uploadStatus'),'Upload dokončen.','ok')}
+async function extractPdfClient(path){
+ const {data:blob,error}=await sb.storage.from('arena-imports').download(path); if(error)throw error;
+ const mod=await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs');
+ mod.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs';
+ const pdf=await mod.getDocument({data:new Uint8Array(await blob.arrayBuffer())}).promise, pages=[];
+ for(let n=1;n<=pdf.numPages;n++){const pg=await pdf.getPage(n),tc=await pg.getTextContent(),items=tc.items.filter(x=>x.str&&x.str.trim());
+  const rows=new Map(); for(const it of items){const y=Math.round((it.transform?.[5]||0)*2)/2;(rows.get(y)||rows.set(y,[]).get(y)).push(it)}
+  pages.push([...rows.entries()].sort((a,b)=>b[0]-a[0]).map(([,r])=>r.sort((a,b)=>(a.transform?.[4]||0)-(b.transform?.[4]||0)).map(x=>x.str.replace(/\s+/g,' ').trim()).join(' | ')).join('\n'));
+ }
+ return pages.join('\n\n--- PAGE ---\n\n');
+}
 async function analyzeGA(id,btn){
  const old=btn.textContent;btn.disabled=true;btn.textContent='Analyzuji…';
  try{
   const {data:{session}}=await sb.auth.getSession();
   if(!session)throw new Error('Relace vypršela. Přihlas se znovu.');
+  const {data:imp,error:ie}=await sb.from('imports').select('storage_path').eq('id',id).single(); if(ie)throw ie;
+  btn.textContent='Čtu PDF…'; const extracted_text=await extractPdfClient(imp.storage_path); btn.textContent='Parsování…';
   const res=await fetch('https://yhpgqkklnymfiacrztqf.supabase.co/functions/v1/parse-ga-metrics',{
    method:'POST',
    headers:{'Authorization':'Bearer '+session.access_token,'apikey':'sb_publishable_EA9Sbn8ayjr0eHaI2m0s6A_Yct2lL8a','Content-Type':'application/json'},
-   body:JSON.stringify({import_id:id,mode:'preview'})
+   body:JSON.stringify({import_id:id,mode:'preview',extracted_text})
   });
   const out=await res.json().catch(()=>({}));
   if(!res.ok)throw new Error(out.detail||out.error||('HTTP '+res.status));
