@@ -104,10 +104,20 @@ async function analyzeDaily(id,btn){
   currentPreview={id,out,extracted_text,daily:true};$('#previewCard').classList.remove('hidden');
   $('#pvPeriod').textContent=out.period_start||'—';$('#pvPeople').textContent=out.people_count??'—';$('#pvMetrics').textContent=out.metric_count??'—';$('#pvObs').textContent=out.observation_count??'—';
   $('#pvStatus').innerHTML='<span class="ok">Daily Picking preview připraven ✓</span> · unresolved: '+(out.unresolved?.length||0);
-  $('#pvBody').textContent=JSON.stringify(out,null,2);
+  renderDailyPreview(out);
   $('#pvActions').innerHTML='<span class="muted">Preview pouze pro kontrolu — commit zapnu po ověření parseru.</span>';
   $('#previewCard').scrollIntoView({behavior:'smooth',block:'start'});
  }catch(e){alert('Daily Picking analýza selhala: '+e.message)}finally{btn.disabled=false;btn.textContent=old}
+}
+
+function renderDailyPreview(out){
+ const defs=[
+ ['daily_avg_accepted_time','Accepted'],['daily_avg_acknowledged_time','Acknowledged'],['daily_avg_collection_time','Collection'],['daily_avg_ready_for_pickup_time','Ready'],['daily_avg_start_collection_time','Start collection'],['daily_total_production_time','Production'],['daily_picking_app_task_count','Tasks'],['daily_items_picked_via_scanner_ratio','Scanner %'],['daily_replacement_items_picked_count','Replacements'],['daily_items_picked_count','Picked'],['daily_item_count_total','Items'],['daily_undelivered_items_ratio','Undelivered %'],['daily_substitutions_ratio','Substitutions %']
+ ];
+ const people=out.people||[], unresolved=new Set(out.unresolved||[]);
+ const head='<thead><tr><th>GA</th>'+defs.map(d=>'<th>'+esc(d[1])+'</th>').join('')+'</tr></thead>';
+ const rows=people.map(p=>'<tr><td class="'+(p.person_id?'':'pv-unresolved')+'">'+esc(p.source_identity)+(p.person_id?'':' ⚠')+'</td>'+defs.map(([k])=>{const v=p.values?.[k];return '<td class="'+(v==null?'pv-null':'')+'">'+(v==null?'—':esc(v))+'</td>'}).join('')+'</tr>').join('');
+ $('#pvBody').innerHTML='<div class="pv-summary"><span class="pill">Matched '+people.filter(p=>p.person_id).length+'/'+people.length+'</span><span class="pill">Unresolved '+unresolved.size+'</span><span class="pill">'+esc(out.period_start||'—')+'</span></div><div class="pv-table-wrap"><table class="pv-table">'+head+'<tbody>'+rows+'</tbody></table></div>';
 }
 
 function renderPreview(out){
