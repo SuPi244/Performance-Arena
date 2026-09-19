@@ -1422,7 +1422,7 @@ html[data-theme="light"] .sc-you-badge{color:#166534;background:rgba(34,197,94,.
     <div class="projection-card"><div class="pk">Projected points</div><div class="pv provisional" id="bonusProjectedPoints">—</div><div class="ps">odhad / 17 b.</div></div>
     <div class="projection-card"><div class="pk">Projected position</div><div class="pv provisional" id="bonusProjectedRank">—</div><div class="ps" id="bonusProjectedRankSub">aktuální proxy pořadí</div></div>
     <div class="projection-card"><div class="pk">Projected bonus</div><div class="pv provisional" id="bonusProjectedBonus">—</div><div class="ps">TOP bonus + odhad Team Bonus</div></div>
-    <div class="projection-card"><div class="pk">Team effort estimate</div><div class="pv" id="bonusTeamEffort">—</div><div class="ps">proxy · oficiálně jen HPP</div></div>
+    <div class="projection-card"><div class="pk">Team effort estimate</div><div class="pv" id="bonusTeamEffort">—</div><div class="ps" id="bonusTeamEffortSub">jen HPP · DPČ mimo výpočet</div></div>
     <div class="projection-card"><div class="pk">Spolehlivost odhadu</div><div class="pv" id="bonusProjectionConfidence">—</div><div class="ps">podle dostupnosti dat a známých pravidel</div></div>
   </div>
   <div class="projection-categories" id="bonusProjectionCategories"></div>
@@ -2072,7 +2072,12 @@ function renderStoreCardLive(){
  const rankSub=document.getElementById('bonusProjectedRankSub');
  if(rankSub&&moveText)rankSub.innerHTML=moveText+' · z '+esc(pr.projected_rank_total||'—')+' profilů';
  setText('bonusProjectedBonus',projectionBonusText(pr));
- setText('bonusTeamEffort',pr.team_effort_estimate_percent!=null?fmt(Number(pr.team_effort_estimate_percent),1)+' %':'—');
+ setText('bonusTeamEffort',pr.team_effort_estimate_percent!=null?fmt(Number(pr.team_effort_estimate_percent),2)+' %':'—');
+ const teParts=[];
+ if(pr.team_effort_hpp_count!=null)teParts.push(pr.team_effort_hpp_count+' HPP započteno');
+ if(pr.team_effort_dpc_excluded_count)teParts.push(pr.team_effort_dpc_excluded_count+' DPČ mimo');
+ if(pr.team_effort_unknown_count)teParts.push(pr.team_effort_unknown_count+' bez klasifikace');
+ setText('bonusTeamEffortSub',teParts.length?teParts.join(' · '):'jen HPP · DPČ mimo výpočet');
  setText('bonusProjectionConfidence',(pr.confidence_percent??0)+' %');
  const pc=document.getElementById('bonusProjectionCategories');
  if(pc&&pr.categories){const rows=[['Output',pr.categories.output,2],['Quality',pr.categories.quality,6],['Speed',pr.categories.speed,3],['Inbound + SC',pr.categories.inbound_stock,4],['People',pr.categories.people,2]];pc.innerHTML=rows.map(x=>'<div class="projection-category"><span>'+x[0]+'</span><strong>'+liveFmt(x[1],'points')+' / '+x[2]+'</strong></div>').join('')}
