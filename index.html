@@ -1340,6 +1340,27 @@ html[data-theme="light"] .sc-you-row td:nth-child(2){color:#166534}
 html[data-theme="light"] .sc-you-badge{color:#166534;background:rgba(34,197,94,.12);border-color:rgba(22,163,74,.24)}
 @media(max-width:700px){.sc-move{font-size:7px;padding:4px 5px}.sc-you-badge{display:flex;width:max-content;margin:4px 0 0}}
 </style>
+
+<style id="team-rating-completion-v1">
+.team-rating-board{margin-top:16px;padding:14px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(180deg,rgba(53,231,138,.055),rgba(255,255,255,.015))}
+.team-rating-board-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.team-rating-board-title{display:flex;gap:10px;align-items:center}.team-rating-board-title .ico{font-size:24px}
+.team-rating-board-title h4{margin:0;font-size:15px}.team-rating-board-title p{margin:3px 0 0;color:var(--muted);font-size:10px}
+.team-rating-progress-number{font-weight:900;font-size:20px;color:var(--green);white-space:nowrap}
+.team-rating-progress{height:9px;border-radius:999px;background:rgba(255,255,255,.07);overflow:hidden;margin:12px 0}
+.team-rating-progress span{display:block;height:100%;background:linear-gradient(90deg,var(--green),#9affc9);border-radius:inherit;transition:width .5s ease}
+.team-rating-people{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.team-rating-person{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.025);min-width:0}
+.team-rating-person.me{box-shadow:inset 0 0 0 1px rgba(53,231,138,.28)}
+.team-rating-person-name{font-size:11px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.team-rating-person-status{font-size:9px;font-weight:900;letter-spacing:.04em;white-space:nowrap}
+.team-rating-person.completed .team-rating-person-status{color:var(--green)}
+.team-rating-person.pending .team-rating-person-status{color:var(--muted)}
+.team-rating-person.disqualified .team-rating-person-status{color:var(--red)}
+.team-rating-board-foot{margin-top:9px;color:var(--muted);font-size:9px}
+@media(max-width:900px){.team-rating-people{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.team-rating-people{grid-template-columns:1fr}.team-rating-person{padding:10px 11px}}
+</style>
 </head>
 <body><div class="ambient-particles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
 <div id="loginOverlay">
@@ -1455,6 +1476,15 @@ html[data-theme="light"] .sc-you-badge{color:#166534;background:rgba(34,197,94,.
     <div class="projection-card"><div class="pk">Spolehlivost odhadu</div><div class="pv" id="bonusProjectionConfidence">—</div><div class="ps">podle dostupnosti dat a známých pravidel</div></div>
   </div>
   <div class="projection-categories" id="bonusProjectionCategories"></div>
+  <div class="team-rating-board" id="teamRatingCompletionBoard">
+    <div class="team-rating-board-head">
+      <div class="team-rating-board-title"><span class="ico">🗳️</span><div><h4>TEAM RATING · KDO UŽ VYPLNIL?</h4><p>Viditelný je jen stav vyplnění. Odpovědi a nominace zůstávají neveřejné.</p></div></div>
+      <div class="team-rating-progress-number" id="teamRatingCompletionMeta">—</div>
+    </div>
+    <div class="team-rating-progress"><span id="teamRatingCompletionBar" style="width:0%"></span></div>
+    <div class="team-rating-people" id="teamRatingCompletionPeople"><div class="notice">Čekám na Team Rating data…</div></div>
+    <div class="team-rating-board-foot" id="teamRatingCompletionFoot">Platí jen platná odpověď odeslaná v daném měsíci.</div>
+  </div>
   <div class="friendly-narrative" id="bonusProjectionMethod"><strong>Odhad:</strong> používá live Data Hub a poslední známou Store Card logiku. Finální bonus vždy potvrzuje měsíční Store Card.</div>
   <div style="overflow:auto;margin-top:12px"><table class="table enhanced-table"><thead><tr><th>#</th><th>Průběžné pořadí</th><th>Změna</th><th>Odhad bodů</th><th>Data coverage</th></tr></thead><tbody id="projectedStoreCardRows"><tr><td colspan="5" class="muted">Načítám projekci…</td></tr></tbody></table></div>
 </section></div>
@@ -2203,6 +2233,26 @@ function renderStoreCardLive(){
    scProjectionCategory('Inbound + SC',pr.categories.inbound_stock,4,'inbound_stock',comps),
    scProjectionCategory('People',pr.categories.people,2,'people',comps)
   ].join('');
+ }
+ const trc=pr.team_rating_completion||{};
+ const trPeople=Array.isArray(trc.people)?trc.people:[];
+ const trMeta=document.getElementById('teamRatingCompletionMeta');
+ const trBar=document.getElementById('teamRatingCompletionBar');
+ const trHost=document.getElementById('teamRatingCompletionPeople');
+ const trFoot=document.getElementById('teamRatingCompletionFoot');
+ if(trMeta)trMeta.textContent=(trc.completed??0)+' / '+(trc.total??trPeople.length||0)+' · '+(trc.percent??0)+' %';
+ if(trBar)trBar.style.width=Math.max(0,Math.min(100,Number(trc.percent||0)))+'%';
+ if(trHost){
+  trHost.innerHTML=trPeople.length?trPeople.map(x=>{
+   const me=norm(x.display_name)===norm(state.storeCard?.person?.display_name);
+   const status=x.status==='completed'?'✓ VYPLNĚNO':x.status==='disqualified'?'⚠ DQ':'○ ČEKÁ';
+   const title=x.status==='disqualified'?'Odpověď se nezapočítala · je potřeba ji opravit':x.status==='completed'?'Platná odpověď započítána':'Dotazník ještě nemá platnou odpověď';
+   return '<div class="team-rating-person '+esc(x.status||'pending')+(me?' me':'')+'" title="'+esc(title)+'"><span class="team-rating-person-name">'+esc(x.display_name)+(me?' · TY':'')+'</span><span class="team-rating-person-status">'+esc(status)+'</span></div>';
+  }).join(''):'<div class="notice">Pro tento měsíc zatím nejsou Team Rating data.</div>';
+ }
+ if(trFoot){
+  const pending=Number(trc.pending||0),dq=Number(trc.disqualified||0);
+  trFoot.textContent=pending?(pending+' '+(pending===1?'člověk ještě čeká':'lidí ještě čeká')+(dq?' · '+dq+' DQ potřebuje opravit odpověď':'')+' · pojďme na 100 % 🎯'):(dq?(dq+' DQ potřebuje opravit odpověď'):'Všichni mají vyplněno ✓');
  }
  const pm=document.getElementById('bonusProjectionMethod');if(pm)pm.innerHTML='<strong>Jak číst odhad:</strong> '+esc(pr.explanation||'Je to průběžný proxy model, ne oficiální payroll výsledek.')+storeCardImportLabel(pr);
  const pl=document.getElementById('projectedStoreCardRows');
