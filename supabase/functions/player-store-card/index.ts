@@ -720,7 +720,8 @@ Deno.serve(async req=>{
       const k=String(r.respondent_person_id);
       if(!latestTeamRatingByPerson.has(k))latestTeamRatingByPerson.set(k,r);
     }
-    const teamRatingCompletion=(activePeople||[]).map((p:any)=>{
+    const teamRatingRequiredPeople=(activePeople||[]).filter((p:any)=>p.employment_type==="HPP"||p.team_effort_eligible===true);
+    const teamRatingCompletion=teamRatingRequiredPeople.map((p:any)=>{
       const r=latestTeamRatingByPerson.get(String(p.id));
       const status=r?.is_valid===true?"completed":r?"disqualified":"pending";
       return {
@@ -1259,7 +1260,7 @@ Deno.serve(async req=>{
 
     return J({
       ok:true,
-      version:"player-store-card-v13",
+      version:"player-store-card-v14",
       person:{
         person_key:person.person_key,
         display_name:person.display_name,
