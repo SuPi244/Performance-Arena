@@ -1511,6 +1511,9 @@ const API_URL='https://script.google.com/macros/s/AKfycbxC38rlABSICaLkd8X1hsqBuO
 const API_PROXY_URL='https://hidden-cake-595d.supi24.workers.dev/';
 const STORE_CARD_API_URL='https://yhpgqkklnymfiacrztqf.supabase.co/functions/v1/player-store-card';
 const SYSTEM_TARGETS={picking:2.57,scanner:98,missing:.34,undelivered:.24,rating:4.7,notcollected:.24,pofr:98};
+const ARENA_EXCLUDED_WORKERS=new Set(['nicksch','nick schurrer']);
+function isArenaWorkerAllowed(name){return !ARENA_EXCLUDED_WORKERS.has(norm(String(name||'')));}
+
 function targetForMetric(name){const k=norm(cleanMetricName(name));if(k.includes('picking time'))return SYSTEM_TARGETS.picking;if(k.includes('scanner'))return SYSTEM_TARGETS.scanner;if(k.includes('missing')||k.includes('incorrect'))return SYSTEM_TARGETS.missing;if(k.includes('undelivered'))return SYSTEM_TARGETS.undelivered;if(k.includes('not collected')||k==='ui')return SYSTEM_TARGETS.notcollected;if(k.includes('pofr')||k.includes('perfect order fulfilment')||k.includes('perfect order fulfillment'))return SYSTEM_TARGETS.pofr;if(k.includes('rating'))return SYSTEM_TARGETS.rating;return null;}
 const IGNORED=['packing time per item','venue related cs tickets ratio','merchant rejection ratio','avg packing time'];
 const state={bootstrap:null,worker:null,player:null,history:null,team:null,stores:null,storeHistory:null,storeCard:null,quickLeaderboard:null,teamMetric:null,teamMetricCache:{},teamMetricLoading:{},range:'all',rangeStart:'',rangeEnd:'',storeRangeStart:'',storeRangeEnd:'',teamMode:'all',lbMode:'people',compareWorker:'',compareStore:'',storeRange:'all',inbound:null,leaderMetric:null,achievementMode:'all'};
@@ -3862,6 +3865,7 @@ function isValidActivePersonName(name){
   const raw=String(name||'').trim();
   if(!raw)return false;
   const k=norm(raw);
+  if(!isArenaWorkerAllowed(raw))return false;
   // Store / restaurant / technical rows are not people.
   if(/\b(restaurant|store|wolt market|market|test|dummy|unknown|n\/a)\b/i.test(k))return false;
   // Keep normal human names, including Czech/European diacritics, spaces, hyphens,
@@ -3986,7 +3990,7 @@ function enterAppAfterLogin(){
 function setupLogin(b){
   loginBootstrap=b;
   const sel=document.getElementById('loginProfile');
-  const names=[...(b.workers||[])];
+  const names=[...(b.workers||[])].filter(isArenaWorkerAllowed);
   const opts=[];
   opts.push('<option value="Admin">Admin</option>');
   names.filter(n=>n!=='Admin').forEach(n=>opts.push('<option value="'+esc(n)+'">'+esc(n)+'</option>'));
@@ -4009,14 +4013,14 @@ function setupLogin(b){
 
 async function startArenaApp(preloadedBootstrap, forcedWorker){
   init();setLoading('Připojuji data…',12,'Kontroluji dostupnost aktuálního profilu.');try{
-const t0=performance.now(),b=preloadedBootstrap||await api('bootstrap'),sec=((performance.now()-t0)/1000).toFixed(1);if(!b||b.ok===false)throw new Error(b?.error||'bootstrap');state.bootstrap=b;setLoading('Profil připraven…',34,'Načítám aktuální výkon a připravuji dashboard.');setText('workersCount',b.workers.length);setText('weeksCount',b.weeks.length);setText('metricsCount',b.metrics.length);setText('storesCount',b.stores.length);const sel=document.getElementById('workerSelect');sel.innerHTML=b.workers.map(w=>`<option>${esc(w)}</option>`).join('');state.worker=forcedWorker||b.workers[0]||'';sel.value=state.worker;sel.onchange=()=>{if(loginRole!=='admin')return;loadPlayer(sel.value)};
+const t0=performance.now(),b=preloadedBootstrap||await api('bootstrap'),sec=((performance.now()-t0)/1000).toFixed(1);if(!b||b.ok===false)throw new Error(b?.error||'bootstrap');b.workers=(b.workers||[]).filter(isArenaWorkerAllowed);state.bootstrap=b;setLoading('Profil připraven…',34,'Načítám aktuální výkon a připravuji dashboard.');setText('workersCount',b.workers.length);setText('weeksCount',b.weeks.length);setText('metricsCount',b.metrics.length);setText('storesCount',b.stores.length);const sel=document.getElementById('workerSelect');sel.innerHTML=b.workers.map(w=>`<option>${esc(w)}</option>`).join('');state.worker=(forcedWorker&&isArenaWorkerAllowed(forcedWorker)?forcedWorker:null)||b.workers[0]||'';sel.value=state.worker;sel.onchange=()=>{if(loginRole!=='admin')return;loadPlayer(sel.value)};
     document.querySelectorAll('#nav button[data-page=\"correlation\"],#nav button[data-page=\"bottlenecks\"]').forEach(btn=>{btn.style.display=loginRole==='admin'?'':'none';});
     const profileBtn=document.getElementById('profileBtn');
     if(profileBtn) profileBtn.style.display=loginRole==='admin'?'':'none';
     if(loginRole!=='admin'){sel.disabled=true;}populateCompare();document.getElementById('compareSelect').onchange=async e=>{state.compareWorker=e.target.value;state.playerCompare=null;state.compareHistory=null;if(state.compareWorker){try{state.playerCompare=await api('player',{worker:state.compareWorker});state.compareHistory=await api('player_history',{worker:state.compareWorker});}catch(err){console.warn(err)}}buildMetricCards();};const choices=document.getElementById('profileChoices');choices.innerHTML=b.workers.map((w,i)=>`<div class="team-row profile-choice" data-name="${esc(w)}"><div class="rank">${i+1}</div><div class="who"><strong>${esc(w)}</strong><span>Player profile</span></div><div class="pill">OPEN</div></div>`).join('');choices.querySelectorAll('.profile-choice').forEach(row=>row.onclick=()=>{if(loginRole!=='admin')return;document.getElementById('profileOverlay').classList.remove('show');loadPlayer(row.dataset.name)});const tm=document.getElementById('teamMetric');if(tm&&!tm.options.length)tm.innerHTML=(b.metrics||[]).filter(m=>!isIgnored(m.name)).map(m=>`<option value="${esc(m.name)}">${esc(cleanMetricName(m.name))}</option>`).join('');setText('apiText','Online');document.getElementById('apiDot').classList.remove('bad');setLoading('Načítám data…',58,'Načítám profil, tým, store data a žebříček.');
       const startupResults=await Promise.allSettled([
         loadPlayer(state.worker),
-        api('leaderboard').then(lb=>{state.quickLeaderboard=lb;renderHome();return lb;}),
+        api('leaderboard').then(lb=>{if(Array.isArray(lb?.players))lb.players=lb.players.filter(x=>isArenaWorkerAllowed(x?.name));state.quickLeaderboard=lb;renderHome();return lb;}),
         ensureTeam(),
         ensureStores()
       ]);
