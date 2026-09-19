@@ -158,7 +158,8 @@ document.addEventListener('click',async e=>{
  try{
   const {data:{session}}=await sb.auth.getSession();if(!session)throw new Error('Relace vypršela.');
   const {data:imp,error}=await sb.from('imports').select('storage_path').eq('id',b.dataset.id).single();if(error)throw error;
-  b.textContent='Čtu PDF…';const extracted_text=await extractPdfClient(imp.storage_path);b.textContent='Parsování…';
+  b.textContent='Čtu PDF…';extracted_text=await extractPdfClient(imp.storage_path);b.textContent='Parsování…';
+  if(!extracted_text.trim())throw new Error('PDF neobsahuje textovou vrstvu — browser z něj získal 0 znaků.');
   const res=await fetch('https://yhpgqkklnymfiacrztqf.supabase.co/functions/v1/parse-inbound',{method:'POST',headers:{Authorization:'Bearer '+session.access_token,apikey:'sb_publishable_EA9Sbn8ayjr0eHaI2m0s6A_Yct2lL8a','Content-Type':'application/json'},body:JSON.stringify({import_id:b.dataset.id,mode:'preview',extracted_text})});
   const out=await res.json().catch(()=>({}));if(!res.ok)throw new Error(out.detail||out.error||('HTTP '+res.status));
   $('#previewCard').classList.remove('hidden');$('#pvPeriod').textContent=(out.period_start||'—')+(out.period_end&&out.period_end!==out.period_start?' → '+out.period_end:'');$('#pvPeople').textContent=out.matched_rows??'—';$('#pvMetrics').textContent='3';$('#pvObs').textContent=out.row_count??'—';
