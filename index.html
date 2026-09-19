@@ -1216,7 +1216,33 @@ html[data-theme="light"] .enhanced-kpi{background:#f7fbf8}
 .projection-card .pk{font-size:8px;color:var(--muted);font-weight:900;text-transform:uppercase;letter-spacing:.08em}.projection-card .pv{font-size:24px;font-weight:950;margin-top:5px}
 .projection-card .ps{font-size:8px;color:var(--muted);margin-top:4px;line-height:1.4}.projection-card .provisional{color:#fbbf24}
 .projection-categories{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;margin-top:10px}
-.projection-category{border:1px solid var(--line);border-radius:12px;padding:10px;background:rgba(255,255,255,.02)}.projection-category span{display:block;font-size:7px;color:var(--muted);text-transform:uppercase;font-weight:900}.projection-category strong{display:block;font-size:16px;margin-top:3px}
+.projection-category{border:1px solid var(--line);border-radius:14px;padding:12px;background:rgba(255,255,255,.02);min-width:0}
+.projection-category>.sc-cat-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.projection-category>.sc-cat-head span{display:block;font-size:8px;color:var(--muted);text-transform:uppercase;font-weight:900;letter-spacing:.07em}
+.projection-category>.sc-cat-head strong{display:block;font-size:17px;margin-top:2px;white-space:nowrap}
+.sc-cat-next{margin-top:8px;padding:8px 9px;border-radius:10px;background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.15);font-size:8px;line-height:1.45;color:var(--muted)}
+.sc-cat-next strong{display:inline!important;font-size:8px!important;color:var(--green2);margin:0!important}
+.sc-milestones{display:grid;gap:6px;margin-top:9px}
+.sc-metric-row{border-top:1px solid rgba(148,163,184,.10);padding-top:7px}
+.sc-metric-top{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;align-items:center}
+.sc-metric-name{font-size:8px;font-weight:900;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sc-metric-value{font-size:8px;color:var(--muted);white-space:nowrap}
+.sc-point-pill{font-size:7px;font-weight:950;border-radius:999px;padding:3px 5px;white-space:nowrap;border:1px solid var(--line)}
+.sc-point-pill.p1{color:#86efac;background:rgba(34,197,94,.10);border-color:rgba(34,197,94,.22)}
+.sc-point-pill.p05{color:#fcd34d;background:rgba(245,158,11,.10);border-color:rgba(245,158,11,.22)}
+.sc-point-pill.p0{color:#fca5a5;background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.18)}
+.sc-score-rail{display:grid;grid-template-columns:1fr 1fr;height:5px;border-radius:999px;overflow:hidden;margin-top:5px;background:rgba(255,255,255,.045)}
+.sc-score-rail i{display:block;border-right:1px solid rgba(255,255,255,.08)}
+.sc-score-rail i:last-child{border-right:0}
+.sc-score-rail i.on{background:linear-gradient(90deg,rgba(34,197,94,.65),rgba(134,239,172,.9))}
+.sc-score-rail i.half-on{background:linear-gradient(90deg,rgba(245,158,11,.62),rgba(252,211,77,.85))}
+.sc-next-copy{margin-top:5px;font-size:7.5px;line-height:1.35;color:var(--muted)}
+.sc-next-copy.good{color:#86efac}.sc-next-copy.warn{color:#fcd34d}
+@media(min-width:1101px){.projection-categories{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(min-width:1800px){.projection-categories{grid-template-columns:repeat(5,minmax(0,1fr))}}
+@media(max-width:650px){.projection-categories{grid-template-columns:1fr}.sc-metric-name,.sc-metric-value{font-size:9px}.sc-next-copy{font-size:8px}}
+html[data-theme="light"] .sc-cat-next{background:rgba(22,163,74,.06);border-color:rgba(22,163,74,.16)}
+html[data-theme="light"] .sc-score-rail{background:#e7eee9}
 .simple-status.good .fv{color:var(--green2)}.simple-status.warn .fv{color:#fbbf24}.simple-status.bad .fv{color:#fca5a5}
 .operational-quest-note{font-size:7px!important;color:#fbbf24!important;margin-top:3px!important}
 @media(max-width:1100px){.friendly-summary-grid{grid-template-columns:1fr 1fr}.projection-grid{grid-template-columns:repeat(2,1fr)}.projection-categories{grid-template-columns:repeat(3,1fr)}}
@@ -1860,6 +1886,78 @@ function storeCardImportLabel(pr){
  const base=pr?.movement_available?'Pohyb proti předchozímu snapshotu':'Baseline uložená · šipky se objeví po dalším relevantním uploadu';
  return'<div class="sc-import-note"><strong>'+esc(base)+'</strong> · poslední vstup: '+esc(type)+(imp.filename?' · '+esc(imp.filename):'')+'</div>';
 }
+const STORE_CARD_COMPONENT_META={
+ orders:{label:'Orders',unit:'count'},units:{label:'Total Units',unit:'count'},
+ missing:{label:'Missing items',unit:'percent'},undelivered:{label:'Undelivered',unit:'percent'},
+ scan:{label:'Scan to pick',unit:'percent'},bad_goods:{label:'Bad Goods',unit:'percent'},
+ rating:{label:'Avg. goods rating',unit:'rating'},cs:{label:'CS Tickets',unit:'percent'},
+ accepted:{label:'Accepted time',unit:'time'},collection:{label:'Collection time',unit:'time'},
+ start_collection:{label:'Start collection',unit:'time'},inbound:{label:'Inbound',unit:'count'},
+ icy:{label:'ICY inbound',unit:'count'},freeze:{label:'FREEZE inbound',unit:'count'},
+ stock:{label:'Stock Count',unit:'count'},people_carry:{label:'People',unit:'points'}
+};
+function scComponentMeta(x){return STORE_CARD_COMPONENT_META[x?.key]||{label:String(x?.key||'Metrika'),unit:'number'}}
+function scMetricValue(v,unit){
+ const n=Number(v);if(!Number.isFinite(n))return'—';
+ if(unit==='count')return Math.round(n).toLocaleString('cs-CZ');
+ if(unit==='percent')return fmt(n,2)+' %';
+ if(unit==='rating')return fmt(n,2);
+ if(unit==='time')return fmt(n,2)+' min';
+ return fmt(n,2);
+}
+function scGapValue(gap,unit){
+ const n=Math.max(0,Number(gap)||0);
+ if(unit==='count')return Math.ceil(n).toLocaleString('cs-CZ');
+ if(unit==='percent')return fmt(n,2)+' p. b.';
+ if(unit==='rating')return fmt(n,2);
+ if(unit==='time')return fmt(n,2)+' min';
+ return fmt(n,2);
+}
+function scMilestoneGap(x,target){
+ const v=Number(x?.value),t=Number(target);
+ if(!Number.isFinite(v)||!Number.isFinite(t))return null;
+ const lower=x?.direction==='lower';
+ return lower?Math.max(0,v-t):Math.max(0,t-v);
+}
+function scMilestoneSentence(x,target,points){
+ const meta=scComponentMeta(x),gap=scMilestoneGap(x,target);
+ if(gap===null)return'Čeká na data';
+ if(gap<=1e-9)return points+' b. splněno';
+ const action=x?.direction==='lower'?'sniž o':'chybí';
+ return points+' b. · '+action+' '+scGapValue(gap,meta.unit);
+}
+function scMetricMilestoneRow(x){
+ const p=Number(x?.point)||0,meta=scComponentMeta(x);
+ if(x?.key==='people_carry'){
+  return '<div class="sc-metric-row"><div class="sc-metric-top"><div class="sc-metric-name">'+esc(meta.label)+'</div><div class="sc-metric-value">'+esc(scMetricValue(x?.value,'points'))+'</div><span class="sc-point-pill '+(p>=1?'p1':p>=.5?'p05':'p0')+'">'+esc(fmt(p,1))+' b.</span></div><div class="sc-next-copy">Aktuální Forms + Team rating se doplní po nahrání zdroje.</div></div>';
+ }
+ const one=x?.one_point_target,half=x?.half_point_target;
+ let next='';
+ if(p>=1)next='✓ 1 bod získán';
+ else if(p>=.5)next='Další: '+scMilestoneSentence(x,one,1);
+ else next='Další: '+scMilestoneSentence(x,half,.5)+(one!=null?' · potom '+scMilestoneSentence(x,one,1):'');
+ const rail='<div class="sc-score-rail"><i class="'+(p>=.5?(p>=1?'on':'half-on'):'')+'"></i><i class="'+(p>=1?'on':'')+'"></i></div>';
+ return '<div class="sc-metric-row"><div class="sc-metric-top"><div class="sc-metric-name">'+esc(meta.label)+'</div><div class="sc-metric-value">'+esc(scMetricValue(x?.value,meta.unit))+'</div><span class="sc-point-pill '+(p>=1?'p1':p>=.5?'p05':'p0')+'">'+esc(fmt(p,1))+' b.</span></div>'+rail+'<div class="sc-next-copy '+(p>=1?'good':p>=.5?'warn':'')+'">'+esc(next)+'</div></div>';
+}
+function scBestNextStep(items){
+ const candidates=(items||[]).filter(x=>x?.key!=='people_carry'&&Number(x?.point)<1);
+ let best=null;
+ for(const x of candidates){
+  const p=Number(x?.point)||0,target=p>=.5?x?.one_point_target:x?.half_point_target;
+  const gap=scMilestoneGap(x,target);if(gap===null)continue;
+  const meta=scComponentMeta(x);
+  let relative=gap;
+  if(Number.isFinite(Number(target))&&Math.abs(Number(target))>1e-9)relative=gap/Math.abs(Number(target));
+  if(!best||relative<best.relative)best={x,target,gap,relative,points:p>=.5?1:.5,meta};
+ }
+ if(!best)return candidates.length?'Čeká na data':'Všechny dostupné body jsou splněné ✓';
+ const action=best.x?.direction==='lower'?'sniž o':'chybí';
+ return best.meta.label+': '+action+' '+scGapValue(best.gap,best.meta.unit)+' k '+best.points+' b.';
+}
+function scProjectionCategory(label,value,max,group,components){
+ const items=(components||[]).filter(x=>x?.group===group);
+ return '<div class="projection-category"><div class="sc-cat-head"><div><span>'+esc(label)+'</span><strong>'+esc(liveFmt(value,'points'))+' / '+esc(max)+'</strong></div></div><div class="sc-cat-next"><strong>Nejbližší posun:</strong> '+esc(scBestNextStep(items))+'</div><div class="sc-milestones">'+items.map(scMetricMilestoneRow).join('')+'</div></div>';
+}
 function previousOfficialMetric(id){
  const x=(state.storeCard?.official_metrics||[]).find(m=>m.metric_id===id);
  return x?.value??null;
@@ -2080,7 +2178,16 @@ function renderStoreCardLive(){
  setText('bonusTeamEffortSub',teParts.length?teParts.join(' · '):'jen HPP · DPČ mimo výpočet');
  setText('bonusProjectionConfidence',(pr.confidence_percent??0)+' %');
  const pc=document.getElementById('bonusProjectionCategories');
- if(pc&&pr.categories){const rows=[['Output',pr.categories.output,2],['Quality',pr.categories.quality,6],['Speed',pr.categories.speed,3],['Inbound + SC',pr.categories.inbound_stock,4],['People',pr.categories.people,2]];pc.innerHTML=rows.map(x=>'<div class="projection-category"><span>'+x[0]+'</span><strong>'+liveFmt(x[1],'points')+' / '+x[2]+'</strong></div>').join('')}
+ if(pc&&pr.categories){
+  const comps=Array.isArray(pr.components)?pr.components:[];
+  pc.innerHTML=[
+   scProjectionCategory('Output',pr.categories.output,2,'output',comps),
+   scProjectionCategory('Quality',pr.categories.quality,6,'quality',comps),
+   scProjectionCategory('Speed',pr.categories.speed,3,'speed',comps),
+   scProjectionCategory('Inbound + SC',pr.categories.inbound_stock,4,'inbound_stock',comps),
+   scProjectionCategory('People',pr.categories.people,2,'people',comps)
+  ].join('');
+ }
  const pm=document.getElementById('bonusProjectionMethod');if(pm)pm.innerHTML='<strong>Jak číst odhad:</strong> '+esc(pr.explanation||'Je to průběžný proxy model, ne oficiální payroll výsledek.')+storeCardImportLabel(pr);
  const pl=document.getElementById('projectedStoreCardRows');
  if(pl){
