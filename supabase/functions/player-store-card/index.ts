@@ -890,10 +890,13 @@ Deno.serve(async req=>{
       const inboundDates=new Set<string>([...inboundByDay.keys()]);
       const totalDates=new Set<string>([...outDates,...inboundDates]);
 
-      const outbound=[...outWeeks.values()].reduce((a:any,x:any)=>a+Number(x.value||0),0);
-      const orders=[...orderWeeks.values()].reduce((a:any,x:any)=>a+Number(x.value||0),0);
-      const inbound=mapSum(inboundByDay);
-      const total=outbound+inbound;
+      const hasOutbound=outWeeks.size>0;
+      const hasOrders=orderWeeks.size>0;
+      const hasInbound=inboundByDay.size>0;
+      const outbound=hasOutbound?[...outWeeks.values()].reduce((a:any,x:any)=>a+Number(x.value||0),0):null;
+      const orders=hasOrders?[...orderWeeks.values()].reduce((a:any,x:any)=>a+Number(x.value||0),0):null;
+      const inbound=hasInbound?mapSum(inboundByDay):null;
+      const total=(outbound!==null||inbound!==null)?Number(outbound||0)+Number(inbound||0):null;
 
       const outHours=workedHoursForDates(ps,outDates);
       const orderHours=workedHoursForDates(ps,orderDates);
@@ -910,7 +913,7 @@ Deno.serve(async req=>{
       const qualityFactor=(missing!==null||undelivered!==null)
         ?Math.max(0,1-Number(missing||0)/100-Number(undelivered||0)/100)
         :null;
-      const totalUph=totalHours>0?total/totalHours:null;
+      const totalUph=totalHours>0&&total!==null?total/totalHours:null;
 
       return {
         store_card_points:null,
@@ -918,9 +921,9 @@ Deno.serve(async req=>{
         outbound_units:round(outbound,0),
         inbound_units:round(inbound,0),
         total_units:round(total,0),
-        orders_per_hour:orderHours>0?round(orders/orderHours,2):null,
-        outbound_units_per_hour:outHours>0?round(outbound/outHours,2):null,
-        inbound_units_per_hour:inboundHours>0?round(inbound/inboundHours,2):null,
+        orders_per_hour:orderHours>0&&orders!==null?round(orders/orderHours,2):null,
+        outbound_units_per_hour:outHours>0&&outbound!==null?round(outbound/outHours,2):null,
+        inbound_units_per_hour:inboundHours>0&&inbound!==null?round(inbound/inboundHours,2):null,
         total_units_per_hour:totalUph!==null?round(totalUph,2):null,
         quality_adjusted_units_per_hour:totalUph!==null&&qualityFactor!==null?round(totalUph*qualityFactor,2):null,
         on_time_pct:round(onTime,1),
