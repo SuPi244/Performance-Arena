@@ -503,8 +503,21 @@ Deno.serve(async req=>{
     const tardinessShifts=shifts.filter((s:any)=>
       !!s.scheduled_start&&!!s.actual_start&&!tardinessExceptionReasons.has(`${person.person_key}|${String(s.shift_date)}`)
     );
-    const tardiness=tardinessShifts.map((s:any)=>tardinessMinutes(s.scheduled_start,s.actual_start)).filter((x:any)=>x!==null) as number[];
-    const on_time_count=tardiness.filter(x=>x<=5).length;
+    const tardinessDetails=tardinessShifts.map((s:any)=>{
+      const minutes=tardinessMinutes(s.scheduled_start,s.actual_start);
+      return {
+        shift_date:String(s.shift_date),
+        shift_type:String(s.shift_type||"Unknown"),
+        scheduled_start:s.scheduled_start,
+        actual_start:s.actual_start,
+        tardiness_min:minutes===null?null:round(minutes,1),
+        on_time:minutes!==null?minutes<=5:null
+      };
+    }).filter((x:any)=>x.tardiness_min!==null);
+    const tardiness=tardinessDetails.map((x:any)=>Number(x.tardiness_min)) as number[];
+    const on_time_count=tardinessDetails.filter((x:any)=>x.on_time===true).length;
+    const late_shifts=tardinessDetails.filter((x:any)=>x.on_time===false)
+      .sort((a:any,b:any)=>String(a.shift_date).localeCompare(String(b.shift_date)));
 
     const daily=new Map<string,{outbound:number,inbound:number,orders:number,hours:number,shift_type:string,hasOutbound:boolean,hasInbound:boolean,hasOrders:boolean}>();
     for(const s of shifts){
@@ -601,6 +614,8 @@ Deno.serve(async req=>{
       on_time_count,
       tardiness_shift_count:tardiness.length,
       tardiness_excluded_count:tardinessExcluded.length,
+      tardiness_details:tardinessDetails,
+      late_shifts,
       tardiness_exclusions:tardinessExcluded.map((s:any)=>({
         shift_date:String(s.shift_date),
         scheduled_start:s.scheduled_start,
@@ -885,7 +900,7 @@ Deno.serve(async req=>{
 
     return J({
       ok:true,
-      version:"player-store-card-v5",
+      version:"player-store-card-v6",
       person:{
         person_key:person.person_key,
         display_name:person.display_name,
