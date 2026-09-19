@@ -61,7 +61,7 @@ function resolveEmail(email:string|null,aliases:any[]){
 }
 function nameOccurrences(text:string,people:any[]){
   const s=norm(text),hits:any[]=[];
-  for(const p of people){
+  for(const p of people.filter((x:any)=>x.active===true)){
     const needle=norm(p.full_name);
     if(!needle||needle.length<4)continue;
     let at=0;
@@ -97,16 +97,20 @@ function parseForm(text:string,filename:string,people:any[],emailAliases:any[]){
     const st=parseStamp(stamps[i][0]);if(!st)continue;
     const email=findEmail(chunk);
     const respondent=resolveEmail(email,emailAliases);
-    const names=nameOccurrences(chunk,people);
+    const activePeople=people.filter((p:any)=>p.active===true);
+    const names=nameOccurrences(chunk,activePeople);
     const selfVotes=respondent?names.filter((x:any)=>String(x.person_id)===String(respondent)).length:0;
     const within=st.date>=month&&st.date<=end;
+    const respondentPerson=respondent?people.find((p:any)=>String(p.id)===String(respondent)):null;
     let reason:any=null;
     if(!respondent)reason="unresolved_respondent";
+    else if(respondentPerson?.active!==true)reason="out_of_store";
     else if(!within)reason="outside_form_month";
     else if(selfVotes>0)reason="self_vote";
     if(names.length!==EXPECTED_VOTES)conflicts.push((email||st.raw)+": rozpoznáno "+names.length+"/"+EXPECTED_VOTES+" nominací");
     if(reason==="self_vote")warnings.push((email||st.raw)+": self-vote → odpověď diskvalifikována");
     if(reason==="outside_form_month")warnings.push((email||st.raw)+": odpověď po konci měsíce → nezapočítána");
+    if(reason==="out_of_store")warnings.push((email||st.raw)+": respondent není v aktuálním Holešovice rosteru → nezapočítán");
     const key=responseKey(month,String(respondent||email||"unknown"),st.raw);
     responses.push({
       response_key:key,response_month:month,submitted_at:pragueIso(st),
