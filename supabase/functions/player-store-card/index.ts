@@ -1,0 +1,917 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const cors={
+  "Access-Control-Allow-Origin":"*",
+  "Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods":"POST, OPTIONS"
+};
+const J=(x:any,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{...cors,"content-type":"application/json"}});
+
+const norm=(s:any)=>String(s||"").trim().toLowerCase();
+const finite=(v:any)=>v!==null&&v!==undefined&&Number.isFinite(Number(v))?Number(v):null;
+const vals=(a:any[])=>a.map(finite).filter((x:any)=>x!==null) as number[];
+const sum=(a:any[])=>vals(a).reduce((x:number,y:number)=>x+y,0);
+const avg=(a:any[])=>{const v=vals(a);return v.length?v.reduce((x:number,y:number)=>x+y,0)/v.length:null};
+const round=(v:any,d=2)=>{const n=finite(v);if(n===null)return null;const p=10**d;return Math.round(n*p)/p};
+
+function monthFrame(){
+  const now=new Date();
+  const y=now.getUTCFullYear(),m=now.getUTCMonth()+1;
+  const start=`${y}-${String(m).padStart(2,"0")}-01`;
+  const today=now.toISOString().slice(0,10);
+  const end=new Date(Date.UTC(y,m,0)).toISOString().slice(0,10);
+  return {year:y,month:m,start,today,end,key:start.slice(0,7)};
+}
+function dateAdd(iso:string,days:number){
+  const d=new Date(iso+"T00:00:00Z");d.setUTCDate(d.getUTCDate()+days);return d.toISOString().slice(0,10);
+}
+
+function weekStart(iso:string){
+  const d=new Date(String(iso).slice(0,10)+"T00:00:00Z");
+  if(!Number.isFinite(d.getTime()))return null;
+  const delta=(d.getUTCDay()+6)%7;
+  d.setUTCDate(d.getUTCDate()-delta);
+  return d.toISOString().slice(0,10);
+}
+function metricSeries(rows:any[],defs:Map<string,any>){
+  const ids=[...new Set(rows.map((r:any)=>r.metric_id).filter(Boolean))];
+  const out:any[]=[];
+  for(const id of ids){
+    const d:any=defs.get(id)||{metric_id:id,label:id,unit:"number",category:"other",lower_is_better:null};
+    const buckets=new Map<string,number[]>();
+    for(const r of rows.filter((x:any)=>x.metric_id===id)){
+      const wk=weekStart(r.period_start); const v=finite(r.value);
+      if(!wk||v===null)continue;
+      if(!buckets.has(wk))buckets.set(wk,[]);
+      buckets.get(wk)!.push(v);
+    }
+    const labels=[...buckets.keys()].sort();
+    const aggregation=d.unit==="count"?"sum":"average";
+    const values=labels.map(k=>{
+      const a=buckets.get(k)||[];
+      return round(aggregation==="sum"?sum(a):avg(a),d.unit==="count"?0:2);
+    });
+    if(values.some(v=>v!==null))out.push({
+      metric_id:id,label:d.label||id,unit:d.unit||"number",
+      category:d.category||classifyMetric(d.label||id,id,""),
+      group:classifyMetric(d.label||id,id,d.category||""),
+      lower_is_better:d.lower_is_better,
+      aggregation,labels,values
+    });
+  }
+  return out.sort((a,b)=>a.group.localeCompare(b.group)||a.label.localeCompare(b.label));
+}
+function percentileScore(value:number|null,all:number[],lower=false){
+  if(value===null||!all.length)return null;
+  const a=all.filter(Number.isFinite).sort((x,y)=>x-y);
+  if(!a.length)return null;
+  if(a.length===1)return .5;
+  const less=a.filter(x=>x<value).length;
+  const equal=a.filter(x=>x===value).length;
+  let p=(less+(equal-1)/2)/(a.length-1);
+  if(lower)p=1-p;
+  return Math.max(0,Math.min(1,p));
+}
+function rowsByMetric(rows:any[]){
+  const m=new Map<string,any[]>();
+  for(const r of rows){
+    if(!m.has(r.metric_id))m.set(r.metric_id,[]);
+    m.get(r.metric_id)!.push(r);
+  }
+  return m;
+}
+function metricVals(by:Map<string,any[]>,id:string){return (by.get(id)||[]).map((r:any)=>finite(r.value)).filter((x:any)=>x!==null) as number[]}
+function metricSum(by:Map<string,any[]>,id:string){const v=metricVals(by,id);return v.length?v.reduce((a:number,b:number)=>a+b,0):null}
+function metricAvg(by:Map<string,any[]>,id:string){const v=metricVals(by,id);return v.length?v.reduce((a:number,b:number)=>a+b,0)/v.length:null}
+
+function preferredGroupedValues(rows:any[],ids:string[],keyFn:(r:any)=>string){
+  const groups=new Map<string,Map<string,number>>();
+  for(const r of rows){
+    if(!ids.includes(r.metric_id))continue;
+    const v=finite(r.value);if(v===null)continue;
+    const k=keyFn(r);if(!k)continue;
+    if(!groups.has(k))groups.set(k,new Map());
+    const g=groups.get(k)!;
+    g.set(r.metric_id,(g.get(r.metric_id)||0)+v);
+  }
+  const out=new Map<string,number>();
+  for(const [k,g] of groups){
+    for(const id of ids){
+      if(g.has(id)){out.set(k,Number(g.get(id)));break}
+    }
+  }
+  return out;
+}
+function summedGroupedValues(rows:any[],ids:string[],keyFn:(r:any)=>string){
+  const out=new Map<string,number>();
+  for(const r of rows){
+    if(!ids.includes(r.metric_id))continue;
+    const v=finite(r.value);if(v===null)continue;
+    const k=keyFn(r);if(!k)continue;
+    out.set(k,(out.get(k)||0)+v);
+  }
+  return out;
+}
+function mapSum(m:Map<string,number>){return [...m.values()].reduce((a,b)=>a+b,0)}
+function preferredWeeklyTotal(rows:any[],dailyIds:string[],weeklyIds:string[]){
+  const weekKeys=[...new Set(rows.map((r:any)=>weekStart(r.period_start)).filter(Boolean))] as string[];
+  let total=0,any=false;
+  for(const w of weekKeys){
+    const wr=rows.filter((r:any)=>weekStart(r.period_start)===w);
+    const daily=preferredGroupedValues(wr,dailyIds,(r:any)=>String(r.period_start||""));
+    if(daily.size){total+=mapSum(daily);any=true;continue}
+    for(const id of weeklyIds){
+      const a=wr.filter((r:any)=>r.metric_id===id).map((r:any)=>finite(r.value)).filter((v:any)=>v!==null) as number[];
+      if(a.length){total+=a.reduce((x,y)=>x+y,0);any=true;break}
+    }
+  }
+  return any?total:null;
+}
+function weightedByPeriod(rows:any[],valueId:string,weightId:string){
+  const groups=new Map<string,{v:number[],w:number[]}>();
+  for(const r of rows){
+    const k=String(r.period_start||"");
+    if(!groups.has(k))groups.set(k,{v:[],w:[]});
+    const g=groups.get(k)!;
+    if(r.metric_id===valueId&&finite(r.value)!==null)g.v.push(Number(r.value));
+    if(r.metric_id===weightId&&finite(r.value)!==null)g.w.push(Number(r.value));
+  }
+  let num=0,den=0;
+  for(const g of groups.values()){
+    if(!g.v.length)continue;
+    const v=avg(g.v); if(v===null)continue;
+    const w=g.w.length?sum(g.w):1;
+    if(w>0){num+=v*w;den+=w}
+  }
+  return den?num/den:null;
+}
+function weightedAcrossPeople(rows:any[],valueId:string,weightId:string){
+  const groups=new Map<string,{v:number[],w:number[]}>();
+  for(const r of rows){
+    const k=`${r.person_id||"x"}|${r.period_start||""}`;
+    if(!groups.has(k))groups.set(k,{v:[],w:[]});
+    const g=groups.get(k)!;
+    if(r.metric_id===valueId&&finite(r.value)!==null)g.v.push(Number(r.value));
+    if(r.metric_id===weightId&&finite(r.value)!==null)g.w.push(Number(r.value));
+  }
+  let num=0,den=0;
+  for(const g of groups.values()){
+    if(!g.v.length)continue;
+    const v=avg(g.v); if(v===null)continue;
+    const w=g.w.length?sum(g.w):1;
+    if(w>0){num+=v*w;den+=w}
+  }
+  return den?num/den:null;
+}
+function cvPct(a:number[]){
+  const v=a.filter(x=>Number.isFinite(x));
+  if(v.length<2)return null;
+  const mean=v.reduce((x,y)=>x+y,0)/v.length;
+  if(!mean)return null;
+  const variance=v.reduce((s,x)=>s+(x-mean)**2,0)/v.length;
+  return Math.sqrt(variance)/Math.abs(mean)*100;
+}
+function tardinessMinutes(scheduled:any,actual:any){
+  if(!scheduled||!actual)return null;
+  const s=new Date(scheduled).getTime(),a=new Date(actual).getTime();
+  if(!Number.isFinite(s)||!Number.isFinite(a))return null;
+  return Math.max(0,(a-s)/60000);
+}
+function classifyMetric(label:string,id:string,category:string){
+  const x=(label+" "+id+" "+category).toLowerCase();
+  if(/missing|undelivered|rating|quality|pofr|perfect order|refund|ticket|late preparation|not collected|scanner|scan to pick|substitution/.test(x))return "quality";
+  if(/time|accepted|collection|ready|start collection|production|pick.*per item|speed/.test(x))return "speed";
+  if(/inbound|units|orders|count|stock|task/.test(x))return "output";
+  return "other";
+}
+async function resolvePerson(db:any,worker:string){
+  const w=norm(worker);
+  const {data:a}=await db.from("person_aliases").select("person_id,alias_type,alias_value,normalized_value")
+    .eq("normalized_value",w).limit(2);
+  if(a?.length===1){
+    const {data:p}=await db.from("people").select("id,person_key,display_name,full_name,active").eq("id",a[0].person_id).single();
+    return p||null;
+  }
+  const {data:p1}=await db.from("people").select("id,person_key,display_name,full_name,active").ilike("display_name",worker).limit(2);
+  if(p1?.length===1)return p1[0];
+  const {data:p2}=await db.from("people").select("id,person_key,display_name,full_name,active").ilike("full_name",worker).limit(2);
+  return p2?.length===1?p2[0]:null;
+}
+
+Deno.serve(async req=>{
+  if(req.method==="OPTIONS")return new Response("ok",{headers:cors});
+  if(req.method!=="POST")return J({error:"POST required"},405);
+
+  try{
+    const body=await req.json().catch(()=>({}));
+    const worker=String(body.worker||"").trim();
+    if(!worker)return J({error:"worker is required"},400);
+
+    const url=Deno.env.get("SUPABASE_URL")!,service=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const db=createClient(url,service);
+    const frame=monthFrame();
+
+    const person=await resolvePerson(db,worker);
+    if(!person)return J({error:"Player not found"},404);
+
+    const historyStart=dateAdd(frame.today,-97);
+    const [
+      {data:bonusRows,error:bonusErr},
+      {data:months,error:monthsErr},
+      {data:personalRows,error:personalErr},
+      {data:officialRows,error:officialErr},
+      {data:personalShifts,error:personalShiftErr},
+      {data:historyRows,error:historyErr},
+      {data:historyShifts,error:historyShiftErr}
+    ]=await Promise.all([
+      db.from("bonus_ledger").select("bonus_month,amount,currency,status,metadata").eq("person_id",person.id)
+        .in("status",["confirmed","paid"]).order("bonus_month",{ascending:false}),
+      db.from("store_card_months").select("*").order("month",{ascending:false}).limit(24),
+      db.from("metric_observations").select("person_id,metric_id,value,period_start,period_end,source_type,metadata")
+        .eq("person_id",person.id).gte("period_start",frame.start).lte("period_start",frame.today),
+      db.from("metric_observations").select("metric_id,value,period_start,period_end,source_type,metadata")
+        .eq("person_id",person.id).eq("source_type","store_card_monthly").order("period_start",{ascending:false}).limit(500),
+      db.from("shifts").select("shift_date,shift_type,role,scheduled_start,scheduled_end,actual_start,actual_end,scheduled_hours,worked_hours")
+        .eq("person_id",person.id).gte("shift_date",frame.start).lte("shift_date",frame.today).order("shift_date"),
+      db.from("metric_observations").select("person_id,metric_id,value,period_start,period_end,source_type,metadata")
+        .eq("person_id",person.id).gte("period_start",historyStart).lte("period_start",frame.today).limit(5000),
+      db.from("shifts").select("shift_date,shift_type,role,scheduled_start,scheduled_end,actual_start,actual_end,scheduled_hours,worked_hours")
+        .eq("person_id",person.id).gte("shift_date",historyStart).lte("shift_date",frame.today).order("shift_date")
+    ]);
+    if(bonusErr)throw new Error(bonusErr.message);
+    if(monthsErr)throw new Error(monthsErr.message);
+    if(personalErr)throw new Error(personalErr.message);
+    if(officialErr)throw new Error(officialErr.message);
+    if(personalShiftErr)throw new Error(personalShiftErr.message);
+    if(historyErr)throw new Error(historyErr.message);
+    if(historyShiftErr)throw new Error(historyShiftErr.message);
+
+    const by=rowsByMetric(personalRows||[]);
+    // OUTBOUND semantics:
+    // - Picking App Task Count = outbound orders/tasks.
+    // - Items Picked Count = actual picked outbound units (preferred).
+    // - Item Count Total is only a fallback when Items Picked Count is unavailable.
+    // Weekly GA totals are used only for weeks where daily picking data is absent.
+    const outboundOrdersMTD=preferredWeeklyTotal(personalRows||[],["daily_picking_app_task_count"],["picking_app_task_count"]);
+    const outboundUnitsMTD=preferredWeeklyTotal(personalRows||[],["daily_items_picked_count","daily_item_count_total"],["item_count_total"]);
+
+    const live:any={
+      month:frame.key,
+      period_start:frame.start,
+      through:frame.today,
+      orders_picked:outboundOrdersMTD,
+      total_units_picked:outboundUnitsMTD,
+      outbound_orders:outboundOrdersMTD,
+      outbound_units:outboundUnitsMTD,
+      outbound_definition:"Orders = Picking App Task Count; Units = Items Picked Count (fallback Item Count Total).",
+
+      missing_items_ratio:weightedByPeriod(personalRows||[],"missing_incorrect_items_rate","item_count_total"),
+      missing_items_count:metricSum(by,"missing_incorrect_items_count"),
+      undelivered_items_ratio:weightedByPeriod(personalRows||[],"daily_undelivered_items_ratio","daily_item_count_total"),
+      scan_to_pick_ratio:weightedByPeriod(personalRows||[],"daily_items_picked_via_scanner_ratio","daily_item_count_total")
+        ?? weightedByPeriod(personalRows||[],"items_picked_via_scanner_ratio","item_count_total"),
+      substitutions_ratio:weightedByPeriod(personalRows||[],"daily_substitutions_ratio","daily_item_count_total"),
+      replacement_items_picked_count:metricSum(by,"daily_replacement_items_picked_count"),
+      items_picked_count:metricSum(by,"daily_items_picked_count"),
+
+      bad_goods_rating_ratio:weightedByPeriod(personalRows||[],"bad_goods_rating_ratio","item_count_total"),
+      avg_goods_rating:weightedByPeriod(personalRows||[],"average_rating_of_goods","item_count_total"),
+      venue_related_cs_tickets_ratio:weightedByPeriod(personalRows||[],"venue_related_cs_tickets_ratio","item_count_total"),
+      pofr:weightedByPeriod(personalRows||[],"perfect_order_fulfilment_ratio","picking_app_task_count"),
+      not_collected_items_ratio:weightedByPeriod(personalRows||[],"not_collected_items_ratio","picking_app_task_count"),
+      refund_percent:weightedByPeriod(personalRows||[],"refund_percent","picking_app_task_count"),
+      venue_late_preparation_ratio:weightedByPeriod(personalRows||[],"venue_late_preparation_ratio","picking_app_task_count"),
+
+      avg_picking_time:weightedByPeriod(personalRows||[],"avg_picking_time","picking_app_task_count"),
+      picking_time_per_item:weightedByPeriod(personalRows||[],"picking_time_per_item","item_count_total"),
+      avg_items_per_order:weightedByPeriod(personalRows||[],"avg_items_per_order","picking_app_task_count"),
+      average_accepted_time:weightedByPeriod(personalRows||[],"daily_avg_accepted_time","daily_picking_app_task_count"),
+      average_acknowledged_time:weightedByPeriod(personalRows||[],"daily_avg_acknowledged_time","daily_picking_app_task_count"),
+      average_collection_time:weightedByPeriod(personalRows||[],"daily_avg_collection_time","daily_picking_app_task_count"),
+      average_ready_for_pickup_time:weightedByPeriod(personalRows||[],"daily_avg_ready_for_pickup_time","daily_picking_app_task_count"),
+      average_start_collection_time:weightedByPeriod(personalRows||[],"daily_avg_start_collection_time","daily_picking_app_task_count"),
+      total_production_time:metricAvg(by,"daily_total_production_time"),
+
+      inbound_total_units:metricSum(by,"inbound_normal_units"),
+      inbound_icy_units:metricSum(by,"inbound_icy_units"),
+      inbound_freeze_units:metricSum(by,"inbound_freez_units"),
+      stock_count:metricSum(by,"stock_count_adjustment_count"),
+
+      team_rating:null,
+      total_points:null,
+      projected_bonus_czk:null
+    };
+    live.inbound_all_units=sum([live.inbound_total_units,live.inbound_icy_units,live.inbound_freeze_units]);
+
+    const liveFields=[
+      "orders_picked","total_units_picked","missing_items_ratio","undelivered_items_ratio","scan_to_pick_ratio",
+      "bad_goods_rating_ratio","avg_goods_rating","venue_related_cs_tickets_ratio","average_accepted_time",
+      "average_collection_time","average_start_collection_time","inbound_total_units","inbound_icy_units",
+      "inbound_freeze_units","stock_count","team_rating"
+    ];
+    live.coverage_total=liveFields.length;
+    live.coverage_count=liveFields.filter(k=>finite(live[k])!==null).length;
+    live.coverage_percent=Math.round(live.coverage_count/live.coverage_total*100);
+    for(const k of Object.keys(live)){
+      if(typeof live[k]==="number"){
+        const isInt=/units|orders|count/.test(k)&&!/ratio|percent|time/.test(k);
+        live[k]=round(live[k],isInt?0:2);
+      }
+    }
+
+    const confirmed=(bonusRows||[]).map((x:any)=>({...x,amount:Number(x.amount||0)}));
+    const bonus_wallet={
+      currency:"CZK",
+      confirmed_total_czk:confirmed.reduce((a:number,x:any)=>a+x.amount,0),
+      latest:confirmed[0]||null,
+      history:confirmed
+    };
+
+    const latestMonth=months?.[0]||null;
+
+    // Official Store Card snapshot for the latest closed month.
+    const latestOfficialPeriod=(officialRows||[])[0]?.period_start||null;
+    const officialMap:any={};
+    for(const r of officialRows||[]){
+      if(r.period_start!==latestOfficialPeriod)continue;
+      officialMap[r.metric_id]=finite(r.value);
+    }
+    const latestOfficialPoints=latestOfficialPeriod&&officialMap.store_card_total_points!==undefined?{
+      value:officialMap.store_card_total_points,
+      period_start:latestOfficialPeriod,
+      period_end:(officialRows||[]).find((r:any)=>r.period_start===latestOfficialPeriod)?.period_end||null
+    }:null;
+
+    const officialMetricLabels:any={
+      store_card_orders_picked:["Orders picked","count"],
+      store_card_total_units_picked:["Total Units Picked","count"],
+      store_card_missing_items_ratio:["Missing items","percent"],
+      store_card_undelivered_items_ratio:["Undelivered items","percent"],
+      store_card_scan_to_pick_ratio:["Scan to pick","percent"],
+      store_card_bad_goods_rating_ratio:["Bad Goods Rating Ratio","percent"],
+      store_card_avg_goods_rating:["Avg. goods rating","number"],
+      store_card_venue_related_cs_tickets_ratio:["Venue Related CS Tickets","percent"],
+      store_card_average_accepted_time:["Average Accepted Time","number"],
+      store_card_average_collection_time:["Average Collection Time","number"],
+      store_card_average_start_collection_time:["Average Start Collection Time","number"],
+      store_card_inbound_total_units:["IB total units","count"],
+      store_card_inbound_icy_units:["ICY IB Units","count"],
+      store_card_inbound_freeze_units:["FREEZE IB units","count"],
+      store_card_stock_count:["Stock Count","count"],
+      store_card_team_rating:["Team rating","number"],
+      store_card_score_outbound:["Score OUTBOUND","points"],
+      store_card_score_quality:["Score Quality KPIs","points"],
+      store_card_score_speed:["Score Speed KPIs","points"],
+      store_card_score_inbound_stock:["Score IB + SC","points"],
+      store_card_score_people:["Score People","points"],
+      store_card_total_points:["Total points per GA","points"]
+    };
+    const official_metrics=Object.entries(officialMetricLabels).map(([metric_id,def]:any)=>({
+      metric_id,label:def[0],unit:def[1],value:officialMap[metric_id]??null
+    })).filter((x:any)=>x.value!==null);
+
+    // Dynamic raw metric catalog for all current-month observations.
+    const metricIds=[...new Set((personalRows||[]).map((r:any)=>r.metric_id))];
+    const historyMetricIds=[...new Set([...(historyRows||[]).map((r:any)=>r.metric_id),...metricIds])];
+    const {data:defRows,error:defErr}=historyMetricIds.length
+      ?await db.from("metric_definitions").select("metric_id,label,unit,category,lower_is_better").in("metric_id",historyMetricIds)
+      :{data:[],error:null};
+    if(defErr)throw new Error(defErr.message);
+    const defs=new Map<string,any>((defRows||[]).map((d:any)=>[d.metric_id,d]));
+    const raw_metrics=metricIds.map((id:string)=>{
+      const rows=(by.get(id)||[]);
+      const d:any=defs.get(id)||{metric_id:id,label:id,unit:"number",category:"other",lower_is_better:null};
+      let value:null|number=null,aggregation="average";
+      if(d.unit==="count"){value=metricSum(by,id);aggregation="sum"}
+      else{value=metricAvg(by,id);aggregation="average"}
+      return {
+        metric_id:id,
+        label:d.label||id,
+        unit:d.unit||"number",
+        category:d.category||classifyMetric(d.label||id,id,""),
+        group:classifyMetric(d.label||id,id,d.category||""),
+        lower_is_better:d.lower_is_better,
+        value:round(value,d.unit==="count"?0:2),
+        aggregation,
+        source_types:[...new Set(rows.map((r:any)=>r.source_type).filter(Boolean))]
+      };
+    }).filter((x:any)=>x.value!==null).sort((a:any,b:any)=>a.group.localeCompare(b.group)||a.label.localeCompare(b.label));
+
+    const metric_series=metricSeries(historyRows||[],defs);
+    // User-friendly synthetic series: avoid making employees choose between two
+    // technical outbound counters. We prefer actual Items Picked Count.
+    const synthWeeks=[...new Set((historyRows||[]).map((r:any)=>weekStart(r.period_start)).filter(Boolean))].sort() as string[];
+    const synthOutboundValues=synthWeeks.map(w=>{
+      const wr=(historyRows||[]).filter((r:any)=>weekStart(r.period_start)===w);
+      const daily=preferredGroupedValues(wr,["daily_items_picked_count","daily_item_count_total"],(r:any)=>String(r.period_start||""));
+      if(daily.size)return round(mapSum(daily),0);
+      const b=rowsByMetric(wr);return round(metricSum(b,"item_count_total"),0);
+    });
+    const synthOrdersValues=synthWeeks.map(w=>{
+      const wr=(historyRows||[]).filter((r:any)=>weekStart(r.period_start)===w);
+      const daily=preferredGroupedValues(wr,["daily_picking_app_task_count"],(r:any)=>String(r.period_start||""));
+      if(daily.size)return round(mapSum(daily),0);
+      const b=rowsByMetric(wr);return round(metricSum(b,"picking_app_task_count"),0);
+    });
+    const synthInboundValues=synthWeeks.map(w=>{
+      const wr=(historyRows||[]).filter((r:any)=>weekStart(r.period_start)===w);
+      const m=summedGroupedValues(wr,["inbound_normal_units","inbound_icy_units","inbound_freez_units"],(r:any)=>String(r.period_start||""));
+      return m.size?round(mapSum(m),0):null;
+    });
+    metric_series.push(
+      {metric_id:"outbound_units_picked",label:"Outbound Units Picked",unit:"count",category:"output",group:"output",lower_is_better:false,aggregation:"sum",labels:synthWeeks,values:synthOutboundValues},
+      {metric_id:"outbound_orders",label:"Outbound Orders / Picking Tasks",unit:"count",category:"output",group:"output",lower_is_better:false,aggregation:"sum",labels:synthWeeks,values:synthOrdersValues},
+      {metric_id:"inbound_total_units_live",label:"Inbound Total Units",unit:"count",category:"output",group:"output",lower_is_better:false,aggregation:"sum",labels:synthWeeks,values:synthInboundValues}
+    );
+
+    // Weekly efficiency history for the graph selector.
+    const histDaily=new Map<string,{outbound:number,inbound:number,orders:number,hours:number,hasOutbound:boolean,hasInbound:boolean,hasOrders:boolean,missing:number[],undelivered:number[]}>();
+    for(const s of historyShifts||[]){
+      const d=String(s.shift_date||"");
+      if(!histDaily.has(d))histDaily.set(d,{outbound:0,inbound:0,orders:0,hours:0,hasOutbound:false,hasInbound:false,hasOrders:false,missing:[],undelivered:[]});
+      histDaily.get(d)!.hours+=Number(s.worked_hours||0);
+    }
+    const histOutboundByDay=preferredGroupedValues(historyRows||[],["daily_items_picked_count","daily_item_count_total"],(r:any)=>String(r.period_start||""));
+    const histOrdersByDay=preferredGroupedValues(historyRows||[],["daily_picking_app_task_count"],(r:any)=>String(r.period_start||""));
+    const histInboundByDay=summedGroupedValues(historyRows||[],["inbound_normal_units","inbound_icy_units","inbound_freez_units"],(r:any)=>String(r.period_start||""));
+    const histDates=new Set<string>([...histOutboundByDay.keys(),...histOrdersByDay.keys(),...histInboundByDay.keys(),...(historyRows||[]).map((r:any)=>String(r.period_start||""))]);
+    for(const d of histDates){
+      if(!histDaily.has(d))histDaily.set(d,{outbound:0,inbound:0,orders:0,hours:0,hasOutbound:false,hasInbound:false,hasOrders:false,missing:[],undelivered:[]});
+      const g=histDaily.get(d)!;
+      if(histOutboundByDay.has(d)){g.outbound=histOutboundByDay.get(d)!;g.hasOutbound=true}
+      if(histOrdersByDay.has(d)){g.orders=histOrdersByDay.get(d)!;g.hasOrders=true}
+      if(histInboundByDay.has(d)){g.inbound=histInboundByDay.get(d)!;g.hasInbound=true}
+    }
+    for(const r of historyRows||[]){
+      const d=String(r.period_start||"");
+      if(!histDaily.has(d))continue;
+      const g=histDaily.get(d)!,v=finite(r.value);
+      if(v===null)continue;
+      if(r.metric_id==="missing_incorrect_items_rate")g.missing.push(v);
+      if(r.metric_id==="daily_undelivered_items_ratio")g.undelivered.push(v);
+    }
+    const effWeeks=new Map<string,{outbound:number,inbound:number,orders:number,totalHours:number,outboundHours:number,inboundHours:number,ordersHours:number,missing:number[],undelivered:number[]}>();
+    for(const [d,g] of histDaily){
+      const w=weekStart(d);if(!w)continue;
+      if(!effWeeks.has(w))effWeeks.set(w,{outbound:0,inbound:0,orders:0,totalHours:0,outboundHours:0,inboundHours:0,ordersHours:0,missing:[],undelivered:[]});
+      const x=effWeeks.get(w)!;
+      x.outbound+=g.outbound;x.inbound+=g.inbound;x.orders+=g.orders;
+      if(g.hasOutbound||g.hasInbound)x.totalHours+=g.hours;
+      if(g.hasOutbound)x.outboundHours+=g.hours;
+      if(g.hasInbound)x.inboundHours+=g.hours;
+      if(g.hasOrders)x.ordersHours+=g.hours;
+      x.missing.push(...g.missing);x.undelivered.push(...g.undelivered);
+    }
+    const effLabels=[...effWeeks.keys()].sort();
+    const effVals=(kind:string)=>effLabels.map(w=>{
+      const g=effWeeks.get(w)!;
+      if(kind==="total")return g.totalHours>0?round((g.outbound+g.inbound)/g.totalHours,2):null;
+      if(kind==="outbound")return g.outboundHours>0?round(g.outbound/g.outboundHours,2):null;
+      if(kind==="inbound")return g.inboundHours>0?round(g.inbound/g.inboundHours,2):null;
+      if(kind==="orders")return g.ordersHours>0?round(g.orders/g.ordersHours,2):null;
+      if(g.totalHours<=0)return null;
+      const q=Math.max(0,1-Number(avg(g.missing)||0)/100-Number(avg(g.undelivered)||0)/100);
+      return round(((g.outbound+g.inbound)/g.totalHours)*q,2);
+    });
+    const efficiency_series=[
+      {metric_id:"eff_total_units_per_hour",label:"Total Units / Worked Hour",unit:"number",group:"efficiency",lower_is_better:false,labels:effLabels,values:effVals("total")},
+      {metric_id:"eff_outbound_units_per_hour",label:"Outbound Units / Worked Hour",unit:"number",group:"efficiency",lower_is_better:false,labels:effLabels,values:effVals("outbound")},
+      {metric_id:"eff_inbound_units_per_hour",label:"Inbound Units / Worked Hour",unit:"number",group:"efficiency",lower_is_better:false,labels:effLabels,values:effVals("inbound")},
+      {metric_id:"eff_orders_per_hour",label:"Orders / Worked Hour",unit:"number",group:"efficiency",lower_is_better:false,labels:effLabels,values:effVals("orders")},
+      {metric_id:"eff_quality_adjusted_units_per_hour",label:"Quality-adjusted Units / Hour",unit:"number",group:"efficiency",lower_is_better:false,labels:effLabels,values:effVals("quality")}
+    ];
+
+    // Personal efficiency / output / reliability from current-month canonical data + Quinyx.
+    const allShifts=(personalShifts||[]).filter((s:any)=>finite(s.worked_hours)!==null||finite(s.scheduled_hours)!==null);
+    // Reliability/attendance uses completed observed shifts only. Scheduled-only rows
+    // (for example today's not-yet-worked shift) must not lower attendance by themselves.
+    const shifts=allShifts.filter((s:any)=>finite(s.worked_hours)!==null);
+    const scheduled_hours=sum(shifts.map((s:any)=>s.scheduled_hours));
+    const worked_hours=sum(shifts.map((s:any)=>s.worked_hours));
+    const shift_count=shifts.length;
+    const scheduled_only_shift_count=Math.max(0,allShifts.length-shifts.length);
+
+    // Explicit attendance exception: 2026-09-10 for Martin was an extra shift whose
+    // recorded planned start is not a valid lateness baseline. Keep the shift/hours in
+    // efficiency, but exclude it ONLY from tardiness / on-time calculations.
+    const tardinessExceptionReasons=new Map<string,string>([
+      ["martin-po|2026-09-10","extra shift — planned start is not a valid attendance baseline"]
+    ]);
+    const tardinessExcluded=shifts.filter((s:any)=>
+      !!s.scheduled_start&&!!s.actual_start&&tardinessExceptionReasons.has(`${person.person_key}|${String(s.shift_date)}`)
+    );
+    const tardinessShifts=shifts.filter((s:any)=>
+      !!s.scheduled_start&&!!s.actual_start&&!tardinessExceptionReasons.has(`${person.person_key}|${String(s.shift_date)}`)
+    );
+    const tardiness=tardinessShifts.map((s:any)=>tardinessMinutes(s.scheduled_start,s.actual_start)).filter((x:any)=>x!==null) as number[];
+    const on_time_count=tardiness.filter(x=>x<=5).length;
+
+    const daily=new Map<string,{outbound:number,inbound:number,orders:number,hours:number,shift_type:string,hasOutbound:boolean,hasInbound:boolean,hasOrders:boolean}>();
+    for(const s of shifts){
+      const d=String(s.shift_date);
+      if(!daily.has(d))daily.set(d,{outbound:0,inbound:0,orders:0,hours:0,shift_type:String(s.shift_type||"Unknown"),hasOutbound:false,hasInbound:false,hasOrders:false});
+      const g=daily.get(d)!;
+      g.hours+=Number(s.worked_hours||0);
+      if(!g.shift_type&&s.shift_type)g.shift_type=s.shift_type;
+    }
+    const outboundByDay=preferredGroupedValues(personalRows||[],["daily_items_picked_count","daily_item_count_total"],(r:any)=>String(r.period_start||""));
+    const ordersByDay=preferredGroupedValues(personalRows||[],["daily_picking_app_task_count"],(r:any)=>String(r.period_start||""));
+    const inboundByDay=summedGroupedValues(personalRows||[],["inbound_normal_units","inbound_icy_units","inbound_freez_units"],(r:any)=>String(r.period_start||""));
+    const observedDates=new Set<string>([...outboundByDay.keys(),...ordersByDay.keys(),...inboundByDay.keys()]);
+    for(const d of observedDates){
+      if(!daily.has(d))daily.set(d,{outbound:0,inbound:0,orders:0,hours:0,shift_type:"Unknown",hasOutbound:false,hasInbound:false,hasOrders:false});
+      const g=daily.get(d)!;
+      if(outboundByDay.has(d)){g.outbound=outboundByDay.get(d)!;g.hasOutbound=true}
+      if(ordersByDay.has(d)){g.orders=ordersByDay.get(d)!;g.hasOrders=true}
+      if(inboundByDay.has(d)){g.inbound=inboundByDay.get(d)!;g.hasInbound=true}
+    }
+
+    const dayRows=[...daily.entries()].map(([date,g])=>({
+      date,...g,total:g.outbound+g.inbound,
+      total_uph:g.hours>0&&(g.hasOutbound||g.hasInbound)?(g.outbound+g.inbound)/g.hours:null,
+      outbound_uph:g.hours>0&&g.hasOutbound?g.outbound/g.hours:null,
+      inbound_uph:g.hours>0&&g.hasInbound?g.inbound/g.hours:null,
+      orders_per_hour:g.hours>0&&g.hasOrders?g.orders/g.hours:null
+    })).sort((a,b)=>a.date.localeCompare(b.date));
+
+    const outbound_units=dayRows.filter(x=>x.hasOutbound).reduce((a,x)=>a+x.outbound,0);
+    const inbound_units=dayRows.filter(x=>x.hasInbound).reduce((a,x)=>a+x.inbound,0);
+    const total_units=outbound_units+inbound_units;
+    const orders=dayRows.filter(x=>x.hasOrders).reduce((a,x)=>a+x.orders,0);
+    const observed_worked_hours=dayRows.filter(x=>x.hasOutbound||x.hasInbound).reduce((a,x)=>a+x.hours,0);
+    const outbound_observed_hours=dayRows.filter(x=>x.hasOutbound).reduce((a,x)=>a+x.hours,0);
+    const inbound_observed_hours=dayRows.filter(x=>x.hasInbound).reduce((a,x)=>a+x.hours,0);
+    const orders_observed_hours=dayRows.filter(x=>x.hasOrders).reduce((a,x)=>a+x.hours,0);
+
+    const qualityFactor=Math.max(0,1-Number(live.missing_items_ratio||0)/100-Number(live.undelivered_items_ratio||0)/100);
+    const total_units_per_worked_hour=observed_worked_hours>0?total_units/observed_worked_hours:null;
+
+    const byShift=new Map<string,{hours:number,observedHours:number,outboundHours:number,inboundHours:number,ordersHours:number,outbound:number,inbound:number,orders:number,days:number}>();
+    for(const x of dayRows){
+      const k=x.shift_type||"Unknown";
+      if(!byShift.has(k))byShift.set(k,{hours:0,observedHours:0,outboundHours:0,inboundHours:0,ordersHours:0,outbound:0,inbound:0,orders:0,days:0});
+      const g=byShift.get(k)!;
+      g.hours+=x.hours;
+      if(x.hasOutbound||x.hasInbound)g.observedHours+=x.hours;
+      if(x.hasOutbound)g.outboundHours+=x.hours;
+      if(x.hasInbound)g.inboundHours+=x.hours;
+      if(x.hasOrders)g.ordersHours+=x.hours;
+      if(x.hasOutbound)g.outbound+=x.outbound;
+      if(x.hasInbound)g.inbound+=x.inbound;
+      if(x.hasOrders)g.orders+=x.orders;
+      g.days++;
+    }
+    const by_shift_type=[...byShift.entries()].map(([shift_type,g])=>({
+      shift_type,
+      days:g.days,
+      worked_hours:round(g.hours,2),
+      observed_worked_hours:round(g.observedHours,2),
+      outbound_units:round(g.outbound,0),
+      inbound_units:round(g.inbound,0),
+      total_units_per_hour:g.observedHours>0?round((g.outbound+g.inbound)/g.observedHours,2):null,
+      outbound_units_per_hour:g.outboundHours>0?round(g.outbound/g.outboundHours,2):null,
+      inbound_units_per_hour:g.inboundHours>0?round(g.inbound/g.inboundHours,2):null,
+      orders_per_hour:g.ordersHours>0?round(g.orders/g.ordersHours,2):null
+    })).sort((a,b)=>(b.total_units_per_hour||0)-(a.total_units_per_hour||0));
+
+    const recentStart=dateAdd(frame.today,-6),prevEnd=dateAdd(recentStart,-1),prevStart=dateAdd(prevEnd,-6);
+    const rangeEff=(start:string,end:string)=>{
+      const xs=dayRows.filter(x=>x.date>=start&&x.date<=end&&(x.hasOutbound||x.hasInbound));
+      const h=xs.reduce((a,x)=>a+x.hours,0),u=xs.reduce((a,x)=>a+x.total,0);
+      return h>0?u/h:null;
+    };
+    const recentEff=rangeEff(recentStart,frame.today),prevEff=rangeEff(prevStart,prevEnd);
+    const trendDelta=recentEff!==null&&prevEff!==null&&prevEff!==0?(recentEff-prevEff)/Math.abs(prevEff)*100:null;
+
+    const efficiency={
+      period_start:frame.start,
+      through:frame.today,
+      shift_count,
+      scheduled_only_shift_count,
+      active_days:dayRows.filter(x=>x.hours>0).length,
+      scheduled_hours:round(scheduled_hours,2),
+      worked_hours:round(worked_hours,2),
+      observed_worked_hours:round(observed_worked_hours,2),
+      outbound_observed_hours:round(outbound_observed_hours,2),
+      inbound_observed_hours:round(inbound_observed_hours,2),
+      orders_observed_hours:round(orders_observed_hours,2),
+      hours_variance:round(worked_hours-scheduled_hours,2),
+      attendance_ratio_pct:scheduled_hours>0?round(worked_hours/scheduled_hours*100,1):null,
+      avg_tardiness_min:tardiness.length?round(avg(tardiness),1):null,
+      on_time_count,
+      tardiness_shift_count:tardiness.length,
+      tardiness_excluded_count:tardinessExcluded.length,
+      tardiness_exclusions:tardinessExcluded.map((s:any)=>({
+        shift_date:String(s.shift_date),
+        scheduled_start:s.scheduled_start,
+        actual_start:s.actual_start,
+        reason:tardinessExceptionReasons.get(`${person.person_key}|${String(s.shift_date)}`)||"attendance exception"
+      })),
+      on_time_pct:tardiness.length?round(on_time_count/tardiness.length*100,1):null,
+
+      orders:round(orders,0),
+      outbound_units:round(outbound_units,0),
+      inbound_units:round(inbound_units,0),
+      total_units:round(total_units,0),
+
+      orders_per_worked_hour:orders_observed_hours>0?round(orders/orders_observed_hours,2):null,
+      outbound_units_per_worked_hour:outbound_observed_hours>0?round(outbound_units/outbound_observed_hours,2):null,
+      inbound_units_per_worked_hour:inbound_observed_hours>0?round(inbound_units/inbound_observed_hours,2):null,
+      total_units_per_worked_hour:round(total_units_per_worked_hour,2),
+
+      quality_factor:round(qualityFactor*100,2),
+      quality_adjusted_units_per_hour:total_units_per_worked_hour!==null?round(total_units_per_worked_hour*qualityFactor,2):null,
+      quality_adjusted_formula:"Total units/h × (1 − Missing% − Undelivered%)",
+
+      inbound_share_pct:total_units>0?round(inbound_units/total_units*100,1):null,
+      outbound_share_pct:total_units>0?round(outbound_units/total_units*100,1):null,
+      consistency_cv_pct:round(cvPct(dayRows.map(x=>finite(x.total_uph)).filter((x:any)=>x!==null) as number[]),1),
+
+      trend:{
+        recent_period:`${recentStart} → ${frame.today}`,
+        previous_period:`${prevStart} → ${prevEnd}`,
+        recent_units_per_hour:round(recentEff,2),
+        previous_units_per_hour:round(prevEff,2),
+        delta_pct:round(trendDelta,1)
+      },
+      by_shift_type,
+      note:"Efficiency is contextual, not a Rank/ELO score. Outbound = Items Picked Count (fallback Item Count Total); Orders = Picking App Task Count. Hours are counted only on days where the corresponding output source is observed, so missing reports are not treated as zero performance. Reliability uses completed shifts only; explicit attendance exceptions affect tardiness/on-time only, never worked hours or efficiency."
+    };
+
+    // Team/store live MTD estimate + projection inputs.
+    const [{data:activePeople,error:activeErr},{data:teamObs,error:teamErr},{data:shiftRows,error:shiftErr}]=await Promise.all([
+      db.from("people").select("id,person_key,display_name,full_name,active").eq("active",true),
+      db.from("metric_observations").select("person_id,metric_id,value,period_start,period_end,source_type")
+        .gte("period_start",frame.start).lte("period_start",frame.today).limit(12000),
+      db.from("shifts").select("person_id,worked_hours,scheduled_hours,shift_date,shift_type,scheduled_start,actual_start")
+        .gte("shift_date",frame.start).lte("shift_date",frame.today).limit(5000)
+    ]);
+    if(activeErr)throw new Error(activeErr.message);
+    if(teamErr)throw new Error(teamErr.message);
+    if(shiftErr)throw new Error(shiftErr.message);
+
+    const activeIds=new Set((activePeople||[]).map((p:any)=>p.id));
+    const teamCurrent=(teamObs||[]).filter((r:any)=>activeIds.has(r.person_id));
+    const teamCurrentShifts=(shiftRows||[]).filter((r:any)=>activeIds.has(r.person_id));
+
+    const tby=rowsByMetric(teamCurrent);
+    const teamOutboundByPersonDay=preferredGroupedValues(teamCurrent,["daily_items_picked_count","daily_item_count_total"],(r:any)=>`${r.person_id}|${r.period_start}`);
+    const teamInboundByPersonDay=summedGroupedValues(teamCurrent,["inbound_normal_units","inbound_icy_units","inbound_freez_units"],(r:any)=>`${r.person_id}|${r.period_start}`);
+    const storeOutbound=teamOutboundByPersonDay.size?mapSum(teamOutboundByPersonDay):null;
+    const storeInbound=teamInboundByPersonDay.size?mapSum(teamInboundByPersonDay):null;
+    const observedTeamKeys=new Set<string>([...teamOutboundByPersonDay.keys(),...teamInboundByPersonDay.keys()]);
+    const storeWorked=sum(teamCurrentShifts.map((x:any)=>x.worked_hours));
+    const storeObservedWorked=sum(teamCurrentShifts.filter((x:any)=>observedTeamKeys.has(`${x.person_id}|${x.shift_date}`)).map((x:any)=>x.worked_hours));
+
+    const liveStore={
+      month:frame.key,
+      through:frame.today,
+      uph:storeObservedWorked>0?round((Number(storeOutbound||0)+Number(storeInbound||0))/storeObservedWorked,2):null,
+      pofr:round(weightedAcrossPeople(teamCurrent,"perfect_order_fulfilment_ratio","picking_app_task_count"),2),
+      missing_items_ratio:round(weightedAcrossPeople(teamCurrent,"missing_incorrect_items_rate","item_count_total"),2),
+      undelivered_items_ratio:round(weightedAcrossPeople(teamCurrent,"daily_undelivered_items_ratio","daily_item_count_total"),2),
+      outbound_units:round(storeOutbound,0),
+      inbound_units:round(storeInbound,0),
+      worked_hours:round(storeWorked,2),
+      observed_worked_hours:round(storeObservedWorked,2),
+      outercase_scan_ratio:null,
+      weighted_availability:null,
+      task_completion_ratio:null,
+      outbound_seconds_per_unit:null,
+      total_score:null,
+      status:"provisional"
+    };
+
+    // Store Card projection: transparent proxy model, intentionally separate from the official month-end score.
+    // Exact documented rule used: Orders + Total Units target = 80% of team maximum.
+    // Other categories use current Arena targets where known and team-relative proxies where the spreadsheet formula is not available.
+    const teamByPerson=new Map<string,any[]>();
+    for(const p of activePeople||[])teamByPerson.set(p.id,[]);
+    for(const r of teamCurrent){
+      if(!teamByPerson.has(r.person_id))teamByPerson.set(r.person_id,[]);
+      teamByPerson.get(r.person_id)!.push(r);
+    }
+
+    const proxy=(rows:any[])=>{
+      const b=rowsByMetric(rows);
+      return {
+        orders:preferredWeeklyTotal(rows,["daily_picking_app_task_count"],["picking_app_task_count"]),
+        units:preferredWeeklyTotal(rows,["daily_items_picked_count","daily_item_count_total"],["item_count_total"]),
+        missing:weightedByPeriod(rows,"missing_incorrect_items_rate","item_count_total"),
+        undelivered:weightedByPeriod(rows,"daily_undelivered_items_ratio","daily_item_count_total"),
+        scan:weightedByPeriod(rows,"daily_items_picked_via_scanner_ratio","daily_item_count_total")
+          ??weightedByPeriod(rows,"items_picked_via_scanner_ratio","item_count_total"),
+        bad_goods:weightedByPeriod(rows,"bad_goods_rating_ratio","item_count_total"),
+        rating:weightedByPeriod(rows,"average_rating_of_goods","item_count_total"),
+        cs:weightedByPeriod(rows,"venue_related_cs_tickets_ratio","item_count_total"),
+        accepted:weightedByPeriod(rows,"daily_avg_accepted_time","daily_picking_app_task_count"),
+        collection:weightedByPeriod(rows,"daily_avg_collection_time","daily_picking_app_task_count"),
+        start_collection:weightedByPeriod(rows,"daily_avg_start_collection_time","daily_picking_app_task_count"),
+        inbound:metricSum(b,"inbound_normal_units"),
+        icy:metricSum(b,"inbound_icy_units"),
+        freeze:metricSum(b,"inbound_freez_units"),
+        stock:metricSum(b,"stock_count_adjustment_count")
+      };
+    };
+
+    const proxyRows=(activePeople||[]).map((p:any)=>({person:p,metrics:proxy(teamByPerson.get(p.id)||[])}));
+    const arr=(k:string)=>proxyRows.map((x:any)=>finite(x.metrics[k])).filter((v:any)=>v!==null) as number[];
+    const maxOf=(k:string)=>{const a=arr(k);return a.length?Math.max(...a):null};
+    const median=(k:string)=>{const a=arr(k).sort((x,y)=>x-y);if(!a.length)return null;const m=Math.floor(a.length/2);return a.length%2?a[m]:(a[m-1]+a[m])/2};
+
+    // Last official People score is carried only as an estimate because Forms / Team rating / Engage me are monthly/manual inputs.
+    const latestClosed=latestMonth?.month||latestOfficialPeriod||null;
+    let priorPeopleScore=new Map<string,number>(),priorTotals:any[]=[],priorBonuses:any[]=[];
+    if(latestClosed){
+      const [{data:ps,error:pse},{data:pb,error:pbe}]=await Promise.all([
+        db.from("metric_observations").select("person_id,metric_id,value,period_start")
+          .in("metric_id",["store_card_score_people","store_card_total_points"]).eq("period_start",latestClosed).limit(1000),
+        db.from("bonus_ledger").select("person_id,amount,bonus_month,status")
+          .eq("bonus_month",latestClosed).in("status",["confirmed","paid"]).limit(1000)
+      ]);
+      if(pse)throw new Error(pse.message);
+      if(pbe)throw new Error(pbe.message);
+      priorBonuses=pb||[];
+      for(const r of ps||[]){
+        if(r.metric_id==="store_card_score_people"&&finite(r.value)!==null)priorPeopleScore.set(r.person_id,Number(r.value));
+        if(r.metric_id==="store_card_total_points"&&finite(r.value)!==null)priorTotals.push({person_id:r.person_id,value:Number(r.value)});
+      }
+    }
+
+    const qualityRules:any[]=[
+      ["missing",true,(v:number)=>v<=0.34,"Missing ≤ 0,34 %"],
+      ["undelivered",true,(v:number)=>v<=0.24,"Undelivered ≤ 0,24 %"],
+      ["scan",false,(v:number)=>v>=98,"Scan ≥ 98 %"],
+      ["bad_goods",true,null,"Bad Goods vs tým"],
+      ["rating",false,(v:number)=>v>=4.7,"Rating ≥ 4,7"],
+      ["cs",true,null,"CS tickets vs tým"]
+    ];
+    const speedKeys=["accepted","collection","start_collection"];
+    const inboundKeys=["inbound","icy","freeze","stock"];
+    const maxPoints=17;
+
+    const projected=proxyRows.map((x:any)=>{
+      const m=x.metrics,components:any[]=[];
+      let dataCount=0,totalInputs=15; // 2 output + 6 quality + 3 speed + 4 IB/SC; People is carry-forward.
+
+      let output=0;
+      for(const k of ["orders","units"]){
+        const v=finite(m[k]),mx=maxOf(k);
+        if(v!==null&&mx!==null&&mx>0){dataCount++;const ok=v>=mx*.8;output+=ok?1:0;components.push({key:k,group:"output",value:v,point:ok?1:0,rule:"≥ 80 % team max"})}
+        else components.push({key:k,group:"output",value:v,point:.5,rule:"čeká na data"});
+      }
+
+      let quality=0;
+      for(const [k,lower,pred,label] of qualityRules){
+        const v=finite(m[k]);let point=.5,rule=label;
+        if(v!==null){
+          dataCount++;
+          if(pred)point=pred(v)?1:0;
+          else{
+            const med=median(k);
+            point=med===null?.5:(lower?(v<=med?1:0):(v>=med?1:0));
+            rule=label+(med!==null?` · median ${round(med,2)}`:"");
+          }
+        }else rule="čeká na data";
+        quality+=point;components.push({key:k,group:"quality",value:v,point,rule});
+      }
+
+      let speed=0;
+      for(const k of speedKeys){
+        const v=finite(m[k]),med=median(k);let point=.5;
+        if(v!==null&&med!==null){dataCount++;point=v<=med?1:0}
+        speed+=point;components.push({key:k,group:"speed",value:v,point,rule:med===null?"čeká na data":`≤ team median ${round(med,2)}`});
+      }
+
+      let inboundStock=0;
+      for(const k of inboundKeys){
+        const v=finite(m[k]),mx=maxOf(k);let point=0;
+        if(v!==null&&mx!==null){dataCount++;point=mx<=0?0:(v>=mx*.8?1:0)}
+        inboundStock+=point;components.push({key:k,group:"inbound_stock",value:v,point,rule:mx===null?"čeká na data":"≥ 80 % team max"});
+      }
+
+      const peopleRaw=priorPeopleScore.has(x.person.id)?Number(priorPeopleScore.get(x.person.id)):1;
+      const people=Math.max(-1,Math.min(2,peopleRaw));
+      components.push({key:"people_carry",group:"people",value:people,point:people,rule:"carry-forward z poslední uzavřené Store Card"});
+
+      output=Math.round(output*2)/2;
+      quality=Math.round(quality*2)/2;
+      speed=Math.round(speed*2)/2;
+      inboundStock=Math.round(inboundStock*2)/2;
+      const total=Math.round((output+quality+speed+inboundStock+people)*2)/2;
+      const dataCoverage=Math.round(dataCount/totalInputs*100);
+      return {
+        person_id:x.person.id,display_name:x.person.display_name,
+        total_points:total,data_coverage_percent:dataCoverage,
+        categories:{output,quality,speed,inbound_stock:inboundStock,people},
+        components
+      };
+    }).sort((a:any,b:any)=>b.total_points-a.total_points||b.data_coverage_percent-a.data_coverage_percent||a.display_name.localeCompare(b.display_name,"cs"));
+
+    projected.forEach((x:any,i:number)=>x.rank=i+1);
+    const mine=projected.find((x:any)=>x.person_id===person.id)||null;
+    const teamEffortEstimate=projected.length?round(projected.reduce((a:number,x:any)=>a+x.total_points,0)/(projected.length*maxPoints)*100,1):null;
+
+    // Infer 40h/30h bonus class from the last closed Store Card when possible.
+    const topBonus=Array.isArray(latestMonth?.top_bonus_czk)?latestMonth.top_bonus_czk.map(Number):[3500,2500,1800,1200,500];
+    const priorRanked=priorTotals.sort((a:any,b:any)=>b.value-a.value);
+    const priorRank=priorRanked.findIndex((x:any)=>x.person_id===person.id)+1;
+    const priorBonus=priorBonuses.find((x:any)=>x.person_id===person.id);
+    const priorTop=priorRank>0&&priorRank<=topBonus.length?Number(topBonus[priorRank-1]||0):0;
+    const priorTeamComponent=priorBonus?Math.max(0,Number(priorBonus.amount||0)-priorTop):null;
+    let contractClass:string|null=null;
+    const priorTeamEffort=finite(latestMonth?.team_effort_percent);
+    if(priorTeamComponent!==null&&priorTeamEffort!==null){
+      if(priorTeamEffort>=70){
+        if(Math.abs(priorTeamComponent-800)<1)contractClass="40h";
+        else if(Math.abs(priorTeamComponent-600)<1)contractClass="30h";
+      }else if(priorTeamEffort>=65){
+        if(Math.abs(priorTeamComponent-600)<1)contractClass="40h";
+        else if(Math.abs(priorTeamComponent-400)<1)contractClass="30h";
+      }
+    }
+
+    const projectedRank=mine?.rank??null;
+    const projectedTop=projectedRank&&projectedRank<=topBonus.length?Number(topBonus[projectedRank-1]||0):0;
+    let projectedTeam:number|null=null;
+    if(teamEffortEstimate!==null&&contractClass){
+      if(teamEffortEstimate>=70)projectedTeam=contractClass==="40h"?800:600;
+      else if(teamEffortEstimate>=65)projectedTeam=contractClass==="40h"?600:400;
+      else projectedTeam=0;
+    }
+    const maxTeam=teamEffortEstimate!==null&&teamEffortEstimate>=70?800:teamEffortEstimate!==null&&teamEffortEstimate>=65?600:0;
+    const projectedBonusExact=projectedTeam!==null?projectedTop+projectedTeam:null;
+    const projectedBonusMin=projectedTop;
+    const projectedBonusMax=projectedTop+(projectedTeam!==null?projectedTeam:maxTeam);
+
+    const projection={
+      status:"provisional",
+      model_version:"store-card-proxy-v1",
+      projected_points:mine?.total_points??null,
+      projected_rank:projectedRank,
+      projected_rank_total:projected.length,
+      projected_top_bonus_czk:projectedTop,
+      projected_team_bonus_czk:projectedTeam,
+      projected_bonus_czk:projectedBonusExact,
+      projected_bonus_min_czk:projectedBonusMin,
+      projected_bonus_max_czk:projectedBonusMax,
+      team_effort_estimate_percent:teamEffortEstimate,
+      contract_class_inferred:contractClass,
+      data_coverage_percent:mine?.data_coverage_percent??0,
+      confidence_percent:mine?Math.round(mine.data_coverage_percent*.65):0,
+      categories:mine?.categories||null,
+      components:mine?.components||[],
+      leaderboard:projected.slice(0,10).map((x:any)=>({rank:x.rank,display_name:x.display_name,points:x.total_points,coverage:x.data_coverage_percent})),
+      explanation:"Průběžný odhad. Output používá dokumentované pravidlo 80 % team maxima. Ostatní neúplné spreadsheetové části používají Arena targets / team-relative proxy; People je carry-forward z poslední uzavřené Store Card."
+    };
+
+    // Team benchmark for user-friendly efficiency comparison.
+    // Use the same observed-day logic as the personal efficiency calculation.
+    const teamEffVals:number[]=[];
+    for(const p of activePeople||[]){
+      const rows=teamByPerson.get(p.id)||[];
+      const out=preferredGroupedValues(rows,["daily_items_picked_count","daily_item_count_total"],(r:any)=>String(r.period_start||""));
+      const ib=summedGroupedValues(rows,["inbound_normal_units","inbound_icy_units","inbound_freez_units"],(r:any)=>String(r.period_start||""));
+      const observed=new Set<string>([...out.keys(),...ib.keys()]);
+      const h=sum(teamCurrentShifts.filter((s:any)=>s.person_id===p.id&&observed.has(String(s.shift_date))).map((s:any)=>s.worked_hours));
+      const u=mapSum(out)+mapSum(ib);
+      if(h>0)teamEffVals.push(u/h);
+    }
+    const teamEffAvg=avg(teamEffVals);
+    const myEff=finite(efficiency.total_units_per_worked_hour);
+    (efficiency as any).team_average_total_units_per_hour=round(teamEffAvg,2);
+    (efficiency as any).vs_team_percent=myEff!==null&&teamEffAvg!==null&&teamEffAvg!==0?round((myEff-teamEffAvg)/teamEffAvg*100,1):null;
+    (efficiency as any).team_percentile=myEff!==null&&teamEffVals.length?round((percentileScore(myEff,teamEffVals,false)||0)*100,0):null;
+
+    return J({
+      ok:true,
+      version:"player-store-card-v5",
+      person:{
+        person_key:person.person_key,
+        display_name:person.display_name,
+        full_name:person.full_name,
+        active:person.active
+      },
+      bonus_wallet,
+      latest_official_store_card:latestMonth,
+      latest_official_points:latestOfficialPoints,
+      official_metrics,
+      live_personal:live,
+      live_store:liveStore,
+      raw_metrics,
+      metric_series,
+      efficiency_series,
+      efficiency,
+      projection,
+      scoring:{
+        projected_bonus_available:true,
+        projected_bonus_is_estimate:true,
+        reason:"Projection is deliberately marked PROVISIONAL because several Store Card spreadsheet scoring rules are not available 1:1.",
+        reference_threshold_points:latestMonth?.threshold_points??null,
+        reference_max_points:latestMonth?.max_points??17
+      }
+    });
+  }catch(e){
+    return J({error:String((e as any)?.message||e)},500);
+  }
+});
