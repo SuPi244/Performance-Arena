@@ -27,7 +27,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px 9px
 <div class="grid"><section class="card"><h2>Nahrát data</h2><p class="muted">PDF / CSV / XLSX. Originál se uloží do privátního Storage a vytvoří staging záznam.</p>
 <div id="drop" class="drop"><strong>Přetáhni exporty sem</strong><br><span class="muted">nebo klikni a vyber soubory</span><input id="picker" class="hidden" type="file" multiple accept=".pdf,.csv,.xlsx,.xls"></div><div id="files" class="filelist"></div><div id="uploadStatus" class="status hidden"></div></section>
 <section class="card"><h2>Data Coverage</h2><p class="muted">Automatické období připojíme s parsery.</p><table><tbody><tr><td>GA Metrics</td><td><span class="pill">parser next</span></td></tr><tr><td>Daily Picking</td><td><span class="pill">parser next</span></td></tr><tr><td>Inbound</td><td><span class="pill">queued</span></td></tr><tr><td>Quinyx</td><td><span class="pill">queued</span></td></tr><tr><td>Stock Count</td><td><span class="pill">queued</span></td></tr><tr><td>Store Metrics</td><td><span class="pill">queued</span></td></tr></tbody></table></section></div>
-<section class="card" style="margin-top:18px"><h2>Historie importů</h2><div style="overflow:auto"><table><thead><tr><th>Soubor</th><th>Typ</th><th>Období</th><th>Stav</th><th>Nahráno</th></tr></thead><tbody id="history"></tbody></table></div></section></main></div>
+<section class="card" style="margin-top:18px"><h2>Historie importů</h2><div style="overflow:auto"><table><thead><tr><th>Soubor</th><th>Typ</th><th>Období</th><th>Stav</th><th>Nahráno</th><th>Akce</th></tr></thead><tbody id="history"></tbody></table></div></section></main></div>
 <script>
 const sb=supabase.createClient('https://yhpgqkklnymfiacrztqf.supabase.co','sb_publishable_EA9Sbn8ayjr0eHaI2m0s6A_Yct2lL8a'),$=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -37,8 +37,24 @@ async function admin(){let{data:{user}}=await sb.auth.getUser();if(!user)return 
 async function route(){let{data:{session}}=await sb.auth.getSession();if(!session)return;if(!(await admin())){await sb.auth.signOut();return msg($('#loginStatus'),'Účet není Arena admin.','err')}$('#loginView').classList.add('hidden');$('#appView').classList.remove('hidden');$('#who').textContent=session.user.email;refresh()}
 $('#loginForm').onsubmit=async e=>{e.preventDefault();let{error}=await sb.auth.signInWithPassword({email:$('#email').value.trim(),password:$('#password').value});if(error)msg($('#loginStatus'),'Přihlášení selhalo: '+error.message,'err');else route()}
 $('#logout').onclick=async()=>{await sb.auth.signOut();location.reload()}
-async function refresh(){let[{data:i,error},{count}]=await Promise.all([sb.from('imports').select('*').order('created_at',{ascending:false}).limit(100),sb.from('unresolved_identities').select('*',{count:'exact',head:true}).eq('status','unresolved')]);if(error)return;$('#importCount').textContent=i.length;$('#unresolvedCount').textContent=count??0;$('#lastImport').textContent=i[0]?new Date(i[0].created_at).toLocaleString('cs-CZ'):'žádný';$('#history').innerHTML=i.length?i.map(x=>'<tr><td>'+esc(x.filename)+'</td><td>'+esc(x.report_type||'—')+'</td><td>'+esc(x.period_start||'—')+'</td><td><span class="pill">'+esc(x.status)+'</span></td><td>'+new Date(x.created_at).toLocaleString('cs-CZ')+'</td></tr>').join(''):'<tr><td colspan="5" class="muted">Zatím žádné importy.</td></tr>'}
+async function refresh(){let[{data:i,error},{count}]=await Promise.all([sb.from('imports').select('*').order('created_at',{ascending:false}).limit(100),sb.from('unresolved_identities').select('*',{count:'exact',head:true}).eq('status','unresolved')]);if(error)return;$('#importCount').textContent=i.length;$('#unresolvedCount').textContent=count??0;$('#lastImport').textContent=i[0]?new Date(i[0].created_at).toLocaleString('cs-CZ'):'žádný';$('#history').innerHTML=i.length?i.map(x=>'<tr><td>'+esc(x.filename)+'</td><td>'+esc(x.report_type||'—')+'</td><td>'+esc(x.period_start||'—')+'</td><td><span class="pill">'+esc(x.status)+'</span></td><td>'+new Date(x.created_at).toLocaleString('cs-CZ')+'</td><td>'+(x.report_type==='ga_metrics'&&x.status==='staged'?'<button class="secondary" onclick="analyzeGA(\''+x.id+'\',this)">Analyzovat</button>':'—')+'</td></tr>').join(''):'<tr><td colspan="5" class="muted">Zatím žádné importy.</td></tr>'}
 const d=$('#drop'),p=$('#picker');d.onclick=()=>p.click();['dragenter','dragover'].forEach(n=>d.addEventListener(n,e=>{e.preventDefault();d.classList.add('over')}));['dragleave','drop'].forEach(n=>d.addEventListener(n,e=>{e.preventDefault();d.classList.remove('over')}));d.ondrop=e=>upload([...e.dataTransfer.files]);p.onchange=e=>upload([...e.target.files]);
 async function upload(fs){for(const f of fs){let row=document.createElement('div');row.className='file';row.innerHTML='<span>'+esc(f.name)+'</span><span class="muted">kontrola…</span>';$('#files').prepend(row);try{let h=await hash(f),{data:dup}=await sb.from('imports').select('id').eq('file_hash',h).maybeSingle();if(dup){row.lastElementChild.innerHTML='<span class="warn">už importováno</span>';continue}let path=new Date().toISOString().slice(0,10)+'/'+crypto.randomUUID()+'_'+f.name.replace(/[^a-zA-Z0-9._-]+/g,'_');let{error:e}=await sb.storage.from('arena-imports').upload(path,f);if(e)throw e;let{error:x}=await sb.from('imports').insert({file_hash:h,filename:f.name,report_type:type(f.name),storage_path:path,status:'staged',parser_version:'datahub-v1',metadata:{size:f.size,mime:f.type||null}});if(x){await sb.storage.from('arena-imports').remove([path]);throw x}row.lastElementChild.innerHTML='<span class="ok">uloženo ✓</span>'}catch(e){row.lastElementChild.innerHTML='<span class="err">'+esc(e.message||e)+'</span>'}}p.value='';await refresh();msg($('#uploadStatus'),'Upload dokončen.','ok')}
+async function analyzeGA(id,btn){
+ const old=btn.textContent;btn.disabled=true;btn.textContent='Ověřuji…';
+ try{
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session)throw new Error('Relace vypršela. Přihlas se znovu.');
+  const res=await fetch('https://yhpgqkklnymfiacrztqf.supabase.co/functions/v1/parse-ga-metrics',{
+   method:'POST',
+   headers:{'Authorization':'Bearer '+session.access_token,'apikey':'sb_publishable_EA9Sbn8ayjr0eHaI2m0s6A_Yct2lL8a','Content-Type':'application/json'},
+   body:JSON.stringify({import_id:id})
+  });
+  const out=await res.json().catch(()=>({}));
+  if(!res.ok)throw new Error(out.error||('HTTP '+res.status));
+  alert('Edge Function funguje ✓\n\n'+(out.message||'Parser endpoint odpověděl.')+'\n'+(out.user||''));
+ }catch(e){alert('Analýza selhala: '+e.message)}
+ finally{btn.disabled=false;btn.textContent=old}
+}
 route();
 </script></body></html>
