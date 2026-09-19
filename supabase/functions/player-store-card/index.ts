@@ -696,7 +696,7 @@ Deno.serve(async req=>{
 
     // Team/store live MTD estimate + projection inputs.
     const [{data:activePeople,error:activeErr},{data:teamObs,error:teamErr},{data:shiftRows,error:shiftErr}]=await Promise.all([
-      db.from("people").select("id,person_key,display_name,full_name,active").eq("active",true),
+      db.from("people").select("id,person_key,display_name,full_name,active,employment_type,team_effort_eligible").eq("active",true),
       db.from("metric_observations").select("person_id,metric_id,value,period_start,period_end,source_type")
         .gte("period_start",frame.start).lte("period_start",frame.today).limit(12000),
       db.from("shifts").select("person_id,worked_hours,scheduled_hours,shift_date,shift_type,scheduled_start,actual_start")
@@ -802,61 +802,94 @@ Deno.serve(async req=>{
       }
     }
 
-    const qualityRules:any[]=[
-      ["missing",true,(v:number)=>v<=0.34,"Missing ≤ 0,34 %"],
-      ["undelivered",true,(v:number)=>v<=0.24,"Undelivered ≤ 0,24 %"],
-      ["scan",false,(v:number)=>v>=98,"Scan ≥ 98 %"],
-      ["bad_goods",true,null,"Bad Goods vs tým"],
-      ["rating",false,(v:number)=>v>=4.7,"Rating ≥ 4,7"],
-      ["cs",true,null,"CS tickets vs tým"]
-    ];
-    const speedKeys=["accepted","collection","start_collection"];
+    // Store Card scoring rules transcribed from the hidden rule sheets.
+    // Flexible metrics: 1 point at 80% of team TOP, 0.5 point at half of that target.
+    // Fixed metrics use the published August threshold table.
+    const flexibleCountKeys=new Set(["orders","units","inbound","icy","freeze","stock"]);
+    const flexibleThresholds=new Map<string,{one:number,half:number}>();
+    for(const k of [...flexibleCountKeys]){
+      const mx=maxOf(k);
+      if(mx===null||mx<=0)continue;
+      const one=Math.round(mx*.8);
+      const half=Math.round(one/2);
+      flexibleThresholds.set(k,{one,half});
+    }
+    const flexibleRule=(k:string,v:number|null)=>{
+      const t=flexibleThresholds.get(k);
+      if(v===null||!t)return {point:0,rule:"čeká na data",one:null,half:null};
+      const point=v>=t.one?1:v>=t.half?.5:0;
+      return {point,rule:`1 b ≥ ${t.one} · 0,5 b ≥ ${t.half}`,one:t.one,half:t.half};
+    };
+
+    const fixedRules:any={
+      missing:{direction:"lower",one:.34,half:.40,label:"Missing items"},
+      undelivered:{direction:"lower",one:.24,half:.30,label:"Undelivered items"},
+      scan:{direction:"higher",one:99,half:96,label:"Scan to pick"},
+      bad_goods:{direction:"lower",one:2.00,half:3.90,label:"Bad Goods Rating"},
+      rating:{direction:"higher",one:4.70,half:4.60,label:"Avg. goods rating"},
+      cs:{direction:"lower",one:0.00,half:0.10,label:"Venue Related CS Tickets"},
+      accepted:{direction:"lower",one:.08,half:.11,label:"Average Accepted Time"},
+      collection:{direction:"lower",one:2.57,half:3.00,label:"Average Collection Time"},
+      start_collection:{direction:"lower",one:7.50,half:14.00,label:"Average Start Collection Time"}
+    };
+    const fixedRule=(k:string,v:number|null)=>{
+      const r=fixedRules[k];
+      if(!r||v===null)return {point:0,rule:"čeká na data",one:r?.one??null,half:r?.half??null,direction:r?.direction??null};
+      const one=r.direction==="lower"?v<=r.one:v>=r.one;
+      const half=r.direction==="lower"?v<=r.half:v>=r.half;
+      const point=one?1:half?.5:0;
+      const sign=r.direction==="lower"?"≤":"≥";
+      return {point,rule:`1 b ${sign} ${r.one} · 0,5 b ${sign} ${r.half}`,one:r.one,half:r.half,direction:r.direction};
+    };
+
     const inboundKeys=["inbound","icy","freeze","stock"];
     const maxPoints=17;
 
     const projected=proxyRows.map((x:any)=>{
       const m=x.metrics,components:any[]=[];
-      let dataCount=0,totalInputs=15; // 2 output + 6 quality + 3 speed + 4 IB/SC; People is carry-forward.
+      let dataCount=0,totalInputs=15; // 2 Output + 6 Quality + 3 Speed + 4 IB/SC. People is monthly/manual.
 
       let output=0;
       for(const k of ["orders","units"]){
-        const v=finite(m[k]),mx=maxOf(k);
-        if(v!==null&&mx!==null&&mx>0){dataCount++;const ok=v>=mx*.8;output+=ok?1:0;components.push({key:k,group:"output",value:v,point:ok?1:0,rule:"≥ 80 % team max"})}
-        else components.push({key:k,group:"output",value:v,point:.5,rule:"čeká na data"});
+        const v=finite(m[k]);
+        const s=flexibleRule(k,v);
+        if(v!==null&&s.one!==null)dataCount++;
+        output+=s.point;
+        components.push({key:k,group:"output",value:v,point:s.point,rule:s.rule,one_point_target:s.one,half_point_target:s.half,rule_source:"store_card_hidden_sheet"});
       }
 
       let quality=0;
-      for(const [k,lower,pred,label] of qualityRules){
-        const v=finite(m[k]);let point=.5,rule=label;
-        if(v!==null){
-          dataCount++;
-          if(pred)point=pred(v)?1:0;
-          else{
-            const med=median(k);
-            point=med===null?.5:(lower?(v<=med?1:0):(v>=med?1:0));
-            rule=label+(med!==null?` · median ${round(med,2)}`:"");
-          }
-        }else rule="čeká na data";
-        quality+=point;components.push({key:k,group:"quality",value:v,point,rule});
+      for(const k of ["missing","undelivered","scan","bad_goods","rating","cs"]){
+        const v=finite(m[k]);
+        const s=fixedRule(k,v);
+        if(v!==null)dataCount++;
+        quality+=s.point;
+        components.push({key:k,group:"quality",value:v,point:s.point,rule:s.rule,one_point_target:s.one,half_point_target:s.half,direction:s.direction,rule_source:"store_card_hidden_sheet"});
       }
 
       let speed=0;
-      for(const k of speedKeys){
-        const v=finite(m[k]),med=median(k);let point=.5;
-        if(v!==null&&med!==null){dataCount++;point=v<=med?1:0}
-        speed+=point;components.push({key:k,group:"speed",value:v,point,rule:med===null?"čeká na data":`≤ team median ${round(med,2)}`});
+      for(const k of ["accepted","collection","start_collection"]){
+        const v=finite(m[k]);
+        const s=fixedRule(k,v);
+        if(v!==null)dataCount++;
+        speed+=s.point;
+        components.push({key:k,group:"speed",value:v,point:s.point,rule:s.rule,one_point_target:s.one,half_point_target:s.half,direction:s.direction,rule_source:"store_card_hidden_sheet"});
       }
 
       let inboundStock=0;
       for(const k of inboundKeys){
-        const v=finite(m[k]),mx=maxOf(k);let point=0;
-        if(v!==null&&mx!==null){dataCount++;point=mx<=0?0:(v>=mx*.8?1:0)}
-        inboundStock+=point;components.push({key:k,group:"inbound_stock",value:v,point,rule:mx===null?"čeká na data":"≥ 80 % team max"});
+        const v=finite(m[k]);
+        const s=flexibleRule(k,v);
+        if(v!==null&&s.one!==null)dataCount++;
+        inboundStock+=s.point;
+        components.push({key:k,group:"inbound_stock",value:v,point:s.point,rule:s.rule,one_point_target:s.one,half_point_target:s.half,rule_source:"store_card_hidden_sheet"});
       }
 
+      // Forms filled + Team rating are manual/monthly inputs. Until a current-month form
+      // source is connected, keep the last official People score but label it explicitly.
       const peopleRaw=priorPeopleScore.has(x.person.id)?Number(priorPeopleScore.get(x.person.id)):1;
       const people=Math.max(-1,Math.min(2,peopleRaw));
-      components.push({key:"people_carry",group:"people",value:people,point:people,rule:"carry-forward z poslední uzavřené Store Card"});
+      components.push({key:"people_carry",group:"people",value:people,point:people,rule:"Forms filled + Team rating · carry-forward do nahrání aktuálních formulářů",rule_source:"carry_forward"});
 
       output=Math.round(output*2)/2;
       quality=Math.round(quality*2)/2;
@@ -865,8 +898,12 @@ Deno.serve(async req=>{
       const total=Math.round((output+quality+speed+inboundStock+people)*2)/2;
       const dataCoverage=Math.round(dataCount/totalInputs*100);
       return {
-        person_id:x.person.id,display_name:x.person.display_name,
-        total_points:total,data_coverage_percent:dataCoverage,
+        person_id:x.person.id,
+        display_name:x.person.display_name,
+        employment_type:x.person.employment_type??null,
+        team_effort_eligible:x.person.team_effort_eligible===true,
+        total_points:total,
+        data_coverage_percent:dataCoverage,
         categories:{output,quality,speed,inbound_stock:inboundStock,people},
         components
       };
@@ -933,7 +970,13 @@ Deno.serve(async req=>{
     }
 
     const mine=projected.find((x:any)=>x.person_id===person.id)||null;
-    const teamEffortEstimate=projected.length?round(projected.reduce((a:number,x:any)=>a+x.total_points,0)/(projected.length*maxPoints)*100,1):null;
+    const teamEffortRows=projected.filter((x:any)=>x.team_effort_eligible===true);
+    const teamEffortBest=teamEffortRows.length?Math.max(...teamEffortRows.map((x:any)=>Number(x.total_points||0))):null;
+    const teamEffortEstimate=teamEffortRows.length&&teamEffortBest!==null&&teamEffortBest>0
+      ?round((teamEffortRows.reduce((a:number,x:any)=>a+Number(x.total_points||0),0)/teamEffortRows.length)/teamEffortBest*100,2)
+      :null;
+    const teamEffortExcludedDpc=projected.filter((x:any)=>x.employment_type==="DPC").length;
+    const teamEffortUnknown=projected.filter((x:any)=>x.employment_type==null).length;
 
     // Infer 40h/30h bonus class from the last closed Store Card when possible.
     const topBonus=Array.isArray(latestMonth?.top_bonus_czk)?latestMonth.top_bonus_czk.map(Number):[3500,2500,1800,1200,500];
@@ -957,7 +1000,9 @@ Deno.serve(async req=>{
     const projectedRank=mine?.rank??null;
     const projectedTop=projectedRank&&projectedRank<=topBonus.length?Number(topBonus[projectedRank-1]||0):0;
     let projectedTeam:number|null=null;
-    if(teamEffortEstimate!==null&&contractClass){
+    if(person.team_effort_eligible===false){
+      projectedTeam=0;
+    }else if(teamEffortEstimate!==null&&contractClass){
       if(teamEffortEstimate>=70)projectedTeam=contractClass==="40h"?800:600;
       else if(teamEffortEstimate>=65)projectedTeam=contractClass==="40h"?600:400;
       else projectedTeam=0;
@@ -969,7 +1014,7 @@ Deno.serve(async req=>{
 
     const projection={
       status:"provisional",
-      model_version:"store-card-proxy-v1",
+      model_version:"store-card-rules-v2",
       projected_points:mine?.total_points??null,
       projected_rank:projectedRank,
       projected_rank_total:projected.length,
@@ -979,6 +1024,12 @@ Deno.serve(async req=>{
       projected_bonus_min_czk:projectedBonusMin,
       projected_bonus_max_czk:projectedBonusMax,
       team_effort_estimate_percent:teamEffortEstimate,
+      team_effort_hpp_count:teamEffortRows.length,
+      team_effort_dpc_excluded_count:teamEffortExcludedDpc,
+      team_effort_unknown_count:teamEffortUnknown,
+      team_effort_reference_top_points:teamEffortBest,
+      employment_type:person.employment_type??null,
+      team_effort_eligible:person.team_effort_eligible===true,
       contract_class_inferred:contractClass,
       data_coverage_percent:mine?.data_coverage_percent??0,
       confidence_percent:mine?Math.round(mine.data_coverage_percent*.65):0,
@@ -1007,9 +1058,11 @@ Deno.serve(async req=>{
         person_id:x.person_id,
         display_name:x.display_name,
         points:x.total_points,
-        coverage:x.data_coverage_percent
+        coverage:x.data_coverage_percent,
+        employment_type:x.employment_type??null,
+        team_effort_eligible:x.team_effort_eligible===true
       })),
-      explanation:"Průběžný odhad. Output používá dokumentované pravidlo 80 % team maxima. Ostatní neúplné spreadsheetové části používají Arena targets / team-relative proxy; People je carry-forward z poslední uzavřené Store Card. Team effort je zatím pouze proxy: oficiální PDF říká only HPP average, ale Data Hub zatím nemá spolehlivou HPP/DPČ klasifikaci pro celý tým."
+      explanation:"Průběžná Store Card používá pravidla ze skrytých listů: flexibilní Output/IB/SC = 80 % TOP pro 1 bod a polovina targetu pro 0,5 bodu; Quality a Speed používají pevné hranice z tabulky. People zůstává carry-forward, dokud nenahrajeme aktuální Forms/Team rating. Team effort počítá pouze HPP; DPČ jsou vyloučeni."
     };
 
     // Team benchmark for user-friendly efficiency comparison.
@@ -1034,12 +1087,14 @@ Deno.serve(async req=>{
 
     return J({
       ok:true,
-      version:"player-store-card-v8",
+      version:"player-store-card-v9",
       person:{
         person_key:person.person_key,
         display_name:person.display_name,
         full_name:person.full_name,
-        active:person.active
+        active:person.active,
+        employment_type:person.employment_type??null,
+        team_effort_eligible:person.team_effort_eligible===true
       },
       bonus_wallet,
       latest_official_store_card:latestMonth,
@@ -1055,9 +1110,13 @@ Deno.serve(async req=>{
       scoring:{
         projected_bonus_available:true,
         projected_bonus_is_estimate:true,
-        reason:"Projection is deliberately marked PROVISIONAL because several Store Card spreadsheet scoring rules are not available 1:1.",
+        reason:"Automated Store Card rules are now transcribed from the hidden rule sheets. Projection remains PROVISIONAL because current-month Forms filled / Team rating are not yet sourced live.",
         reference_threshold_points:latestMonth?.threshold_points??null,
-        reference_max_points:latestMonth?.max_points??17
+        reference_max_points:latestMonth?.max_points??17,
+        rule_set:"hidden-store-card-august-2026-v1",
+        automated_rules_exact:true,
+        people_rule_live:false,
+        team_effort_hpp_only:true
       }
     });
   }catch(e){
