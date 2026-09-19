@@ -154,6 +154,7 @@ document.addEventListener('click',async e=>{
 document.addEventListener('click',async e=>{
  const b=e.target.closest('.inboundAnalyze');if(!b)return;
  const old=b.textContent;b.disabled=true;b.textContent='Analyzuji…';
+ let extracted_text='';
  try{
   const {data:{session}}=await sb.auth.getSession();if(!session)throw new Error('Relace vypršela.');
   const {data:imp,error}=await sb.from('imports').select('storage_path').eq('id',b.dataset.id).single();if(error)throw error;
