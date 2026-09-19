@@ -1317,7 +1317,7 @@ html[data-theme="light"] .friendly-summary-card,html[data-theme="light"] .projec
 </div>
 <div class="section"><section class="panel"><div class="section-head"><h3>🌓 SHIFT EFFICIENCY</h3><span>Morning / Afternoon / Middle podle dostupných směn</span></div><div style="overflow:auto"><table class="table enhanced-table"><thead><tr><th>Shift</th><th>Dny</th><th>Hodiny</th><th>Total units/h</th><th>Outbound/h</th><th>Inbound/h</th><th>Orders/h</th></tr></thead><tbody id="effShiftRows"><tr><td colspan="7" class="muted">Načítám…</td></tr></tbody></table></div></section></div>
 <div class="section"><details class="user-details"><summary>🧩 Všechny detailní metriky z Data Hubu <span id="enhancedMetricMeta">aktuální měsíc</span></summary><div class="details-body" id="enhancedMetricGroups"></div></details></div>
-<div class="notice" id="efficiencyMethodNote">Efektivita používá pouze pozorovaný outbound + inbound a Quinyx worked hours. Ostatní warehouse činnosti nejsou automaticky považované za nulový výkon.</div>
+<div class="notice" id="efficiencyMethodNote">Outbound = skutečně vypickované položky (Items Picked Count; fallback Item Count Total). Orders = Picking App Task Count. Efektivita používá jen hodiny, ke kterým máme odpovídající output data — chybějící report se nepočítá jako nulový výkon.</div>
 </section>
 
 <section class="page" id="page-bonuses">
@@ -1833,9 +1833,9 @@ function hubTrendSeries(){
 function chooseHubPreset(preset){
  const all=hubTrendSeries(), tests={
   efficiency:s=>s.metric_id==='eff_total_units_per_hour',
-  inbound:s=>s.metric_id==='inbound_normal_units'||/inbound units/i.test(s.label),
+  inbound:s=>s.metric_id==='inbound_total_units_live'||s.metric_id==='inbound_normal_units'||/inbound units/i.test(s.label),
   quality:s=>s.metric_id==='missing_incorrect_items_rate'||/missing incorrect/i.test(s.label),
-  output:s=>s.metric_id==='daily_item_count_total'||/total units picked/i.test(s.label)
+  output:s=>s.metric_id==='outbound_units_picked'||s.metric_id==='daily_items_picked_count'||s.metric_id==='daily_item_count_total'||/outbound units|total units picked/i.test(s.label)
  };
  return all.find(tests[preset]||(()=>false))||all[0]||null;
 }
@@ -2594,29 +2594,59 @@ function buildMetricCards(){
 async function renderInbound(){
   const box=document.getElementById('personalInbound');
   if(!box)return;
-  if(!state.inbound && state.worker){
-    box.innerHTML='<div class="panel">Načítám inbound historii…</div>';
-    try{state.inbound=await api('player_inbound',{worker:state.worker});}catch(e){box.innerHTML='<div class="panel">Inbound data se nepodařilo načíst.</div>';return;}
+
+  let d=state.storeCard;
+  if(!d && state.worker){
+    box.innerHTML='<div class="panel">Načítám inbound historii z Data Hubu…</div>';
+    try{
+      d=await loadStoreCardLive(state.worker);
+      if(d && state.worker){state.storeCard=d;renderStoreCardLive();}
+    }catch(e){
+      console.warn('inbound Data Hub',e);
+      box.innerHTML='<div class="panel">Inbound data se nepodařilo načíst.</div>';
+      setText('inboundMeta','Data Hub nedostupný');
+      return;
+    }
   }
-  const data=state.inbound;if(!data)return;
-  const inboundSpans=weekSpans(data.labels||[],data.weekMeta||null);
-  const items=data.headers.map((h,i)=>{
-    const hist=data.histories[i]||[];
-    const sliced=sliceHistory(hist,data.labels||[],'week',inboundSpans);
-    const vals=sliced.arr.map(v=>normalizeMetricValue(v,x.h)).filter(v=>v!=null);
-    const avg=vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;
-    const last=vals.length?vals[vals.length-1]:null;
-    return {h,i,sliced,avg,last};
+
+  const all=d?.metric_series||[];
+  const order=['inbound_total_units_live','inbound_normal_units','inbound_icy_units','inbound_freez_units'];
+  const labels={
+    inbound_total_units_live:'Inbound celkem',
+    inbound_normal_units:'Normal',
+    inbound_icy_units:'ICY',
+    inbound_freez_units:'FREEZE'
+  };
+  const rows=order.map(id=>all.find(s=>s.metric_id===id)).filter(Boolean);
+
+  if(!rows.length){
+    box.innerHTML='<div class="panel">Pro tento profil zatím nejsou v Data Hubu inbound data.</div>';
+    setText('inboundMeta','0 týdnů · Data Hub');
+    return;
+  }
+
+  const items=rows.map((s,i)=>{
+    const spans=weekSpans(s.labels||[],null);
+    const sliced=sliceHistory(s.values||[],s.labels||[],'week',spans);
+    const vv=(sliced.arr||[]).map(v=>Number(v)).filter(v=>Number.isFinite(v));
+    const total=vv.length?vv.reduce((a,b)=>a+b,0):null;
+    const average=vv.length?total/vv.length:null;
+    const last=vv.length?vv.at(-1):null;
+    return {s,i,sliced,total,average,last};
   });
-  box.innerHTML=items.map(x=>`<div class="metric-card"><div class="metric-top"><div class="metric-title">${esc(x.h)}</div>${x.last!=null?`<span class="trend neutral">${formatNormVal(x.last,x.h)}</span>`:''}</div><div class="metric-main">${formatNormVal(x.avg,x.h)}</div><div class="metric-sub">${(state.rangeStart||state.rangeEnd)?`Průměr období ${state.rangeStart||'…'} – ${state.rangeEnd||'…'}`:state.range==='all'?'Celá dostupná historie':`Průměr posledních ${state.range} týdnů`}</div><div class="spark"><canvas id="inb_${x.i}"></canvas></div></div>`).join('');
+
+  box.innerHTML=items.map(x=>`<div class="metric-card"><div class="metric-top"><div class="metric-title">${esc(labels[x.s.metric_id]||x.s.label)}</div>${x.last!=null?`<span class="trend neutral">poslední týden · ${liveFmt(x.last,'int')}</span>`:''}</div><div class="metric-main">${liveFmt(x.total,'int')}</div><div class="metric-sub">${x.average!=null?'Celkem ve vybraném období · průměr '+liveFmt(x.average,'number')+' / týden':'Zatím bez hodnot'}</div><div class="spark"><canvas id="inb_${x.i}"></canvas></div></div>`).join('');
+
   items.forEach(x=>{
     destroyChart('inb_'+x.i);
-    const c=document.getElementById('inb_'+x.i);if(!c)return;
-    charts['inb_'+x.i]=new Chart(c,{type:'line',data:{labels:x.sliced.labels,datasets:[{data:x.sliced.arr,borderColor:'#60A5FA',backgroundColor:'rgba(96,165,250,.08)',fill:true,tension:.3,pointRadius:0,spanGaps:true,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{display:false},y:{display:false}}}});
+    const canvas=document.getElementById('inb_'+x.i);if(!canvas)return;
+    charts['inb_'+x.i]=new Chart(canvas,{type:'line',data:{labels:x.sliced.labels,datasets:[{data:x.sliced.arr,borderColor:'#60A5FA',backgroundColor:'rgba(96,165,250,.08)',fill:true,tension:.3,pointRadius:0,spanGaps:true,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{display:false},y:{display:false}}}});
   });
-  const shown=data.labels?.length?(state.range==='all'?data.labels.length:Math.min(Number(state.range),data.labels.length)):0;
-  setText('inboundMeta',shown+' týdnů');
+
+  const shown=Math.max(0,...items.map(x=>x.sliced.labels?.length||0));
+  setText('inboundMeta',shown+' týdnů · Data Hub');
 }
+
 async function renderCorrelation(){
   const headers=(state.bootstrap?.metrics||[]).map(x=>x.name).filter(h=>!isIgnored(h));
   if(!headers.length)return;
