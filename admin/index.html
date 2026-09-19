@@ -48,9 +48,8 @@ async function refresh(){
  ]);
  if(error)return;
  $('#importCount').textContent=i.length;$('#unresolvedCount').textContent=u??0;$('#obsCount').textContent=o??0;
- $('#history').innerHTML=i.length?i.map(x=>'<tr><td>'+esc(x.filename)+'</td><td>'+esc(x.report_type||'—')+'</td><td>'+esc(x.period_start||'—')+(x.period_end&&x.period_end!==x.period_start?' → '+esc(x.period_end):'')+'</td><td><span class="pill">'+esc(x.status)+'</span></td><td>'+new Date(x.created_at).toLocaleString('cs-CZ')+'</td><td>'+(x.status==='staged'&&x.report_type==='ga_metrics'?'<button class="secondary" onclick="analyzeGA(\\''+x.id+'\\',this)">Analyzovat</button>':x.status==='staged'&&x.report_type==='daily_picking'?'<button class="secondary dailyAnalyze" data-id="'+esc(x.id)+'">Analyzovat</button>':'—')+'</td></tr>').join(''):'<tr><td colspan="6" class="muted">Zatím žádné importy.</td></tr>';
+ $('#history').innerHTML=i.length?i.map(x=>'<tr><td>'+esc(x.filename)+'</td><td>'+esc(x.report_type||'—')+'</td><td>'+esc(x.period_start||'—')+(x.period_end&&x.period_end!==x.period_start?' → '+esc(x.period_end):'')+'</td><td><span class="pill">'+esc(x.status)+'</span></td><td>'+new Date(x.created_at).toLocaleString('cs-CZ')+'</td><td>'+(x.report_type==='ga_metrics'&&x.status==='staged'?'<button class="secondary" onclick="analyzeGA(\\''+x.id+'\\',this)">Analyzovat</button>':'—')+'</td></tr>').join(''):'<tr><td colspan="6" class="muted">Zatím žádné importy.</td></tr>';
 }
-$('#history').onclick=e=>{const b=e.target.closest('.dailyAnalyze');if(b)analyzeDaily(b.dataset.id,b)}
 const d=$('#drop'),p=$('#picker');d.onclick=()=>p.click();['dragenter','dragover'].forEach(n=>d.addEventListener(n,e=>{e.preventDefault();d.classList.add('over')}));['dragleave','drop'].forEach(n=>d.addEventListener(n,e=>{e.preventDefault();d.classList.remove('over')}));d.ondrop=e=>upload([...e.dataTransfer.files]);p.onchange=e=>upload([...e.target.files]);
 async function upload(fs){for(const f of fs){let row=document.createElement('div');row.className='file';row.innerHTML='<span>'+esc(f.name)+'</span><span class="muted">kontrola…</span>';$('#files').prepend(row);try{let h=await hash(f),{data:dup}=await sb.from('imports').select('id').eq('file_hash',h).maybeSingle();if(dup){row.lastElementChild.innerHTML='<span class="warn">už importováno</span>';continue}let path=new Date().toISOString().slice(0,10)+'/'+crypto.randomUUID()+'_'+f.name.replace(/[^a-zA-Z0-9._-]+/g,'_');let{error:e}=await sb.storage.from('arena-imports').upload(path,f);if(e)throw e;let{error:x}=await sb.from('imports').insert({file_hash:h,filename:f.name,report_type:type(f.name),storage_path:path,status:'staged',parser_version:'datahub-v1',metadata:{size:f.size,mime:f.type||null}});if(x){await sb.storage.from('arena-imports').remove([path]);throw x}row.lastElementChild.innerHTML='<span class="ok">uloženo ✓</span>'}catch(e){row.lastElementChild.innerHTML='<span class="err">'+esc(e.message||e)+'</span>'}}p.value='';await refresh();msg($('#uploadStatus'),'Upload dokončen.','ok')}
 async function extractPdfClient(path){
@@ -91,33 +90,6 @@ async function analyzeGA(id,btn){
   $('#previewCard').scrollIntoView({behavior:'smooth',block:'start'});
  }catch(e){alert('Analýza selhala: '+e.message)}
  finally{btn.disabled=false;btn.textContent=old}
-}
-
-async function analyzeDaily(id,btn){
- const old=btn.textContent;btn.disabled=true;btn.textContent='Analyzuji…';
- try{
-  const {data:{session}}=await sb.auth.getSession();if(!session)throw new Error('Relace vypršela.');
-  const {data:imp,error}=await sb.from('imports').select('storage_path').eq('id',id).single();if(error)throw error;
-  btn.textContent='Čtu PDF…';const extracted_text=await extractPdfClient(imp.storage_path);btn.textContent='Parsování…';
-  const res=await fetch('https://yhpgqkklnymfiacrztqf.supabase.co/functions/v1/parse-daily-picking',{method:'POST',headers:{'Authorization':'Bearer '+session.access_token,'apikey':'sb_publishable_EA9Sbn8ayjr0eHaI2m0s6A_Yct2lL8a','Content-Type':'application/json'},body:JSON.stringify({import_id:id,mode:'preview',extracted_text})});
-  const out=await res.json().catch(()=>({}));if(!res.ok)throw new Error(out.detail||out.error||('HTTP '+res.status));
-  currentPreview={id,out,extracted_text,daily:true};$('#previewCard').classList.remove('hidden');
-  $('#pvPeriod').textContent=out.period_start||'—';$('#pvPeople').textContent=out.people_count??'—';$('#pvMetrics').textContent=out.metric_count??'—';$('#pvObs').textContent=out.observation_count??'—';
-  $('#pvStatus').innerHTML='<span class="ok">Daily Picking preview připraven ✓</span> · unresolved: '+(out.unresolved?.length||0);
-  renderDailyPreview(out);
-  $('#pvActions').innerHTML='<span class="muted">Preview pouze pro kontrolu — commit zapnu po ověření parseru.</span>';
-  $('#previewCard').scrollIntoView({behavior:'smooth',block:'start'});
- }catch(e){alert('Daily Picking analýza selhala: '+e.message)}finally{btn.disabled=false;btn.textContent=old}
-}
-
-function renderDailyPreview(out){
- const defs=[
- ['daily_avg_accepted_time','Accepted'],['daily_avg_acknowledged_time','Acknowledged'],['daily_avg_collection_time','Collection'],['daily_avg_ready_for_pickup_time','Ready'],['daily_avg_start_collection_time','Start collection'],['daily_total_production_time','Production'],['daily_picking_app_task_count','Tasks'],['daily_items_picked_via_scanner_ratio','Scanner %'],['daily_replacement_items_picked_count','Replacements'],['daily_items_picked_count','Picked'],['daily_item_count_total','Items'],['daily_undelivered_items_ratio','Undelivered %'],['daily_substitutions_ratio','Substitutions %']
- ];
- const people=out.people||[], unresolved=new Set(out.unresolved||[]);
- const head='<thead><tr><th>GA</th>'+defs.map(d=>'<th>'+esc(d[1])+'</th>').join('')+'</tr></thead>';
- const rows=people.map(p=>'<tr><td class="'+(p.person_id?'':'pv-unresolved')+'">'+esc(p.source_identity)+(p.person_id?'':' ⚠')+'</td>'+defs.map(([k])=>{const v=p.values?.[k];return '<td class="'+(v==null?'pv-null':'')+'">'+(v==null?'—':esc(v))+'</td>'}).join('')+'</tr>').join('');
- $('#pvBody').innerHTML='<div class="pv-summary"><span class="pill">Matched '+people.filter(p=>p.person_id).length+'/'+people.length+'</span><span class="pill">Unresolved '+unresolved.size+'</span><span class="pill">'+esc(out.period_start||'—')+'</span></div><div class="pv-table-wrap"><table class="pv-table">'+head+'<tbody>'+rows+'</tbody></table></div>';
 }
 
 function renderPreview(out){
