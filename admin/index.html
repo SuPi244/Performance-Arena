@@ -202,7 +202,7 @@ document.addEventListener('click',async e=>{
   b.textContent='Čtu PDF…';const extracted_text=await extractPdfClient(imp.storage_path);if(!extracted_text.trim())throw new Error('PDF neobsahuje čitelnou textovou vrstvu.');
   b.textContent='Parsování…';
   const res=await fetch('https://yhpgqkklnymfiacrztqf.supabase.co/functions/v1/parse-quinyx',{method:'POST',headers:{Authorization:'Bearer '+session.access_token,apikey:'sb_publishable_EA9Sbn8ayjr0eHaI2m0s6A_Yct2lL8a','Content-Type':'application/json'},body:JSON.stringify({import_id:b.dataset.id,mode:'preview',extracted_text})});
-  const out=await res.json().catch(()=>({}));if(!res.ok)throw new Error(out.detail||out.error||('HTTP '+res.status));
+  const out=await res.json().catch(()=>({}));if(!res.ok){const d=out.diagnostics?(' | diagnostics: '+JSON.stringify(out.diagnostics)):'';throw new Error((out.detail||out.error||('HTTP '+res.status))+d)}
   $('#previewCard').classList.remove('hidden');$('#pvPeriod').textContent='September 2026';$('#pvPeople').textContent=out.people_count??'—';$('#pvMetrics').textContent='Shifts';$('#pvObs').textContent=out.shift_count??'—';
   $('#pvStatus').innerHTML='<span class="ok">Quinyx preview připraven ✓</span> · pouze kontrola, nic se nezapisuje';
   const rows=out.rows||[];$('#pvBody').innerHTML='<div class="pv-table-wrap"><table><thead><tr><th>GA</th><th>Týden od</th><th>Plán</th><th>Role</th><th>Typ</th></tr></thead><tbody>'+rows.map(x=>'<tr><td>'+esc(x.name)+'</td><td>'+esc(x.week_start)+'</td><td>'+esc(x.start_time)+'–'+esc(x.end_time)+'</td><td>'+esc(x.role)+'</td><td>'+esc(x.shift_type)+'</td></tr>').join('')+'</tbody></table></div>';
