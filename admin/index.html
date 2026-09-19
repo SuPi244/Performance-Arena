@@ -663,6 +663,13 @@ document.addEventListener('click',async e=>{
       '</div></details>';
     }
    }
+   if(x.report_type==='team_rating'&&x.preview){
+    const reps=x.preview.responses||[],sc=x.preview.scoring||{};
+    details+='<details class="bulk-details"><summary>Team Rating · '+esc(x.preview.valid_response_count||0)+' platných / '+esc(x.preview.response_count||0)+' odpovědí</summary><div style="margin-top:8px;font-size:12px">'+
+      '<div class="muted">TOP '+esc(sc.top_votes??0)+' hlasů · 1 bod od '+esc(sc.one_point_target??'—')+' · 0,5 bodu od '+esc(sc.half_point_target??'—')+'</div>'+
+      reps.map(function(r){return '<div style="margin-top:5px"><span class="'+(r.valid?'ok':'err')+'">'+esc(r.valid?'valid':'DISQUALIFIED')+'</span> · '+esc(r.respondent_name||r.respondent_email||'neznámý')+' · '+esc(r.vote_count||0)+' hlasů'+(r.disqualified_reason?' · '+esc(r.disqualified_reason):'')+'</div>'}).join('')+
+      '</div></details>';
+   }
    html+='<div class="bulk-item"><div><div class="bulk-name">'+esc(x.file.name)+'</div><div class="bulk-type">'+esc(LABELS[x.report_type]||x.report_type)+(x.skipCommit?' · exact duplicate':'')+'</div></div>'+
     '<div class="'+cls+'">'+esc(state)+'</div><div class="bulk-counts">'+pill('nové',s.new||0,'ok')+pill('změněné',s.changed||0,'warn')+pill('stejné',s.unchanged||0,'')+pill('konflikty',s.conflicts||0,s.conflicts?'err':'')+'</div>'+details+'</div>';
   });
@@ -716,7 +723,7 @@ document.addEventListener('click',async e=>{
   const card=drop.closest('.card'),h=card&&card.querySelector('h2'),p=card&&card.querySelector('p');
   if(h)h.textContent='Bulk Import Queue';
   if(p)p.textContent='PDF / CSV / XLS / XLSX. Originály se uloží jen do stagingu; výkonová data se zapíšou až po společném preview a potvrzení bezpečného balíku.';
-  drop.innerHTML='<strong>Přetáhni exporty sem</strong><br><span class="muted">můžeš nahrát více souborů najednou · PDF / CSV / XLS / XLSX</span><input id="picker" class="hidden" type="file" multiple accept=".pdf,.csv,.xlsx,.xls">';
+  drop.innerHTML='<strong>Přetáhni exporty sem</strong><br><span class="muted">můžeš nahrát více souborů najednou · PDF / CSV / XLS / XLSX · Team Rating Forms</span><input id="picker" class="hidden" type="file" multiple accept=".pdf,.csv,.xlsx,.xls">';
   const newPicker=$('#picker');
   const bar=document.createElement('div');bar.className='bulk-toolbar';bar.innerHTML='<button id="bulkCommit" disabled>Potvrdit bezpečný balík</button><span class="muted">Nejdřív se vždy spočítá nové / změněné / stejné / konflikty.</span>';
   drop.insertAdjacentElement('afterend',bar);
@@ -741,7 +748,8 @@ document.addEventListener('click',async e=>{
     const seg=(s.segments||[]).map(function(x){return '<span class="coverage-seg '+esc(x.state)+'" title="'+esc((x.label||x.key)+' · '+stateLabel(x.state)+(x.range?' · '+x.range:''))+'"></span>'}).join('');
     const missing=(s.missing||[]);
     const miss=missing.length?'<div class="coverage-meta coverage-missing">Chybí: '+esc(missing.slice(0,8).join(', '))+(missing.length>8?' +'+(missing.length-8):'')+'</div>':'';
-    const extra=s.id==='quinyx'&&s.planned_shifts!=null?' · '+esc(s.actual_shifts||0)+' / '+esc(s.due_shifts||0)+' směn s actual':'';
+    const extra=s.id==='quinyx'&&s.planned_shifts!=null?' · '+esc(s.actual_shifts||0)+' / '+esc(s.due_shifts||0)+' směn s actual':
+      s.id==='team_rating'?' · '+esc(s.received||0)+' odpovědí'+(s.disqualified?' · '+esc(s.disqualified)+' DQ':''):'';
     return '<div class="coverage-source"><div class="coverage-head"><b>'+esc(s.label)+'</b><span class="pill '+(s.state==='complete'?'ok':s.state==='missing'?'err':'warn')+'">'+esc(stateLabel(s.state))+' · '+esc(s.percentage)+' %</span></div>'+
      '<div class="coverage-bar"><span style="width:'+Math.max(0,Math.min(100,Number(s.percentage||0)))+'%"></span></div><div class="coverage-segments">'+seg+'</div>'+
      '<div class="coverage-meta">'+esc(s.covered)+' / '+esc(s.expected)+' '+esc(s.cadence==='day'?'dní':s.cadence==='week'?'období':s.cadence==='month'?'měsíců':'záznamů')+extra+(s.unresolved?' · unresolved '+esc(s.unresolved):'')+'</div>'+miss+'</div>';
