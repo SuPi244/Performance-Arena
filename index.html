@@ -1901,7 +1901,10 @@ const STORE_CARD_COMPONENT_META={
  accepted:{label:'Accepted time',unit:'time'},collection:{label:'Collection time',unit:'time'},
  start_collection:{label:'Start collection',unit:'time'},inbound:{label:'Inbound',unit:'count'},
  icy:{label:'ICY inbound',unit:'count'},freeze:{label:'FREEZE inbound',unit:'count'},
- stock:{label:'Stock Count',unit:'count'},people_carry:{label:'People',unit:'points'}
+ stock:{label:'Stock Count',unit:'count'},
+ forms_filled:{label:'Forms filled',unit:'points'},
+ team_rating:{label:'Team rating',unit:'count'},
+ people_carry:{label:'People',unit:'points'}
 };
 function scComponentMeta(x){return STORE_CARD_COMPONENT_META[x?.key]||{label:String(x?.key||'Metrika'),unit:'number'}}
 function scMetricValue(v,unit){
@@ -1938,6 +1941,10 @@ function scMetricMilestoneRow(x){
  if(x?.key==='people_carry'){
   return '<div class="sc-metric-row"><div class="sc-metric-top"><div class="sc-metric-name">'+esc(meta.label)+'</div><div class="sc-metric-value">'+esc(scMetricValue(x?.value,'points'))+'</div><span class="sc-point-pill '+(p>=1?'p1':p>=.5?'p05':'p0')+'">'+esc(fmt(p,1))+' b.</span></div><div class="sc-next-copy">Aktuální Forms + Team rating se doplní po nahrání zdroje.</div></div>';
  }
+ if(x?.key==='forms_filled'){
+  const next=p>=1?'✓ Platná odpověď započítána':'Vyplň dotazník do konce měsíce · +1 b. · self-vote odpověď diskvalifikuje';
+  return '<div class="sc-metric-row"><div class="sc-metric-top"><div class="sc-metric-name">'+esc(meta.label)+'</div><div class="sc-metric-value">'+(p>=1?'VYPLNĚNO':'CHYBÍ')+'</div><span class="sc-point-pill '+(p>=1?'p1':'p0')+'">'+esc(fmt(p,1))+' b.</span></div><div class="sc-score-rail"><i class="'+(p>=1?'on':'')+'"></i><i class="'+(p>=1?'on':'')+'"></i></div><div class="sc-next-copy '+(p>=1?'good':'warn')+'">'+esc(next)+'</div></div>';
+ }
  const one=x?.one_point_target,half=x?.half_point_target;
  let next='';
  if(p>=1)next='✓ 1 bod získán';
@@ -1948,6 +1955,8 @@ function scMetricMilestoneRow(x){
 }
 function scBestNextStep(items){
  const candidates=(items||[]).filter(x=>x?.key!=='people_carry'&&Number(x?.point)<1);
+ const form=candidates.find(x=>x?.key==='forms_filled');
+ if(form&&Number(form?.point)<1)return'Forms filled: vyplň platně dotazník · +1 b.';
  let best=null;
  for(const x of candidates){
   const p=Number(x?.point)||0,target=p>=.5?x?.one_point_target:x?.half_point_target;
