@@ -1245,7 +1245,7 @@ Deno.serve(async req=>{
       scoring:{
         projected_bonus_available:true,
         projected_bonus_is_estimate:true,
-        reason:"Automated Store Card rules are now transcribed from the hidden rule sheets. Projection remains PROVISIONAL because current-month Forms filled / Team rating are not yet sourced live.",
+        reason:hasLivePeopleSource?"Store Card rules are transcribed from the hidden rule sheets and current-month Forms filled / Team rating are live. Projection remains PROVISIONAL until the month is closed; optional Engage me adjustment is not applied unless sourced.":"Store Card rules are transcribed from the hidden rule sheets. People uses carry-forward only until the first current-month Team Rating Form import.",
         reference_threshold_points:latestMonth?.threshold_points??null,
         reference_max_points:latestMonth?.max_points??17,
         rule_set:"hidden-store-card-august-2026-v1",
