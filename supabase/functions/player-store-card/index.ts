@@ -224,12 +224,12 @@ async function resolvePerson(db:any,worker:string){
   const {data:a}=await db.from("person_aliases").select("person_id,alias_type,alias_value,normalized_value")
     .eq("normalized_value",w).limit(2);
   if(a?.length===1){
-    const {data:p}=await db.from("people").select("id,person_key,display_name,full_name,active").eq("id",a[0].person_id).single();
+    const {data:p}=await db.from("people").select("id,person_key,display_name,full_name,active,employment_type,team_effort_eligible").eq("id",a[0].person_id).single();
     return p||null;
   }
-  const {data:p1}=await db.from("people").select("id,person_key,display_name,full_name,active").ilike("display_name",worker).limit(2);
+  const {data:p1}=await db.from("people").select("id,person_key,display_name,full_name,active,employment_type,team_effort_eligible").ilike("display_name",worker).limit(2);
   if(p1?.length===1)return p1[0];
-  const {data:p2}=await db.from("people").select("id,person_key,display_name,full_name,active").ilike("full_name",worker).limit(2);
+  const {data:p2}=await db.from("people").select("id,person_key,display_name,full_name,active,employment_type,team_effort_eligible").ilike("full_name",worker).limit(2);
   return p2?.length===1?p2[0]:null;
 }
 
