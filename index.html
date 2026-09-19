@@ -1682,7 +1682,7 @@ function nextRankLabel(elo){return elo<1000?'Silver · 1000':elo<1100?'Gold · 1
 function renderHomeScanStrip(){
   const box=document.getElementById('homeScanStrip'); if(!box||!state.player)return;
   const defs=[['Avg Picking Time','Picking Time'],['Items Picked Via Scanner Ratio','Scanner'],['Missing Incorrect Items Rate','Missing'],['Perfect Order Fulfilment Ratio','POFR']];
-  box.innerHTML=defs.map(([a,label])=>{const m=metricBy(state.player,[a]);if(!m)return '';const targets={'Avg Picking Time':2.57,'Missing Incorrect Items Rate':0.34};const good=lowerBetter(m.name)?(targets[a]!=null?m.value<=targets[a]:true):(m.value>=98);return `<div class="scan-chip ${good?'good':'bad'}"><span class="scan-dot"></span><span>${label}</span><strong>${formatNormVal(m.value,m.name)}</strong></div>`}).join('');
+  box.innerHTML=defs.map(([a,label])=>{const m=metricBy(state.player,[a]);if(!m)return '';const value=normalizeMetricValue(m.value,m.name),target=targetForMetric(m.name);const good=value!=null&&target!=null?(lowerBetter(m.name)?value<=target:value>=target):true;return `<div class="scan-chip ${good?'good':'bad'}"><span class="scan-dot"></span><span>${label}</span><strong>${formatNormVal(m.value,m.name)}</strong></div>`}).join('');
   animateCards('homeScanStrip');
 }
 
@@ -1793,6 +1793,7 @@ function operationalQuestDefs(){
  const inboundTarget=Number.isFinite(prevInbound)&&prevInbound>0?Math.round(prevInbound*.8):500;
  const delta=Number(eff.trend?.delta_pct);
  const ontime=Number(eff.on_time_pct);
+ const ontimeSample=Number.isFinite(Number(eff.tardiness_shift_count))?Number(eff.tardiness_shift_count):Number(eff.shift_count||0);
  const quality=Number(eff.quality_factor);
  const inbound=Number(eff.inbound_units);
  const threshold=Number(d.scoring?.reference_threshold_points||11);
@@ -1800,7 +1801,7 @@ function operationalQuestDefs(){
  const pct=(value,target)=>Number.isFinite(value)&&target>0?Math.min(100,Math.max(0,value/target*100)):0;
  return [
   {id:'op_eff',icon:'⚙️',title:'Efficiency Boost',reward:'MONTHLY · +220 XP',desc:'Zlepši Total Units / Worked Hour alespoň o 5 % proti předchozím 7 dnům.',display:Number.isFinite(delta)?(delta>=0?('+'+fmt(delta,1)+' %'):'0 % progress'):'—',target:'Cíl: +5 % vs předchozích 7 dní',status:Number.isFinite(delta)?(delta>=5?'Splněno ✓':delta>=0?(fmt(delta/5*100,0)+' % k cíli'):('Aktuální trend '+fmt(delta,1)+' %')):'Čeká na data',pct:Number.isFinite(delta)?Math.min(100,Math.max(0,(delta/5)*100)):0,done:Number.isFinite(delta)&&delta>=5,tone:Number.isFinite(delta)?(delta>=5?'good':delta<0?'bad':'warn'):'neutral'},
-  {id:'op_time',icon:'⏰',title:'On-Time Operator',reward:'MONTHLY · +180 XP',desc:'Měj alespoň 95 % směn v toleranci do 5 minut; počítá se od 3 směn.',display:Number.isFinite(ontime)?fmt(ontime,1)+' %':'—',target:'Cíl: ≥ 95 % · min. 3 směny',status:(eff.shift_count||0)<3?((eff.shift_count||0)+' / 3 směny'):Number.isFinite(ontime)?(ontime>=95?'Splněno ✓':fmt(pct(ontime,95),0)+' % k cíli'):'Čeká na data',pct:Number.isFinite(ontime)?pct(ontime,95):0,done:(eff.shift_count||0)>=3&&Number.isFinite(ontime)&&ontime>=95,tone:(eff.shift_count||0)<3?'neutral':Number.isFinite(ontime)?(ontime>=95?'good':ontime>=85?'warn':'bad'):'neutral'},
+  {id:'op_time',icon:'⏰',title:'On-Time Operator',reward:'MONTHLY · +180 XP',desc:'Měj alespoň 95 % započítaných směn v toleranci do 5 minut; počítá se od 3 směn.',display:Number.isFinite(ontime)?fmt(ontime,1)+' %':'—',target:'Cíl: ≥ 95 % · min. 3 započítané směny',status:ontimeSample<3?(ontimeSample+' / 3 směny'):Number.isFinite(ontime)?(ontime>=95?'Splněno ✓':fmt(pct(ontime,95),0)+' % k cíli'):'Čeká na data',pct:Number.isFinite(ontime)?pct(ontime,95):0,done:ontimeSample>=3&&Number.isFinite(ontime)&&ontime>=95,tone:ontimeSample<3?'neutral':Number.isFinite(ontime)?(ontime>=95?'good':ontime>=85?'warn':'bad'):'neutral'},
   {id:'op_quality',icon:'🧪',title:'Quality Engine',reward:'MONTHLY · +250 XP',desc:'Udrž Quality Factor alespoň 99,4 % při reálném outputu.',display:Number.isFinite(quality)?fmt(quality,2)+' %':'—',target:'Cíl: ≥ 99,4 % Quality Factor',status:(eff.total_units||0)<=0?'Čeká na reálný output':Number.isFinite(quality)?(quality>=99.4?'Splněno ✓':('Chybí '+fmt(99.4-quality,2)+' p. b.')):'Čeká na data',pct:Number.isFinite(quality)?pct(quality,99.4):0,done:(eff.total_units||0)>0&&Number.isFinite(quality)&&quality>=99.4,tone:(eff.total_units||0)<=0?'neutral':Number.isFinite(quality)?(quality>=99.4?'good':quality>=98.5?'warn':'bad'):'neutral'},
   {id:'op_inbound',icon:'📦',title:'Inbound Contributor',reward:'MONTHLY · +220 XP',desc:'Dosáhni alespoň 80 % svého posledního oficiálního měsíčního Inboundu (nebo 500 units, pokud historii nemáš).',display:Number.isFinite(inbound)?Math.round(inbound).toLocaleString('cs-CZ')+' units':'—',target:'Cíl: '+inboundTarget.toLocaleString('cs-CZ')+' units',status:Number.isFinite(inbound)?(inbound>=inboundTarget?'Splněno ✓ · '+fmt(inbound/inboundTarget*100,0)+' % cíle':fmt(inbound/inboundTarget*100,0)+' % k cíli'):'Čeká na data',pct:Number.isFinite(inbound)?pct(inbound,inboundTarget):0,done:Number.isFinite(inbound)&&inbound>=inboundTarget,tone:Number.isFinite(inbound)?(inbound>=inboundTarget?'good':inbound>=inboundTarget*.65?'warn':'bad'):'neutral'},
   {id:'op_card',icon:'🎯',title:'Store Card Threshold',reward:'MONTHLY · +300 XP',desc:'Průběžný Store Card odhad je alespoň na aktuálním threshold bodů. Potvrzuje se až uzávěrkou.',display:Number.isFinite(points)?fmt(points,1)+' bodů':'—',target:'Cíl: '+fmt(threshold,1)+' b.',status:Number.isFinite(points)?(points>=threshold?(Number(pr.confidence_percent||0)>=35?'Splněno ✓':'Body splněny · čeká se na coverage'):(fmt(points/threshold*100,0)+' % k cíli')):'Čeká na data',pct:Number.isFinite(points)&&threshold>0?pct(points,threshold):0,done:Number.isFinite(points)&&points>=threshold&&Number(pr.confidence_percent||0)>=35,tone:Number.isFinite(points)?(points>=threshold?'good':points>=threshold*.7?'warn':'bad'):'neutral'}
@@ -1811,7 +1812,7 @@ function storeCardDynamicBadgeDefs(){
  const op=operationalQuestDefs();
  return [
   {id:'effengine',icon:'⚙️',title:'Efficiency Engine',desc:'Aktuální Total Units / Worked Hour je alespoň na týmovém průměru při minimálně 3 aktivních dnech.',done:(eff.active_days||0)>=3&&Number(eff.vs_team_percent)>=0},
-  {id:'ontime',icon:'⏰',title:'On-Time Operator',desc:'Alespoň 95 % směn v toleranci do 5 minut při minimálně 3 směnách.',done:(eff.shift_count||0)>=3&&Number(eff.on_time_pct)>=95},
+  {id:'ontime',icon:'⏰',title:'On-Time Operator',desc:'Alespoň 95 % započítaných směn v toleranci do 5 minut při minimálně 3 směnách.',done:Number(eff.tardiness_shift_count??eff.shift_count??0)>=3&&Number(eff.on_time_pct)>=95},
   {id:'inboundhero',icon:'📦',title:'Inbound Contributor',desc:'Splněný měsíční Inbound Contributor quest.',done:!!op.find(q=>q.id==='op_inbound')?.done},
   {id:'bonusearner',icon:'💸',title:'Bonus Earner',desc:'Máš alespoň jeden potvrzený peněžní bonus ze Store Card.',done:Number(w.confirmed_total_czk||0)>0},
   {id:'cardcontender',icon:'🎯',title:'Store Card Contender',desc:'Průběžný odhad tě řadí do Top 5 Store Card při dostatečném coverage.',done:Number(pr.projected_rank)>0&&Number(pr.projected_rank)<=5&&Number(pr.confidence_percent)>=35},
@@ -1833,21 +1834,22 @@ function renderPersonalFriendlySummary(){
  setText('summaryEfficiencySub',Number.isFinite(delta)?('7denní trend '+(delta>=0?'+':'')+fmt(delta,1)+' % · vs tým '+(Number(eff.vs_team_percent)>=0?'+':'')+fmt(Number(eff.vs_team_percent),1)+' %'):'Potřebuji více směn pro trend.');
  setSummaryState('summaryEfficiencyCard',Number.isFinite(delta)?(delta>3?'good':delta<-3?'bad':'warn'):'warn');
 
- const qualityChecks=[
-  Number(lp.scan_to_pick_ratio)>=98,
-  Number(lp.missing_items_ratio)<=.34,
-  Number(lp.undelivered_items_ratio)<=.24,
-  Number(lp.pofr)>=98
- ];
- const qualityKnown=[lp.scan_to_pick_ratio,lp.missing_items_ratio,lp.undelivered_items_ratio,lp.pofr].filter(v=>v!=null&&Number.isFinite(Number(v))).length;
- const qualityGood=qualityChecks.slice(0,qualityKnown).filter(Boolean).length;
+ const qualityRows=[
+  {value:lp.scan_to_pick_ratio,ok:v=>v>=98},
+  {value:lp.missing_items_ratio,ok:v=>v<=.34},
+  {value:lp.undelivered_items_ratio,ok:v=>v<=.24},
+  {value:lp.pofr,ok:v=>v>=98}
+ ].filter(x=>x.value!=null&&Number.isFinite(Number(x.value)));
+ const qualityKnown=qualityRows.length;
+ const qualityGood=qualityRows.filter(x=>x.ok(Number(x.value))).length;
  setText('summaryQuality',qualityKnown?(qualityGood+' / '+qualityKnown+' KPI na cíli'):'Čeká na data');
  setText('summaryQualitySub','Scan · Missing · Undelivered · POFR');
  setSummaryState('summaryQualityCard',qualityKnown?(qualityGood===qualityKnown?'good':qualityGood>=Math.ceil(qualityKnown/2)?'warn':'bad'):'warn');
 
  const ontime=Number(eff.on_time_pct);
+ const reliabilitySample=Number(eff.tardiness_shift_count??0),reliabilityOnTime=Number(eff.on_time_count??0),reliabilityExcluded=Number(eff.tardiness_excluded_count??0);
  setText('summaryReliability',Number.isFinite(ontime)?fmt(ontime,1)+' % on-time':'Čeká na směny');
- setText('summaryReliabilitySub',(eff.shift_count||0)+' směn · '+liveFmt(eff.worked_hours)+' h odpracováno');
+ setText('summaryReliabilitySub',reliabilitySample>0?(reliabilityOnTime+' / '+reliabilitySample+' započítaných směn včas'+(reliabilityExcluded>0?' · '+reliabilityExcluded+(reliabilityExcluded===1?' výjimka':' výjimky'):'')):((eff.shift_count||0)+' dokončených směn · '+liveFmt(eff.worked_hours)+' h'));
  setSummaryState('summaryReliabilityCard',Number.isFinite(ontime)?(ontime>=95?'good':ontime>=85?'warn':'bad'):'warn');
 
  setText('summaryStoreCard',pr.projected_points!=null?(fmt(Number(pr.projected_points),1)+' b. · #'+(pr.projected_rank||'—')):'Čeká na data');
@@ -2041,12 +2043,15 @@ function renderStoreCardLive(){
 
  const rg=document.getElementById('effReliabilityGrid');
  if(rg)rg.innerHTML=[
-  enhancedKpi('Shifts',eff.shift_count,'count'),
-  enhancedKpi('Scheduled hours',eff.scheduled_hours,'number'),
-  enhancedKpi('Worked hours',eff.worked_hours,'number'),
-  enhancedKpi('Hours variance',eff.hours_variance,'number','worked − scheduled'),
-  enhancedKpi('Attendance ratio',eff.attendance_ratio_pct,'percent'),
+  enhancedKpi('Completed shifts',eff.shift_count,'count'),
+  enhancedKpi('Scheduled-only rows',eff.scheduled_only_shift_count,'count','not used in attendance ratio'),
+  enhancedKpi('Scheduled hours',eff.scheduled_hours,'number','completed shifts'),
+  enhancedKpi('Worked hours',eff.worked_hours,'number','completed shifts'),
+  enhancedKpi('Hours variance',eff.hours_variance,'number','worked − scheduled · completed shifts'),
+  enhancedKpi('Attendance ratio',eff.attendance_ratio_pct,'percent','completed shifts only'),
   enhancedKpi('On-time shifts',eff.on_time_pct,'percent','actual start ≤ 5 min after plan'),
+  enhancedKpi('On-time sample',eff.tardiness_shift_count,'count',(eff.on_time_count??0)+' shifts on time'),
+  enhancedKpi('Tardiness exceptions',eff.tardiness_excluded_count,'count','excluded from tardiness only'),
   enhancedKpi('Avg tardiness',eff.avg_tardiness_min,'number','minutes; early starts = 0'),
   enhancedKpi('Active shift days',eff.active_days,'count')
  ].join('');
@@ -2163,14 +2168,14 @@ function questDefsForWeek(week){
   return q;
 }
 function findHolesoviceName(){const names=Object.keys(state.storeHistory?.stores||{});return names.find(nm=>norm(nm).includes('holesovice'))||names[0]||''}
-function storeNetworkAverageExcluding(storeName, metricIndex, monthIndex){const stores=state.storeHistory?.stores||{};const defs=state.storeHistory?.headers||[];const metricName=defs[metricIndex]||'';const vals=Object.keys(stores).filter(nm=>norm(nm)!==norm(storeName)).map(nm=>normalizeMetricValue(stores[nm]?.history?.[metricIndex]?.[monthIndex],metricName)).filter(v=>v!=null);return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null}
+function storeNetworkAverageExcluding(storeName, metricIndex, monthIndex){const stores=state.storeHistory?.stores||{};const defs=state.storeHistory?.headers||[];const metricName=defs[metricIndex]||'';const vals=Object.keys(stores).filter(nm=>norm(nm)!==norm(storeName)).map(nm=>normalizeStoreMetricValue(stores[nm]?.history?.[metricIndex]?.[monthIndex],metricName)).filter(v=>v!=null);return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null}
 function storeNetworkAverageSeries(metricIndex, indices, metricName){const stores=state.storeHistory?.stores||{};return (indices||[]).map(monthIndex=>{const vals=Object.keys(stores).map(nm=>normalizeMetricValue(stores[nm]?.history?.[metricIndex]?.[monthIndex],metricName)).filter(v=>v!=null);return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null})}
 function storeNetworkBestRows(storeName, metricIndex, monthIndex, lower){const stores=state.storeHistory?.stores||{};const defs=state.storeHistory?.headers||[];const metricName=defs[metricIndex]||'';const vals=Object.keys(stores).filter(nm=>norm(nm)!==norm(storeName)).map(nm=>({name:nm,value:normalizeMetricValue(stores[nm]?.history?.[metricIndex]?.[monthIndex],metricName)})).filter(x=>x.value!=null);vals.sort((a,b)=>lower?a.value-b.value:b.value-a.value);return vals.slice(0,3)}
 function achievementPersonalBest(){const weeks=state.history?.weeks||[];if(weeks.length<2)return false;const last=weeks.at(-1);const defs=[['Avg Picking Time','Picking Time',true],['Items Picked Via Scanner Ratio','Scanner Ratio',false],['Missing Incorrect Items Rate','Missing Incorrect',true],['Perfect Order Fulfilment Ratio','Perfect Order Fulfillment Ratio','POFR',false]];return defs.some(([a,b,c])=>{const cur=getMetricValFromWeek(last,[a,b,c])?.value;const prev=weeks.slice(0,-1).map(w=>getMetricValFromWeek(w,[a,b,c])?.value).filter(v=>n(v)!=null);if(cur==null||!prev.length)return false;return c===true?cur<Math.min(...prev):c===false?cur>Math.max(...prev):false})}
 function achievementBeatAverage(){const weeks=state.history?.weeks||[];if(weeks.length<2)return false;const base=weeks.slice(-13,-1),last=weeks.at(-1);let count=0;[['Avg Picking Time',true],['Items Picked Via Scanner Ratio',false],['Missing Incorrect Items Rate',true],['Perfect Order Fulfilment Ratio',false]].forEach(([name,lower])=>{const cur=getMetricValFromWeek(last,[name])?.value;const vals=base.map(w=>getMetricValFromWeek(w,[name])?.value).filter(v=>n(v)!=null);if(cur!=null&&vals.length){const avg=vals.reduce((a,b)=>a+b,0)/vals.length;if(lower?cur<avg:cur>avg)count++}});return count>=3}
 function achievementStoreStats(){if(!state.storeHistory)return null;const store=findHolesoviceName();if(!store)return null;const defs=state.storeHistory.headers||[], labels=state.storeHistory.labels||[], mi={pofr:defs.findIndex(d=>norm(d).includes('pofr')||norm(d).includes('perfect order fulfilment')),scanner:defs.findIndex(d=>norm(d).includes('scanner')),missing:defs.findIndex(d=>norm(d).includes('missing incorrect')),undelivered:defs.findIndex(d=>norm(d).includes('undelivered'))};return {store,st:state.storeHistory.stores[store],labels,month:labels.length-1,mi}}
 function achievementStoreElite(){const x=achievementStoreStats();if(!x||x.month<0)return false;const defs=state.storeHistory?.headers||[];const v=k=>{const idx=x.mi[k];if(idx<0)return null;return normalizeStoreMetricValue(x.st.history?.[idx]?.[x.month],defs[idx]||k)};return v('pofr')>=98&&v('scanner')>=98&&v('missing')!=null&&v('missing')<=.34&&v('undelivered')!=null&&v('undelivered')<=.24}
-function achievementStoreNetwork(){const x=achievementStoreStats();if(!x||x.month<0)return false;let count=0;[['pofr',false],['scanner',false],['missing',true],['undelivered',true]].forEach(([k,lower])=>{const idx=x.mi[k],name=(state.storeHistory?.headers||[])[idx]||k,cur=normalizeMetricValue(x.st.history?.[idx]?.[x.month],name),avg=storeNetworkAverageExcluding(x.store,idx,x.month);if(cur==null||avg==null)return;if(lower?cur<avg:cur>avg)count++});return count>=3}
+function achievementStoreNetwork(){const x=achievementStoreStats();if(!x||x.month<0)return false;let count=0;[['pofr',false],['scanner',false],['missing',true],['undelivered',true]].forEach(([k,lower])=>{const idx=x.mi[k],name=(state.storeHistory?.headers||[])[idx]||k,cur=normalizeStoreMetricValue(x.st.history?.[idx]?.[x.month],name),avg=storeNetworkAverageExcluding(x.store,idx,x.month);if(cur==null||avg==null)return;if(lower?cur<avg:cur>avg)count++});return count>=3}
 function achievementDefinitions(){const rank=playerSeasonData(state.worker),perf=performanceScoreFromLatest(state.player)||0,weeks=state.history?.weeks||[],latest=weeks.at(-1);let streak=0;for(let i=weeks.length-1;i>=0;i--){const w=weeks[i];let good=0;const p=getMetricValFromWeek(w,['Avg Picking Time','Picking Time']),sc=getMetricValFromWeek(w,['Items Picked Via Scanner Ratio','Scanner Ratio']),mi=getMetricValFromWeek(w,['Missing Incorrect Items Rate','Missing Incorrect']),po=getMetricValFromWeek(w,['Perfect Order Fulfilment Ratio','Perfect Order Fulfillment Ratio','POFR']);if(p?.value<=2.57)good++;if(sc?.value>=98)good++;if(mi?.value<=.34)good++;if(po?.value>=98)good++;if(good>=3)streak++;else break}const anyQuest=latest?questDefsForWeek(latest).some(q=>q.done):false;return[
 {id:'first',icon:'🌟',title:'First Blood',desc:'Splň první osobní quest.',rarity:'UNCOMMON',done:anyQuest},
 {id:'four',icon:'🔥',title:'Four Week Flame',desc:'Splň 3 ze 4 hlavních KPI 4 týdny v řadě.',rarity:'RARE',done:streak>=4},
@@ -2294,7 +2299,7 @@ function playerNetworkBenchmark(metricAliases, lowerBetter, weeks=4){
   const vals=[];
   Object.values(people).forEach(p=>{
     idxs.forEach(i=>{
-      const arr=(p.history?.[i]||[]).slice(start,end).map(v=>n(v)).filter(v=>v!=null);
+      const arr=(p.history?.[i]||[]).slice(start,end).map(v=>normalizeMetricValue(v,defs[i])).filter(v=>v!=null);
       if(arr.length) vals.push(arr.reduce((a,b)=>a+b,0)/arr.length);
     });
   });
@@ -2378,7 +2383,7 @@ async function renderStoreQuests(){
     const st=state.storeHistory.stores[selected], labels=state.storeHistory.labels||[], latestIdx=Math.max(0,labels.length-1);
     const snap=storeCoreSnapshot(st,latestIdx);
     if(context)context.textContent=`WM Holešovice · ${labels[latestIdx]||'Aktuální měsíc'} · srovnání proti celé síti`;
-    if(snap && [snap.pofr,snap.scanner,snap.missing,snap.undelivered].every(v=>v==null)){ box.innerHTML='<div class="notice error">Store data byla načtena, ale KPI sloupce nebyly rozpoznány.</div>'; return; }
+    if(snap && [snap.pofr,snap.uph,snap.ui,snap.mi].every(v=>v==null)){ box.innerHTML='<div class="notice error">Store data byla načtena, ale KPI sloupce nebyly rozpoznány.</div>'; return; }
     if(homeStoreQuestMode==='history'){
       const done=[];
       for(let i=Math.max(0,labels.length-8);i<latestIdx;i++) storeQuestDefinitions(st,i).filter(q=>q.available!==false&&q.done).forEach(q=>done.push(q));
@@ -2726,9 +2731,13 @@ async function renderCorrelation(){
       const names=[...new Set([...Object.keys(xd.people||{}),...Object.keys(yd.people||{})])];
       const pts=[];
       names.forEach(name=>{
-        const x=(xd.people[name]?.history||[]).filter(v=>n(v)!=null).at(-1);
-        const y=(yd.people[name]?.history||[]).filter(v=>n(v)!=null).at(-1);
-        if(x!=null&&y!=null)pts.push({x,y,name});
+        const xh=(xd.people[name]?.history||[]).map(v=>normalizeMetricValue(v,xName));
+        const yh=(yd.people[name]?.history||[]).map(v=>normalizeMetricValue(v,yName));
+        const len=Math.min(xh.length,yh.length);
+        for(let i=len-1;i>=0;i--){
+          const x=n(xh[i]),y=n(yh[i]);
+          if(x!=null&&y!=null){pts.push({x,y,name,week:(xd.labels||[])[i]||(yd.labels||[])[i]||''});break;}
+        }
       });
       const xv=pts.map(p=>p.x),yv=pts.map(p=>p.y);
       const mx=xv.reduce((a,b)=>a+b,0)/(xv.length||1),my=yv.reduce((a,b)=>a+b,0)/(yv.length||1);
@@ -2762,7 +2771,7 @@ async function renderCorrelation(){
           {label:'Pracovníci',data:pts,backgroundColor:'#35E78A',borderColor:'#35E78A',pointRadius:5,pointHoverRadius:7},
           ...(trendData.length?[{type:'line',label:'Trend',data:trendData,borderColor:'#F59E0B',borderWidth:2,borderDash:[6,4],pointRadius:0,tension:0,fill:false}]:[])
         ]},
-        options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'nearest',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.datasetIndex===0?(pts[c.dataIndex]?.name||'Pracovník'):'Trend'}: ${fmt(c.parsed.x,2)} / ${fmt(c.parsed.y,2)}`}}},scales:{x:{title:{display:true,text:cleanMetricName(xName),color:'#86EFAC'},ticks:{color:'#91A79B'}},y:{title:{display:true,text:cleanMetricName(yName),color:'#86EFAC'},ticks:{color:'#91A79B'}}}}
+        options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'nearest',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.datasetIndex===0?`${pts[c.dataIndex]?.name||'Pracovník'}${pts[c.dataIndex]?.week?' · '+pts[c.dataIndex].week:''}: ${formatNormVal(c.parsed.x,xName)} / ${formatNormVal(c.parsed.y,yName)}`:`Trend: ${formatNormVal(c.parsed.x,xName)} / ${formatNormVal(c.parsed.y,yName)}`}}},scales:{x:{title:{display:true,text:cleanMetricName(xName),color:'#86EFAC'},ticks:{color:'#91A79B',callback:v=>formatNormVal(v,xName)}},y:{title:{display:true,text:cleanMetricName(yName),color:'#86EFAC'},ticks:{color:'#91A79B',callback:v=>formatNormVal(v,yName)}}}}
       });
     }catch(e){setText('corrR','—');setText('corrN','—');setText('corrStrength','—');setText('corrSummary','Data korelace se nepodařilo načíst.');console.warn('correlation',e)}
   };
