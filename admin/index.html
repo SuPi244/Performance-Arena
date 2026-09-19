@@ -43,7 +43,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px 9px
     <div class="stat"><span class="muted">Vybraný měsíc</span><b id="monthEndLabel" style="font-size:18px">—</b></div>
     <div class="stat" style="margin-top:10px"><span class="muted">Podklady nahrané pro měsíc</span><b id="monthEndCount">0</b></div>
     <div id="monthEndSources" class="status" style="margin-top:10px">Zatím žádné označené podklady.</div>
-    <p class="muted" style="margin:12px 0 0">Známé typy se dál zpracují jejich existujícím parserem. Neznámý měsíční report se bezpečně uloží jako <code>month_end_reconciliation</code>; parser doplníme podle prvního reálného souboru.</p>
+    <p class="muted" style="margin:12px 0 0">Měsíční exporty se vždy ukládají odděleně jako <code>month_end_reconciliation</code>, i když název připomíná týdenní report. Tím se nemůže omylem spustit nesprávný parser. Po přidání měsíčního parseru půjdou stejně zpracovat i zpětné měsíce.</p>
   </div>
 </div>
 </section>
@@ -413,7 +413,9 @@ setTimeout(loadReconciliation,0);
      continue;
     }
     const detected=type(f.name);
-    const reportType=detected==='unknown'?'month_end_reconciliation':detected;
+    // Month-end exports can have a different layout than the weekly/daily reports.
+    // Always stage them separately so an existing parser can never consume a monthly PDF by mistake.
+    const reportType='month_end_reconciliation';
     const path='month-end/'+month+'/'+crypto.randomUUID()+'_'+f.name.replace(/[^a-zA-Z0-9._-]+/g,'_');
     const {error:se}=await sb.storage.from('arena-imports').upload(path,f);
     if(se)throw se;
@@ -435,7 +437,7 @@ setTimeout(loadReconciliation,0);
   picker.value='';
   await refresh();
   await loadMonthEnd();
-  msg($('#monthEndStatus'),'Měsíční podklady nahrané. Reconciliation je může použít po uzavření měsíce.','ok');
+  msg($('#monthEndStatus'),'Měsíční podklady bezpečně uložené. Po analýze formátu je půjde zpracovat i zpětně.','ok');
  }
 
  drop.addEventListener('click',()=>picker.click());
