@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Performance Arena — Data Hub</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--bg:#07130f;--panel:#0d1d17;--panel2:#12271f;--line:#244537;--text:#eefaf4;--muted:#92b4a4;--green:#46e58d;--red:#ff7b7b;--amber:#ffc65c}
+*{box-sizing:border-box}body{margin:0;font:15px/1.45 Inter,system-ui,sans-serif;background:radial-gradient(circle at 15% 0,#123728 0,transparent 35%),var(--bg);color:var(--text)}
+.wrap{max-width:1180px;margin:auto;padding:28px}.top{display:flex;justify-content:space-between;gap:20px;align-items:center;margin-bottom:24px}
+h1,h2,p{margin-top:0}.brand small,.muted{color:var(--muted)}.card{background:rgba(13,29,23,.94);border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:0 16px 50px #0005}
+.grid{display:grid;grid-template-columns:1.2fr .8fr;gap:18px}.login{max-width:440px;margin:10vh auto}.field{display:grid;gap:7px;margin:13px 0}
+input{width:100%;padding:13px;border-radius:11px;border:1px solid var(--line);background:#081611;color:var(--text)}
+button{border:0;border-radius:11px;padding:11px 15px;font-weight:800;cursor:pointer;background:var(--green);color:#062113}button.secondary{background:#19382c;color:var(--text)}button:disabled{opacity:.5}
+.drop{border:2px dashed #376a54;border-radius:16px;padding:42px 20px;text-align:center;background:#0a1913}.drop.over{border-color:var(--green);background:#10281e}
+.status{padding:11px 13px;border-radius:10px;background:#10231b;margin-top:12px}.ok{color:var(--green)}.err{color:var(--red)}.warn{color:var(--amber)}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px 9px;border-bottom:1px solid #1c382d;font-size:13px}th{color:var(--muted)}
+.pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#18392c;font-size:12px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px}
+.stat{padding:15px;background:var(--panel2);border-radius:13px}.stat b{display:block;font-size:23px}.hidden{display:none!important}.filelist{display:grid;gap:8px;margin-top:14px}.file{padding:10px 12px;background:#10231b;border-radius:10px;display:flex;justify-content:space-between;gap:12px}
+@media(max-width:800px){.grid{grid-template-columns:1fr}.stats{grid-template-columns:1fr}.wrap{padding:16px}.top{align-items:flex-start;flex-direction:column}}
+</style></head><body><div class="wrap">
+<section id="loginView" class="card login"><h1>Performance Arena</h1><p class="muted">Data Hub · Admin</p><form id="loginForm">
+<div class="field"><label>E-mail</label><input id="email" type="email" autocomplete="username" required></div>
+<div class="field"><label>Heslo</label><input id="password" type="password" autocomplete="current-password" required></div><button id="loginBtn">Přihlásit</button></form><div id="loginStatus" class="status hidden"></div></section>
+<main id="appView" class="hidden"><div class="top"><div class="brand"><h1>DATA HUB</h1><small>Performance Arena · Wolt Market Holešovice</small></div><div><span id="who" class="muted"></span> <button id="logout" class="secondary">Odhlásit</button></div></div>
+<div class="stats"><div class="stat"><span class="muted">Importy</span><b id="importCount">—</b></div><div class="stat"><span class="muted">Nerozpoznané identity</span><b id="unresolvedCount">—</b></div><div class="stat"><span class="muted">Poslední import</span><b id="lastImport" style="font-size:15px">—</b></div></div>
+<div class="grid"><section class="card"><h2>Nahrát data</h2><p class="muted">PDF / CSV / XLSX. Originál se uloží do privátního Storage a vytvoří staging záznam.</p>
+<div id="drop" class="drop"><strong>Přetáhni exporty sem</strong><br><span class="muted">nebo klikni a vyber soubory</span><input id="picker" class="hidden" type="file" multiple accept=".pdf,.csv,.xlsx,.xls"></div><div id="files" class="filelist"></div><div id="uploadStatus" class="status hidden"></div></section>
+<section class="card"><h2>Data Coverage</h2><p class="muted">Automatické období připojíme s parsery.</p><table><tbody><tr><td>GA Metrics</td><td><span class="pill">parser next</span></td></tr><tr><td>Daily Picking</td><td><span class="pill">parser next</span></td></tr><tr><td>Inbound</td><td><span class="pill">queued</span></td></tr><tr><td>Quinyx</td><td><span class="pill">queued</span></td></tr><tr><td>Stock Count</td><td><span class="pill">queued</span></td></tr><tr><td>Store Metrics</td><td><span class="pill">queued</span></td></tr></tbody></table></section></div>
+<section class="card" style="margin-top:18px"><h2>Historie importů</h2><div style="overflow:auto"><table><thead><tr><th>Soubor</th><th>Typ</th><th>Období</th><th>Stav</th><th>Nahráno</th></tr></thead><tbody id="history"></tbody></table></div></section></main></div>
+<script>
+const sb=supabase.createClient('https://yhpgqkklnymfiacrztqf.supabase.co','sb_publishable_EA9Sbn8ayjr0eHaI2m0s6A_Yct2lL8a'),$=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+function msg(e,t,c=''){e.textContent=t;e.className='status '+c}async function hash(f){let b=await f.arrayBuffer(),h=await crypto.subtle.digest('SHA-256',b);return[...new Uint8Array(h)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+function type(n){n=n.toLowerCase();if(n.includes('metric')&&n.includes('ga'))return'ga_metrics';if(n.includes('daily')&&n.includes('picking'))return'daily_picking';if(n.includes('inbound'))return'inbound';if(n.includes('quinyx'))return'quinyx';if(n.includes('stock'))return'stock_count';if(n.includes('store'))return'store_metrics';return'unknown'}
+async function admin(){let{data:{user}}=await sb.auth.getUser();if(!user)return false;let{data}=await sb.from('admin_users').select('user_id').eq('user_id',user.id).maybeSingle();return!!data}
+async function route(){let{data:{session}}=await sb.auth.getSession();if(!session)return;if(!(await admin())){await sb.auth.signOut();return msg($('#loginStatus'),'Účet není Arena admin.','err')}$('#loginView').classList.add('hidden');$('#appView').classList.remove('hidden');$('#who').textContent=session.user.email;refresh()}
+$('#loginForm').onsubmit=async e=>{e.preventDefault();let{error}=await sb.auth.signInWithPassword({email:$('#email').value.trim(),password:$('#password').value});if(error)msg($('#loginStatus'),'Přihlášení selhalo: '+error.message,'err');else route()}
+$('#logout').onclick=async()=>{await sb.auth.signOut();location.reload()}
+async function refresh(){let[{data:i,error},{count}]=await Promise.all([sb.from('imports').select('*').order('created_at',{ascending:false}).limit(100),sb.from('unresolved_identities').select('*',{count:'exact',head:true}).eq('status','unresolved')]);if(error)return;$('#importCount').textContent=i.length;$('#unresolvedCount').textContent=count??0;$('#lastImport').textContent=i[0]?new Date(i[0].created_at).toLocaleString('cs-CZ'):'žádný';$('#history').innerHTML=i.length?i.map(x=>'<tr><td>'+esc(x.filename)+'</td><td>'+esc(x.report_type||'—')+'</td><td>'+esc(x.period_start||'—')+'</td><td><span class="pill">'+esc(x.status)+'</span></td><td>'+new Date(x.created_at).toLocaleString('cs-CZ')+'</td></tr>').join(''):'<tr><td colspan="5" class="muted">Zatím žádné importy.</td></tr>'}
+const d=$('#drop'),p=$('#picker');d.onclick=()=>p.click();['dragenter','dragover'].forEach(n=>d.addEventListener(n,e=>{e.preventDefault();d.classList.add('over')}));['dragleave','drop'].forEach(n=>d.addEventListener(n,e=>{e.preventDefault();d.classList.remove('over')}));d.ondrop=e=>upload([...e.dataTransfer.files]);p.onchange=e=>upload([...e.target.files]);
+async function upload(fs){for(const f of fs){let row=document.createElement('div');row.className='file';row.innerHTML='<span>'+esc(f.name)+'</span><span class="muted">kontrola…</span>';$('#files').prepend(row);try{let h=await hash(f),{data:dup}=await sb.from('imports').select('id').eq('file_hash',h).maybeSingle();if(dup){row.lastElementChild.innerHTML='<span class="warn">už importováno</span>';continue}let path=new Date().toISOString().slice(0,10)+'/'+crypto.randomUUID()+'_'+f.name.replace(/[^a-zA-Z0-9._-]+/g,'_');let{error:e}=await sb.storage.from('arena-imports').upload(path,f);if(e)throw e;let{error:x}=await sb.from('imports').insert({file_hash:h,filename:f.name,report_type:type(f.name),storage_path:path,status:'staged',parser_version:'datahub-v1',metadata:{size:f.size,mime:f.type||null}});if(x){await sb.storage.from('arena-imports').remove([path]);throw x}row.lastElementChild.innerHTML='<span class="ok">uloženo ✓</span>'}catch(e){row.lastElementChild.innerHTML='<span class="err">'+esc(e.message||e)+'</span>'}}p.value='';await refresh();msg($('#uploadStatus'),'Upload dokončen.','ok')}
+route();
+</script></body></html>
