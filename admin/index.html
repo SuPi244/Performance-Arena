@@ -164,6 +164,12 @@ document.addEventListener('click',async e=>{
   $('#pvStatus').innerHTML='<span class="ok">Inbound preview připraven ✓</span> · unresolved: '+(out.unresolved?.length||0);
   const rows=out.rows||[];$('#pvBody').innerHTML='<div class="pv-table-wrap"><table><thead><tr><th>Datum</th><th>GA</th><th>Typ</th><th>Units</th><th>Match</th></tr></thead><tbody>'+rows.map(x=>'<tr><td>'+esc(x.date)+'</td><td>'+esc(x.alias)+'</td><td>'+esc(x.bucket.toUpperCase())+'</td><td>'+esc(x.value)+'</td><td>'+(x.person_id?'<span class="ok">✓</span>':'<span class="warn">⚠</span>')+'</td></tr>').join('')+'</tbody></table></div>';
   $('#pvActions').innerHTML='<span class="muted">Preview pouze pro kontrolu — commit zapnu po ověření skutečného PDF.</span>';$('#previewCard').scrollIntoView({behavior:'smooth'});
- }catch(err){alert('Inbound analýza selhala: '+(err.message||err))}finally{b.disabled=false;b.textContent=old}
+ }catch(err){
+  $('#previewCard').classList.remove('hidden');$('#pvPeriod').textContent='—';$('#pvPeople').textContent='—';$('#pvMetrics').textContent='—';$('#pvObs').textContent='—';
+  $('#pvStatus').innerHTML='<span class="err">Inbound parser: '+esc(err.message||err)+'</span>';
+  $('#pvActions').innerHTML='<span class="muted">Níže je diagnostický výstup extrakce PDF — nic se nezapisuje do DB.</span>';
+  $('#pvBody').innerHTML='<pre style="white-space:pre-wrap;text-align:left">'+esc(typeof extracted_text==='string'?extracted_text.slice(0,30000):'PDF text nebyl dostupný')+'</pre>';
+  $('#previewCard').scrollIntoView({behavior:'smooth'});
+ }finally{b.disabled=false;b.textContent=old}
 });
 </script></body></html>
