@@ -48,7 +48,7 @@ async function refresh(){
  ]);
  if(error)return;
  $('#importCount').textContent=i.length;$('#unresolvedCount').textContent=u??0;$('#obsCount').textContent=o??0;
- $('#history').innerHTML=i.length?i.map(x=>'<tr><td>'+esc(x.filename)+'</td><td>'+esc(x.report_type||'—')+'</td><td>'+esc(x.period_start||'—')+(x.period_end&&x.period_end!==x.period_start?' → '+esc(x.period_end):'')+'</td><td><span class="pill">'+esc(x.status)+'</span></td><td>'+new Date(x.created_at).toLocaleString('cs-CZ')+'</td><td>'+(x.report_type==='ga_metrics'&&x.status==='staged'?'<button class="secondary gaAnalyze" data-id="'+esc(x.id)+'">Analyzovat</button>':x.report_type==='daily_picking'&&x.status==='staged'?'<button class="secondary dailyAnalyze" data-id="'+esc(x.id)+'">Analyzovat</button>':x.report_type==='inbound'&&x.status==='staged'?'<button class="secondary inboundAnalyze" data-id="'+esc(x.id)+'">Analyzovat</button>':'—')+'</td></tr>').join(''):'<tr><td colspan="6" class="muted">Zatím žádné importy.</td></tr>';
+ $('#history').innerHTML=i.length?i.map(x=>'<tr><td>'+esc(x.filename)+'</td><td>'+esc(x.report_type||'—')+'</td><td>'+esc(x.period_start||'—')+(x.period_end&&x.period_end!==x.period_start?' → '+esc(x.period_end):'')+'</td><td><span class="pill">'+esc(x.status)+'</span></td><td>'+new Date(x.created_at).toLocaleString('cs-CZ')+'</td><td>'+(x.report_type==='ga_metrics'&&x.status==='staged'?'<button class="secondary gaAnalyze" data-id="'+esc(x.id)+'">Analyzovat</button>':x.report_type==='daily_picking'&&x.status==='staged'?'<button class="secondary dailyAnalyze" data-id="'+esc(x.id)+'">Analyzovat</button>':x.report_type==='inbound'&&x.status==='staged'?'<button class="secondary inboundAnalyze" data-id="'+esc(x.id)+'">Analyzovat</button>':x.report_type==='quinyx'&&x.status==='staged'?'<button class="secondary quinyxAnalyze" data-id="'+esc(x.id)+'">Analyzovat</button>':'—')+'</td></tr>').join(''):'<tr><td colspan="6" class="muted">Zatím žádné importy.</td></tr>';
 }
 $('#history').addEventListener('click',e=>{const b=e.target.closest('.gaAnalyze');if(b)analyzeGA(b.dataset.id,b)});
 const d=$('#drop'),p=$('#picker');d.onclick=()=>p.click();['dragenter','dragover'].forEach(n=>d.addEventListener(n,e=>{e.preventDefault();d.classList.add('over')}));['dragleave','drop'].forEach(n=>d.addEventListener(n,e=>{e.preventDefault();d.classList.remove('over')}));d.ondrop=e=>upload([...e.dataTransfer.files]);p.onchange=e=>upload([...e.target.files]);
@@ -188,5 +188,24 @@ document.addEventListener('click',async e=>{
   $('#pvStatus').innerHTML='<span class="ok">Inbound import dokončen ✓</span> · zapsáno '+esc(out.inserted_count)+' observations';
   $('#pvActions').innerHTML='';await refresh();
  }catch(err){alert('Inbound import selhal: '+(err.message||err));b.disabled=false;b.textContent=old}
+});
+
+<script>
+// Quinyx stays isolated and preview-only until day/person/shift mapping is verified.
+document.addEventListener('click',async e=>{
+ const b=e.target.closest('.quinyxAnalyze');if(!b)return;
+ const old=b.textContent;b.disabled=true;b.textContent='Analyzuji…';
+ try{
+  const {data:{session}}=await sb.auth.getSession();if(!session)throw new Error('Relace vypršela.');
+  const {data:imp,error}=await sb.from('imports').select('storage_path').eq('id',b.dataset.id).single();if(error)throw error;
+  b.textContent='Čtu PDF…';const extracted_text=await extractPdfClient(imp.storage_path);if(!extracted_text.trim())throw new Error('PDF neobsahuje čitelnou textovou vrstvu.');
+  b.textContent='Parsování…';
+  const res=await fetch('https://yhpgqkklnymfiacrztqf.supabase.co/functions/v1/parse-quinyx',{method:'POST',headers:{Authorization:'Bearer '+session.access_token,apikey:'sb_publishable_EA9Sbn8ayjr0eHaI2m0s6A_Yct2lL8a','Content-Type':'application/json'},body:JSON.stringify({import_id:b.dataset.id,mode:'preview',extracted_text})});
+  const out=await res.json().catch(()=>({}));if(!res.ok)throw new Error(out.detail||out.error||('HTTP '+res.status));
+  $('#previewCard').classList.remove('hidden');$('#pvPeriod').textContent='September 2026';$('#pvPeople').textContent=out.people_count??'—';$('#pvMetrics').textContent='Shifts';$('#pvObs').textContent=out.shift_count??'—';
+  $('#pvStatus').innerHTML='<span class="ok">Quinyx preview připraven ✓</span> · pouze kontrola, nic se nezapisuje';
+  const rows=out.rows||[];$('#pvBody').innerHTML='<div class="pv-table-wrap"><table><thead><tr><th>GA</th><th>Týden od</th><th>Plán</th><th>Role</th><th>Typ</th></tr></thead><tbody>'+rows.map(x=>'<tr><td>'+esc(x.name)+'</td><td>'+esc(x.week_start)+'</td><td>'+esc(x.start_time)+'–'+esc(x.end_time)+'</td><td>'+esc(x.role)+'</td><td>'+esc(x.shift_type)+'</td></tr>').join('')+'</tbody></table></div>';
+  $('#pvActions').innerHTML='<span class="muted">'+esc(out.note||'Preview only')+'</span>';$('#previewCard').scrollIntoView({behavior:'smooth'});
+ }catch(err){alert('Quinyx analýza selhala: '+(err.message||err))}finally{b.disabled=false;b.textContent=old}
 });
 </script></body></html>
