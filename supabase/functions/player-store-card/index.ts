@@ -774,7 +774,11 @@ Deno.serve(async req=>{
         inbound:metricSum(b,"inbound_normal_units"),
         icy:metricSum(b,"inbound_icy_units"),
         freeze:metricSum(b,"inbound_freez_units"),
-        stock:metricSum(b,"stock_count_adjustment_count")
+        stock:metricSum(b,"stock_count_adjustment_count"),
+        team_rating_votes:metricSum(b,"team_rating_vote_count"),
+        forms_filled_points:metricSum(b,"team_rating_forms_filled_points"),
+        team_rating_points:metricSum(b,"team_rating_points"),
+        people_live_score:metricSum(b,"team_rating_people_score")
       };
     };
 
@@ -806,6 +810,10 @@ Deno.serve(async req=>{
     // Flexible metrics: 1 point at 80% of team TOP, 0.5 point at half of that target.
     // Fixed metrics use the published August threshold table.
     const flexibleCountKeys=new Set(["orders","units","inbound","icy","freeze","stock"]);
+    const teamRatingTop=maxOf("team_rating_votes");
+    const teamRatingOne=teamRatingTop!==null&&teamRatingTop>0?teamRatingTop*.8:null;
+    const teamRatingHalf=teamRatingOne!==null?teamRatingOne/2:null;
+    const hasLivePeopleSource=proxyRows.some((x:any)=>finite(x.metrics.forms_filled_points)!==null||finite(x.metrics.team_rating_votes)!==null);
     const flexibleThresholds=new Map<string,{one:number,half:number}>();
     for(const k of [...flexibleCountKeys]){
       const mx=maxOf(k);
@@ -871,7 +879,10 @@ Deno.serve(async req=>{
       {id:"average_accepted_time",label:"Average Accepted Time",unit:"minutes",lower_is_better:true,group:"Speed"},
       {id:"average_collection_time",label:"Average Collection Time",unit:"minutes",lower_is_better:true,group:"Speed"},
       {id:"average_start_collection_time",label:"Average Start Collection Time",unit:"minutes",lower_is_better:true,group:"Speed"},
-      {id:"stock_count",label:"Stock Count",unit:"count",lower_is_better:false,group:"Inbound + SC"}
+      {id:"stock_count",label:"Stock Count",unit:"count",lower_is_better:false,group:"Inbound + SC"},
+      {id:"team_rating_votes",label:"Team Rating · hlasy",unit:"count",lower_is_better:false,group:"People"},
+      {id:"forms_filled_points",label:"Forms filled · body",unit:"points",lower_is_better:false,group:"People"},
+      {id:"people_score",label:"People Score",unit:"points",lower_is_better:false,group:"People"}
     ];
 
     const attendanceExceptionReasons=new Map<string,string>([
@@ -941,7 +952,10 @@ Deno.serve(async req=>{
         average_accepted_time:round(m.accepted,2),
         average_collection_time:round(m.collection,2),
         average_start_collection_time:round(m.start_collection,2),
-        stock_count:round(m.stock,0)
+        stock_count:round(m.stock,0),
+        team_rating_votes:round(m.team_rating_votes,0),
+        forms_filled_points:round(m.forms_filled_points,1),
+        people_score:round(m.people_live_score,1)
       };
     };
 
@@ -986,11 +1000,27 @@ Deno.serve(async req=>{
         components.push({key:k,group:"inbound_stock",value:v,point:s.point,rule:s.rule,one_point_target:s.one,half_point_target:s.half,rule_source:"store_card_hidden_sheet"});
       }
 
-      // Forms filled + Team rating are manual/monthly inputs. Until a current-month form
-      // source is connected, keep the last official People score but label it explicitly.
-      const peopleRaw=priorPeopleScore.has(x.person.id)?Number(priorPeopleScore.get(x.person.id)):1;
-      const people=Math.max(-1,Math.min(2,peopleRaw));
-      components.push({key:"people_carry",group:"people",value:people,point:people,rule:"Forms filled + Team rating · carry-forward do nahrání aktuálních formulářů",rule_source:"carry_forward"});
+      let people=0;
+      const formsLive=finite(m.forms_filled_points),ratingLive=finite(m.team_rating_points),votesLive=finite(m.team_rating_votes);
+      if(hasLivePeopleSource){
+        const forms=Math.max(0,Math.min(1,Number(formsLive||0)));
+        const rating=Math.max(0,Math.min(1,Number(ratingLive||0)));
+        people=Math.round((forms+rating)*2)/2;
+        components.push({
+          key:"forms_filled",group:"people",value:forms,point:forms,
+          rule:"1 b. za platnou odpověď odeslanou do konce měsíce; self-vote = diskvalifikace odpovědi",
+          one_point_target:1,half_point_target:null,direction:"higher",rule_source:"team_rating_form_live"
+        });
+        components.push({
+          key:"team_rating",group:"people",value:votesLive??0,point:rating,
+          rule:teamRatingOne!==null?`1 b ≥ ${round(teamRatingOne,1)} hlasů · 0,5 b ≥ ${round(teamRatingHalf,1)}`:"čeká na platné hlasy",
+          one_point_target:teamRatingOne,half_point_target:teamRatingHalf,direction:"higher",rule_source:"team_rating_form_live"
+        });
+      }else{
+        const peopleRaw=priorPeopleScore.has(x.person.id)?Number(priorPeopleScore.get(x.person.id)):1;
+        people=Math.max(-1,Math.min(2,peopleRaw));
+        components.push({key:"people_carry",group:"people",value:people,point:people,rule:"Forms filled + Team rating · carry-forward do prvního Team Rating importu",rule_source:"carry_forward"});
+      }
 
       output=Math.round(output*2)/2;
       quality=Math.round(quality*2)/2;
@@ -1017,7 +1047,7 @@ Deno.serve(async req=>{
     // Store Card movement snapshots. A snapshot is tied to the newest import that can
     // change the personal Store Card proxy. This lets every client see the same arrows
     // instead of relying on local browser history.
-    const projectionReportTypes=["ga_metrics","daily_picking","inbound","stock_count"];
+    const projectionReportTypes=["ga_metrics","daily_picking","inbound","stock_count","team_rating"];
     const {data:projectionImports,error:projectionImportErr}=await db.from("imports")
       .select("id,report_type,filename,created_at,period_start,period_end")
       .eq("status","imported")
@@ -1167,7 +1197,7 @@ Deno.serve(async req=>{
         team_effort_eligible:x.team_effort_eligible===true,
         live_metrics:x.live_metrics||{}
       })),
-      explanation:"Průběžná Store Card používá pravidla ze skrytých listů: flexibilní Output/IB/SC = 80 % TOP pro 1 bod a polovina targetu pro 0,5 bodu; Quality a Speed používají pevné hranice z tabulky. People zůstává carry-forward, dokud nenahrajeme aktuální Forms/Team rating. Team effort počítá pouze HPP; DPČ jsou vyloučeni."
+      explanation:hasLivePeopleSource?"Průběžná Store Card používá pravidla ze skrytých listů. People je live z Team Rating Form: platné vyplnění = 1 bod, Team rating = 80 % TOP / polovina targetu; odpovědi po konci měsíce a self-vote se nezapočítají. Team effort počítá pouze HPP.":"Průběžná Store Card používá pravidla ze skrytých listů. People zatím používá carry-forward z poslední uzavřené Store Card, dokud není nahrán Team Rating Form. Team effort počítá pouze HPP."
     };
 
     // Team benchmark for user-friendly efficiency comparison.
@@ -1192,7 +1222,7 @@ Deno.serve(async req=>{
 
     return J({
       ok:true,
-      version:"player-store-card-v11",
+      version:"player-store-card-v12",
       person:{
         person_key:person.person_key,
         display_name:person.display_name,
@@ -1220,7 +1250,7 @@ Deno.serve(async req=>{
         reference_max_points:latestMonth?.max_points??17,
         rule_set:"hidden-store-card-august-2026-v1",
         automated_rules_exact:true,
-        people_rule_live:false,
+        people_rule_live:hasLivePeopleSource,
         team_effort_hpp_only:true
       }
     });
