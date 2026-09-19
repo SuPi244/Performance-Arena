@@ -192,6 +192,16 @@ document.addEventListener('click',async e=>{
 
 </script>
 <script>
+async function extractPdfLayoutClient(path){
+ const {data:blob,error}=await sb.storage.from('arena-imports').download(path);if(error)throw error;
+ const mod=await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs');
+ mod.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs';
+ const pdf=await mod.getDocument({data:new Uint8Array(await blob.arrayBuffer())}).promise,pages=[];
+ for(let n=1;n<=pdf.numPages;n++){const pg=await pdf.getPage(n),tc=await pg.getTextContent();
+  pages.push({page:n,items:tc.items.filter(x=>x.str&&x.str.trim()).map(x=>({text:x.str.replace(/\\s+/g,' ').trim(),x:Math.round((x.transform?.[4]||0)*10)/10,y:Math.round((x.transform?.[5]||0)*10)/10,w:Math.round((x.width||0)*10)/10,h:Math.round((x.height||0)*10)/10}))});
+ }
+ return pages;
+}
 // Quinyx stays isolated and preview-only until day/person/shift mapping is verified.
 document.addEventListener('click',async e=>{
  const b=e.target.closest('.quinyxAnalyze');if(!b)return;
