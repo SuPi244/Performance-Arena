@@ -545,8 +545,8 @@ document.addEventListener('click',async e=>{
 (function(){
  const API_ROOT='https://yhpgqkklnymfiacrztqf.supabase.co/functions/v1';
  const API_KEY='sb_publishable_EA9Sbn8ayjr0eHaI2m0s6A_Yct2lL8a';
- const PARSERS={ga_metrics:'parse-ga-metrics',daily_picking:'parse-daily-picking',inbound:'parse-inbound',quinyx:'parse-quinyx',stock_count:'parse-stock-count',store_metrics:'parse-store-metrics',team_rating:'parse-team-rating'};
- const LABELS={ga_metrics:'GA Metrics',daily_picking:'Daily Picking',inbound:'Inbound',quinyx:'Quinyx',stock_count:'Stock Count',store_metrics:'Store Metrics',team_rating:'Team Rating Form'};
+ const PARSERS={ga_metrics:'parse-ga-metrics',daily_picking:'parse-daily-picking',inbound:'parse-inbound',quinyx:'parse-quinyx',stock_count:'parse-stock-count',store_metrics:'parse-store-metrics',team_rating:'parse-team-rating',universal_metrics:'parse-universal-metrics'};
+ const LABELS={ga_metrics:'GA Metrics',daily_picking:'Daily Picking',inbound:'Inbound',quinyx:'Quinyx',stock_count:'Stock Count',store_metrics:'Store Metrics',team_rating:'Team Rating Form',universal_metrics:'Universal Metric Import'};
  let batch=[];
  let busy=false;
  let xlsxPromise=null;
@@ -569,9 +569,9 @@ document.addEventListener('click',async e=>{
  }
  function ext(name){const m=String(name||'').toLowerCase().match(/\.([a-z0-9]+)$/);return m?m[1]:''}
  function supportedReport(file){
-  const r=type(file.name);
-  if(r==='month_end_reconciliation')throw new Error('Monthly Store Card patří do sekce Měsíční uzávěrka.');
-  if(!PARSERS[r])throw new Error('Typ reportu nebyl rozpoznán podle názvu souboru.');
+  const detected=type(file.name);
+  if(detected==='month_end_reconciliation')throw new Error('Monthly Store Card patří do sekce Měsíční uzávěrka.');
+  const r=PARSERS[detected]?detected:'universal_metrics';
   if(r==='quinyx'&&ext(file.name)!=='pdf')throw new Error('Quinyx bulk preview zatím vyžaduje PDF export.');
   return r;
  }
@@ -626,7 +626,18 @@ document.addEventListener('click',async e=>{
   item.state='parsing';renderBatch();
   const src=await sourcePayload(item);
   const payload=Object.assign({import_id:item.import_id,mode:'preview'},src);
-  item.preview=await edge(PARSERS[item.report_type],payload);
+  try{
+   item.preview=await edge(PARSERS[item.report_type],payload);
+  }catch(err){
+   const canFallback=item.report_type!=='universal_metrics'&&item.report_type!=='quinyx'&&item.report_type!=='team_rating'&&item.report_type!=='month_end_reconciliation';
+   if(!canFallback)throw err;
+   item.fallback_from=item.report_type;
+   item.report_type='universal_metrics';
+   const up=await sb.from('imports').update({report_type:'universal_metrics',parser_version:'universal-fallback-v1'}).eq('id',item.import_id);
+   if(up.error)throw up.error;
+   item.preview=await edge(PARSERS.universal_metrics,payload);
+   item.preview.fallback_from=item.fallback_from;
+  }
   const pf=await status('preflight',{report_type:item.report_type,preview:item.preview});
   item.preflight=pf.preflight;
   item.state='ready';
@@ -668,6 +679,17 @@ document.addEventListener('click',async e=>{
     details+='<details class="bulk-details"><summary>Team Rating · '+esc(x.preview.valid_response_count||0)+' platných / '+esc(x.preview.response_count||0)+' odpovědí</summary><div style="margin-top:8px;font-size:12px">'+
       '<div class="muted">TOP '+esc(sc.top_votes??0)+' hlasů · 1 bod od '+esc(sc.one_point_target??'—')+' · 0,5 bodu od '+esc(sc.half_point_target??'—')+'</div>'+
       reps.map(function(r){return '<div style="margin-top:5px"><span class="'+(r.valid?'ok':'err')+'">'+esc(r.valid?'valid':'DISQUALIFIED')+'</span> · '+esc(r.respondent_name||r.respondent_email||'neznámý')+' · '+esc(r.vote_count||0)+' hlasů'+(r.disqualified_reason?' · '+esc(r.disqualified_reason):'')+'</div>'}).join('')+
+      '</div></details>';
+   }
+   if(x.report_type==='universal_metrics'&&x.preview){
+    const det=[...(x.preview.observations||[]),...(x.preview.store_metrics||[])],uc=x.preview.conflicts||[],uw=x.preview.warnings||[];
+    details+='<details class="bulk-details" open><summary>🧠 Universal mapping · '+esc(det.length)+' bezpečných detekcí'+(x.fallback_from?' · fallback z '+esc(LABELS[x.fallback_from]||x.fallback_from):'')+'</summary><div style="margin-top:8px;font-size:12px">'+
+      det.slice(0,60).map(function(r){
+       const who=r.scope==='store'?(r.venue||r.venue_key):(r.source_identity||r.person_id);
+       return '<div style="margin:5px 0"><span class="ok">'+esc(String(r.scope||'').toUpperCase())+'</span> · '+esc(who)+' · <b>'+esc(r.metric_label||r.metric_id)+'</b> = '+esc(r.value)+' · '+esc(r.period_start)+(r.period_end&&r.period_end!==r.period_start?' → '+esc(r.period_end):'')+' · '+esc(r.granularity)+' · '+esc(r.confidence||'—')+'%</div>';
+      }).join('')+
+      uc.slice(0,40).map(function(r){return '<div class="err">⚠ '+esc(r.reason||'Nejasné mapování')+(r.raw_line?' · '+esc(r.raw_line):'')+'</div>'}).join('')+
+      uw.slice(0,30).map(function(r){return '<div class="warn">△ '+esc(r.reason||String(r))+'</div>'}).join('')+
       '</div></details>';
    }
    html+='<div class="bulk-item"><div><div class="bulk-name">'+esc(x.file.name)+'</div><div class="bulk-type">'+esc(LABELS[x.report_type]||x.report_type)+(x.skipCommit?' · exact duplicate':'')+'</div></div>'+
@@ -722,8 +744,8 @@ document.addEventListener('click',async e=>{
   const drop=$('#drop'),picker=$('#picker'),files=$('#files');if(!drop||!picker||!files)return;
   const card=drop.closest('.card'),h=card&&card.querySelector('h2'),p=card&&card.querySelector('p');
   if(h)h.textContent='Bulk Import Queue';
-  if(p)p.textContent='PDF / CSV / XLS / XLSX. Originály se uloží jen do stagingu; výkonová data se zapíšou až po společném preview a potvrzení bezpečného balíku.';
-  drop.innerHTML='<strong>Přetáhni exporty sem</strong><br><span class="muted">můžeš nahrát více souborů najednou · PDF / CSV / XLS / XLSX · Team Rating Forms</span><input id="picker" class="hidden" type="file" multiple accept=".pdf,.csv,.xlsx,.xls">';
+  if(p)p.textContent='PDF / CSV / XLS / XLSX. Známé reporty používají přesný parser; neznámé layouty Universal parser. Scope PERSON / STORE, období, metrika a jednotka se musí potvrdit v preview před zápisem.';
+  drop.innerHTML='<strong>Přetáhni exporty sem</strong><br><span class="muted">PDF / CSV / XLS / XLSX · známé reporty + 🧠 Universal fallback pro neznámé layouty</span><input id="picker" class="hidden" type="file" multiple accept=".pdf,.csv,.xlsx,.xls">';
   const newPicker=$('#picker');
   const bar=document.createElement('div');bar.className='bulk-toolbar';bar.innerHTML='<button id="bulkCommit" disabled>Potvrdit bezpečný balík</button><span class="muted">Nejdřív se vždy spočítá nové / změněné / stejné / konflikty.</span>';
   drop.insertAdjacentElement('afterend',bar);
