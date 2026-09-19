@@ -97,8 +97,7 @@ function parseForm(text:string,filename:string,people:any[],emailAliases:any[]){
     const st=parseStamp(stamps[i][0]);if(!st)continue;
     const email=findEmail(chunk);
     const respondent=resolveEmail(email,emailAliases);
-    const activePeople=people.filter((p:any)=>p.active===true);
-    const names=nameOccurrences(chunk,activePeople);
+    const names=nameOccurrences(chunk,people);
     const selfVotes=respondent?names.filter((x:any)=>String(x.person_id)===String(respondent)).length:0;
     const within=st.date>=month&&st.date<=end;
     const respondentPerson=respondent?people.find((p:any)=>String(p.id)===String(respondent)):null;
@@ -117,7 +116,10 @@ function parseForm(text:string,filename:string,people:any[],emailAliases:any[]){
       submitted_local:st.date+"T"+String(st.hour).padStart(2,"0")+":"+String(st.minute).padStart(2,"0")+":"+String(st.second).padStart(2,"0"),
       respondent_email:email,respondent_person_id:respondent,is_valid:reason===null,
       disqualified_reason:reason,raw_vote_count:names.length,self_vote_count:selfVotes,
-      votes:names.map((x:any,j:number)=>({question_index:j+1,nominee_person_id:x.person_id,nominee_raw:x.name}))
+      votes:names.map((x:any,j:number)=>{
+        const nominee=people.find((p:any)=>String(p.id)===String(x.person_id));
+        return {question_index:j+1,nominee_person_id:x.person_id,nominee_raw:x.name,is_valid:nominee?.active===true};
+      })
     });
   }
   return {month,responses,conflicts,warnings};
@@ -139,7 +141,9 @@ function buildMetrics(month:string,people:any[],responses:any[],votes:any[]){
   const counts=new Map<string,number>();
   for(const v of votes){
     const rid=String(v.response_id||v.response_key||"");
-    if(!validIds.has(rid)||!v.nominee_person_id)continue;
+    if(!validIds.has(rid)||!v.nominee_person_id||v.is_valid===false)continue;
+    const nominee=people.find((p:any)=>String(p.id)===String(v.nominee_person_id));
+    if(nominee?.active!==true)continue;
     const k=String(v.nominee_person_id);
     counts.set(k,(counts.get(k)||0)+1);
   }
@@ -147,7 +151,7 @@ function buildMetrics(month:string,people:any[],responses:any[],votes:any[]){
   const one=top>0?top*0.8:null,half=one==null?null:one/2;
   const filled=new Set(valid.map((r:any)=>String(r.respondent_person_id)));
   const rows:any[]=[];
-  for(const p of people){
+  for(const p of people.filter((x:any)=>x.active===true)){
     const pid=String(p.id),votesCount=counts.get(pid)||0,forms=filled.has(pid)?1:0;
     const rating=top<=0?0:(votesCount>=Number(one)?1:(votesCount>=Number(half)?0.5:0));
     const score=forms+rating;
@@ -188,7 +192,7 @@ async function mergedState(db:any,parsed:any,people:any[]){
     if(!key||incomingKeys.has(key))continue;
     votes.push({...v,response_key:key});
   }
-  for(const r of parsed.responses)for(const v of r.votes)votes.push({...v,response_id:r.response_key,response_key:r.response_key,is_valid:r.is_valid});
+  for(const r of parsed.responses)for(const v of r.votes)votes.push({...v,response_id:r.response_key,response_key:r.response_key,is_valid:r.is_valid&&v.is_valid!==false});
   return buildMetrics(parsed.month,people,[...responseByKey.values()],votes);
 }
 async function requireAdmin(req:Request){
@@ -249,7 +253,7 @@ Deno.serve(async (req:Request)=>{
       const responseId=up.data.id;
       const del=await db.from("team_rating_votes").delete().eq("response_id",responseId);if(del.error)throw del.error;
       if(r.votes.length){
-        const voteRows=r.votes.map((v:any)=>({response_id:responseId,response_month:r.response_month,respondent_person_id:r.respondent_person_id,nominee_person_id:v.nominee_person_id,nominee_raw:v.nominee_raw,question_index:v.question_index,import_id:importId,is_valid:r.is_valid}));
+        const voteRows=r.votes.map((v:any)=>({response_id:responseId,response_month:r.response_month,respondent_person_id:r.respondent_person_id,nominee_person_id:v.nominee_person_id,nominee_raw:v.nominee_raw,question_index:v.question_index,import_id:importId,is_valid:r.is_valid&&v.is_valid!==false}));
         const vi=await db.from("team_rating_votes").insert(voteRows);if(vi.error)throw vi.error;
       }
     }
