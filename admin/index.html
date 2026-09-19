@@ -77,7 +77,7 @@ async function analyzeGA(id,btn){
   $('#pvStatus').innerHTML=out.preview?'<span class="ok">Preview připraven ✓</span> · unresolved: '+unresolved:'<span class="warn">Endpoint funguje, ale parser ještě nevrátil preview data.</span>';
   currentPreview={id,out,extracted_text};
   $('#pvBody').textContent=JSON.stringify(out,null,2);
-  $('#pvActions').innerHTML=out.parser_stage==='ga_metrics_parsed_v1'?'<button onclick="confirmGA(this)">Potvrdit import</button>':'';
+  $('#pvActions').innerHTML=out.parser_stage&&out.parser_stage.startsWith('ga_metrics_parsed_')?'<button onclick="confirmGA(this)">Potvrdit import</button>':'';
   $('#previewCard').scrollIntoView({behavior:'smooth',block:'start'});
  }catch(e){alert('Analýza selhala: '+e.message)}
  finally{btn.disabled=false;btn.textContent=old}
@@ -85,7 +85,7 @@ async function analyzeGA(id,btn){
 
 async function confirmGA(btn){
  if(!currentPreview)return;
- if(currentPreview.out.unresolved?.length){alert('Import nelze potvrdit: nejdřív je potřeba vyřešit nerozpoznané identity: '+currentPreview.out.unresolved.join(', '));return}
+ if((currentPreview.out.unresolved||[]).filter(x=>!x.startsWith('woltmark')).length){alert('Import nelze potvrdit: '+currentPreview.out.unresolved.filter(x=>!x.startsWith('woltmark')).join(', '));return}
  const old=btn.textContent;btn.disabled=true;btn.textContent='Zapisuji…';
  try{
   const {data:{session}}=await sb.auth.getSession(); if(!session)throw new Error('Relace vypršela.');
