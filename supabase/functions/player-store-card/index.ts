@@ -873,6 +873,65 @@ Deno.serve(async req=>{
     }).sort((a:any,b:any)=>b.total_points-a.total_points||b.data_coverage_percent-a.data_coverage_percent||a.display_name.localeCompare(b.display_name,"cs"));
 
     projected.forEach((x:any,i:number)=>x.rank=i+1);
+
+    // Store Card movement snapshots. A snapshot is tied to the newest import that can
+    // change the personal Store Card proxy. This lets every client see the same arrows
+    // instead of relying on local browser history.
+    const projectionReportTypes=["ga_metrics","daily_picking","inbound","stock_count"];
+    const {data:projectionImports,error:projectionImportErr}=await db.from("imports")
+      .select("id,report_type,filename,created_at,period_start,period_end")
+      .eq("status","imported")
+      .in("report_type",projectionReportTypes)
+      .lte("period_start",frame.today)
+      .gte("period_end",frame.start)
+      .order("created_at",{ascending:false})
+      .limit(1);
+    if(projectionImportErr)throw new Error(projectionImportErr.message);
+    const latestProjectionImport=projectionImports?.[0]||null;
+
+    let previousProjectionSnapshot:any=null;
+    let movementAvailable=false;
+    if(latestProjectionImport){
+      const {data:snapshots,error:snapshotErr}=await db.from("store_card_projection_snapshots")
+        .select("import_id,report_type,import_created_at,leaderboard,captured_at")
+        .eq("month",frame.start)
+        .order("captured_at",{ascending:false})
+        .limit(20);
+      if(snapshotErr)throw new Error(snapshotErr.message);
+
+      previousProjectionSnapshot=(snapshots||[]).find((s:any)=>String(s.import_id||"")!==String(latestProjectionImport.id))||null;
+      const currentSnapshot=(snapshots||[]).find((s:any)=>String(s.import_id||"")===String(latestProjectionImport.id))||null;
+
+      if(!currentSnapshot){
+        const snapshotLeaderboard=projected.map((x:any)=>({
+          person_id:x.person_id,display_name:x.display_name,rank:x.rank,
+          points:x.total_points,coverage:x.data_coverage_percent
+        }));
+        const {error:saveSnapshotErr}=await db.from("store_card_projection_snapshots").upsert({
+          month:frame.start,
+          import_id:latestProjectionImport.id,
+          report_type:latestProjectionImport.report_type,
+          import_created_at:latestProjectionImport.created_at,
+          leaderboard:snapshotLeaderboard
+        },{onConflict:"month,import_id"});
+        if(saveSnapshotErr)throw new Error(saveSnapshotErr.message);
+      }
+
+      const prevRows=Array.isArray(previousProjectionSnapshot?.leaderboard)?previousProjectionSnapshot.leaderboard:[];
+      const prevByPerson=new Map<string,any>(prevRows.map((x:any)=>[String(x.person_id||""),x]));
+      for(const x of projected){
+        const prev=prevByPerson.get(String(x.person_id));
+        x.previous_rank=prev?.rank??null;
+        x.rank_delta=prev?.rank!=null?Number(prev.rank)-Number(x.rank):null;
+        x.points_delta=prev?.points!=null?round(Number(x.total_points)-Number(prev.points),1):null;
+      }
+      movementAvailable=prevByPerson.size>0;
+    }else{
+      for(const x of projected){
+        x.previous_rank=null;x.rank_delta=null;x.points_delta=null;
+      }
+    }
+
     const mine=projected.find((x:any)=>x.person_id===person.id)||null;
     const teamEffortEstimate=projected.length?round(projected.reduce((a:number,x:any)=>a+x.total_points,0)/(projected.length*maxPoints)*100,1):null;
 
@@ -925,8 +984,32 @@ Deno.serve(async req=>{
       confidence_percent:mine?Math.round(mine.data_coverage_percent*.65):0,
       categories:mine?.categories||null,
       components:mine?.components||[],
-      leaderboard:projected.slice(0,10).map((x:any)=>({rank:x.rank,display_name:x.display_name,points:x.total_points,coverage:x.data_coverage_percent})),
-      explanation:"Průběžný odhad. Output používá dokumentované pravidlo 80 % team maxima. Ostatní neúplné spreadsheetové části používají Arena targets / team-relative proxy; People je carry-forward z poslední uzavřené Store Card."
+      rank_delta:mine?.rank_delta??null,
+      previous_rank:mine?.previous_rank??null,
+      points_delta:mine?.points_delta??null,
+      movement_available:movementAvailable,
+      latest_import:latestProjectionImport?{
+        id:latestProjectionImport.id,
+        report_type:latestProjectionImport.report_type,
+        filename:latestProjectionImport.filename,
+        created_at:latestProjectionImport.created_at
+      }:null,
+      movement_baseline_import:previousProjectionSnapshot?{
+        id:previousProjectionSnapshot.import_id,
+        report_type:previousProjectionSnapshot.report_type,
+        created_at:previousProjectionSnapshot.import_created_at||previousProjectionSnapshot.captured_at
+      }:null,
+      leaderboard:projected.map((x:any)=>({
+        rank:x.rank,
+        previous_rank:x.previous_rank??null,
+        rank_delta:x.rank_delta??null,
+        points_delta:x.points_delta??null,
+        person_id:x.person_id,
+        display_name:x.display_name,
+        points:x.total_points,
+        coverage:x.data_coverage_percent
+      })),
+      explanation:"Průběžný odhad. Output používá dokumentované pravidlo 80 % team maxima. Ostatní neúplné spreadsheetové části používají Arena targets / team-relative proxy; People je carry-forward z poslední uzavřené Store Card. Team effort je zatím pouze proxy: oficiální PDF říká only HPP average, ale Data Hub zatím nemá spolehlivou HPP/DPČ klasifikaci pro celý tým."
     };
 
     // Team benchmark for user-friendly efficiency comparison.
@@ -951,7 +1034,7 @@ Deno.serve(async req=>{
 
     return J({
       ok:true,
-      version:"player-store-card-v7",
+      version:"player-store-card-v8",
       person:{
         person_key:person.person_key,
         display_name:person.display_name,
