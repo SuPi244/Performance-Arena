@@ -48,7 +48,7 @@ async function refresh(){
  ]);
  if(error)return;
  $('#importCount').textContent=i.length;$('#unresolvedCount').textContent=u??0;$('#obsCount').textContent=o??0;
- $('#history').innerHTML=i.length?i.map(x=>'<tr><td>'+esc(x.filename)+'</td><td>'+esc(x.report_type||'—')+'</td><td>'+esc(x.period_start||'—')+(x.period_end&&x.period_end!==x.period_start?' → '+esc(x.period_end):'')+'</td><td><span class="pill">'+esc(x.status)+'</span></td><td>'+new Date(x.created_at).toLocaleString('cs-CZ')+'</td><td>'+(x.report_type==='ga_metrics'&&x.status==='staged'?'<button class="secondary gaAnalyze" data-id="'+esc(x.id)+'">Analyzovat</button>':'—')+'</td></tr>').join(''):'<tr><td colspan="6" class="muted">Zatím žádné importy.</td></tr>';
+ $('#history').innerHTML=i.length?i.map(x=>'<tr><td>'+esc(x.filename)+'</td><td>'+esc(x.report_type||'—')+'</td><td>'+esc(x.period_start||'—')+(x.period_end&&x.period_end!==x.period_start?' → '+esc(x.period_end):'')+'</td><td><span class="pill">'+esc(x.status)+'</span></td><td>'+new Date(x.created_at).toLocaleString('cs-CZ')+'</td><td>'+(x.report_type==='ga_metrics'&&x.status==='staged'?'<button class="secondary gaAnalyze" data-id="'+esc(x.id)+'">Analyzovat</button>':x.report_type==='daily_picking'&&x.status==='staged'?'<button class="secondary dailyAnalyze" data-id="'+esc(x.id)+'">Analyzovat</button>':'—')+'</td></tr>').join(''):'<tr><td colspan="6" class="muted">Zatím žádné importy.</td></tr>';
 }
 $('#history').addEventListener('click',e=>{const b=e.target.closest('.gaAnalyze');if(b)analyzeGA(b.dataset.id,b)});
 const d=$('#drop'),p=$('#picker');d.onclick=()=>p.click();['dragenter','dragover'].forEach(n=>d.addEventListener(n,e=>{e.preventDefault();d.classList.add('over')}));['dragleave','drop'].forEach(n=>d.addEventListener(n,e=>{e.preventDefault();d.classList.remove('over')}));d.ondrop=e=>upload([...e.dataTransfer.files]);p.onchange=e=>upload([...e.target.files]);
@@ -116,4 +116,24 @@ async function confirmGA(btn){
  }catch(e){alert('Import selhal: '+e.message);btn.disabled=false;btn.textContent=old}
 }
 route();
+</script>
+<script>
+// Daily Picking is isolated here so a parser/UI failure cannot break auth bootstrap above.
+document.addEventListener('click',async e=>{
+ const b=e.target.closest('.dailyAnalyze'); if(!b)return;
+ const old=b.textContent;b.disabled=true;b.textContent='Analyzuji…';
+ try{
+  const {data:{session}}=await sb.auth.getSession();if(!session)throw new Error('Relace vypršela.');
+  const {data:imp,error}=await sb.from('imports').select('storage_path').eq('id',b.dataset.id).single();if(error)throw error;
+  b.textContent='Čtu PDF…';const extracted_text=await extractPdfClient(imp.storage_path);b.textContent='Parsování…';
+  const res=await fetch('https://yhpgqkklnymfiacrztqf.supabase.co/functions/v1/parse-daily-picking',{method:'POST',headers:{Authorization:'Bearer '+session.access_token,apikey:'sb_publishable_EA9Sbn8ayjr0eHaI2m0s6A_Yct2lL8a','Content-Type':'application/json'},body:JSON.stringify({import_id:b.dataset.id,mode:'preview',extracted_text})});
+  const out=await res.json().catch(()=>({}));if(!res.ok)throw new Error(out.detail||out.error||('HTTP '+res.status));
+  currentPreview={id:b.dataset.id,out,extracted_text,daily:true};
+  $('#previewCard').classList.remove('hidden');$('#pvPeriod').textContent=out.period_start||'—';$('#pvPeople').textContent=out.people_count??'—';$('#pvMetrics').textContent=out.metric_count??'—';$('#pvObs').textContent=out.observation_count??'—';
+  $('#pvStatus').innerHTML='<span class="ok">Daily Picking preview připraven ✓</span> · unresolved: '+(out.unresolved?.length||0);
+  const defs=[['daily_avg_accepted_time','Accepted'],['daily_avg_acknowledged_time','Acknowledged'],['daily_avg_collection_time','Collection'],['daily_avg_ready_for_pickup_time','Ready'],['daily_avg_start_collection_time','Start collection'],['daily_total_production_time','Production'],['daily_picking_app_task_count','Tasks'],['daily_items_picked_via_scanner_ratio','Scanner %'],['daily_replacement_items_picked_count','Replacements'],['daily_items_picked_count','Picked'],['daily_item_count_total','Items'],['daily_undelivered_items_ratio','Undelivered %'],['daily_substitutions_ratio','Substitutions %']];
+  const people=out.people||[];$('#pvBody').innerHTML='<div class="pv-table-wrap"><table class="pv-table"><thead><tr><th>GA</th>'+defs.map(d=>'<th>'+esc(d[1])+'</th>').join('')+'</tr></thead><tbody>'+people.map(p=>'<tr><td>'+esc(p.source_identity)+(p.person_id?'':' ⚠')+'</td>'+defs.map(d=>'<td>'+(p.values?.[d[0]]==null?'—':esc(p.values[d[0]]))+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
+  $('#pvActions').innerHTML='<span class="muted">Preview pouze pro kontrolu — zápis do DB zatím vypnutý.</span>';$('#previewCard').scrollIntoView({behavior:'smooth'});
+ }catch(err){alert('Daily Picking analýza selhala: '+(err.message||err))}finally{b.disabled=false;b.textContent=old}
+});
 </script></body></html>
