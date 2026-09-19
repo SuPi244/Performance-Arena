@@ -845,8 +845,106 @@ Deno.serve(async req=>{
     const inboundKeys=["inbound","icy","freeze","stock"];
     const maxPoints=17;
 
+    const leaderboardMetricDefinitions=[
+      {id:"store_card_points",label:"Store Card · body",unit:"points",lower_is_better:false,group:"Store Card"},
+      {id:"orders",label:"Orders · MTD",unit:"count",lower_is_better:false,group:"Output"},
+      {id:"outbound_units",label:"Outbound Units · MTD",unit:"count",lower_is_better:false,group:"Output"},
+      {id:"inbound_units",label:"Inbound Units · MTD",unit:"count",lower_is_better:false,group:"Output"},
+      {id:"total_units",label:"Total Units · MTD",unit:"count",lower_is_better:false,group:"Output"},
+      {id:"orders_per_hour",label:"Orders / h",unit:"number",lower_is_better:false,group:"Efficiency"},
+      {id:"outbound_units_per_hour",label:"Outbound Units / h",unit:"number",lower_is_better:false,group:"Efficiency"},
+      {id:"inbound_units_per_hour",label:"Inbound Units / h",unit:"number",lower_is_better:false,group:"Efficiency"},
+      {id:"total_units_per_hour",label:"Total Units / h",unit:"number",lower_is_better:false,group:"Efficiency"},
+      {id:"quality_adjusted_units_per_hour",label:"Quality-adjusted Units / h",unit:"number",lower_is_better:false,group:"Efficiency"},
+      {id:"on_time_pct",label:"On-Time",unit:"percent",lower_is_better:false,group:"Reliability"},
+      {id:"pofr",label:"POFR",unit:"percent",lower_is_better:false,group:"Quality"},
+      {id:"scan_to_pick_ratio",label:"Scan to pick",unit:"percent",lower_is_better:false,group:"Quality"},
+      {id:"missing_items_ratio",label:"Missing items",unit:"percent",lower_is_better:true,group:"Quality"},
+      {id:"undelivered_items_ratio",label:"Undelivered items",unit:"percent",lower_is_better:true,group:"Quality"},
+      {id:"bad_goods_rating_ratio",label:"Bad Goods Rating",unit:"percent",lower_is_better:true,group:"Quality"},
+      {id:"avg_goods_rating",label:"Avg. goods rating",unit:"rating",lower_is_better:false,group:"Quality"},
+      {id:"refund_percent",label:"Refund",unit:"percent",lower_is_better:true,group:"Quality"},
+      {id:"not_collected_items_ratio",label:"Not Collected Items",unit:"percent",lower_is_better:true,group:"Quality"},
+      {id:"venue_late_preparation_ratio",label:"Venue Late Preparation",unit:"percent",lower_is_better:true,group:"Quality"},
+      {id:"avg_picking_time",label:"Avg Picking Time",unit:"minutes",lower_is_better:true,group:"Speed"},
+      {id:"picking_time_per_item",label:"Picking Time / Item",unit:"minutes",lower_is_better:true,group:"Speed"},
+      {id:"average_accepted_time",label:"Average Accepted Time",unit:"minutes",lower_is_better:true,group:"Speed"},
+      {id:"average_collection_time",label:"Average Collection Time",unit:"minutes",lower_is_better:true,group:"Speed"},
+      {id:"average_start_collection_time",label:"Average Start Collection Time",unit:"minutes",lower_is_better:true,group:"Speed"},
+      {id:"stock_count",label:"Stock Count",unit:"count",lower_is_better:false,group:"Inbound + SC"}
+    ];
+
+    const attendanceExceptionReasons=new Map<string,string>([
+      ["martin-po|2026-09-10","extra shift — planned start is not a valid attendance baseline"]
+    ]);
+
+    const buildLeaderboardLiveMetrics=(p:any,m:any)=>{
+      const rows=teamByPerson.get(p.id)||[];
+      const ps=teamCurrentShifts.filter((s:any)=>s.person_id===p.id&&finite(s.worked_hours)!==null);
+      const outWeeks=preferredWeeklyObserved(rows,ps,["daily_items_picked_count","daily_item_count_total"],["item_count_total"]);
+      const orderWeeks=preferredWeeklyObserved(rows,ps,["daily_picking_app_task_count"],["picking_app_task_count"]);
+      const inboundByDay=summedGroupedValues(rows,["inbound_normal_units","inbound_icy_units","inbound_freez_units"],(r:any)=>String(r.period_start||""));
+
+      const outDates=new Set<string>([...outWeeks.values()].flatMap((x:any)=>[...x.dates]));
+      const orderDates=new Set<string>([...orderWeeks.values()].flatMap((x:any)=>[...x.dates]));
+      const inboundDates=new Set<string>([...inboundByDay.keys()]);
+      const totalDates=new Set<string>([...outDates,...inboundDates]);
+
+      const outbound=[...outWeeks.values()].reduce((a:any,x:any)=>a+Number(x.value||0),0);
+      const orders=[...orderWeeks.values()].reduce((a:any,x:any)=>a+Number(x.value||0),0);
+      const inbound=mapSum(inboundByDay);
+      const total=outbound+inbound;
+
+      const outHours=workedHoursForDates(ps,outDates);
+      const orderHours=workedHoursForDates(ps,orderDates);
+      const inboundHours=workedHoursForDates(ps,inboundDates);
+      const totalHours=workedHoursForDates(ps,totalDates);
+
+      const attendance=ps.filter((s:any)=>
+        !!s.scheduled_start&&!!s.actual_start&&!attendanceExceptionReasons.has(`${p.person_key}|${String(s.shift_date)}`)
+      );
+      const attendanceMinutes=attendance.map((s:any)=>tardinessMinutes(s.scheduled_start,s.actual_start)).filter((v:any)=>v!==null) as number[];
+      const onTime=attendanceMinutes.length?attendanceMinutes.filter((v:number)=>v<=5).length/attendanceMinutes.length*100:null;
+
+      const missing=finite(m.missing),undelivered=finite(m.undelivered);
+      const qualityFactor=(missing!==null||undelivered!==null)
+        ?Math.max(0,1-Number(missing||0)/100-Number(undelivered||0)/100)
+        :null;
+      const totalUph=totalHours>0?total/totalHours:null;
+
+      return {
+        store_card_points:null,
+        orders:round(orders,0),
+        outbound_units:round(outbound,0),
+        inbound_units:round(inbound,0),
+        total_units:round(total,0),
+        orders_per_hour:orderHours>0?round(orders/orderHours,2):null,
+        outbound_units_per_hour:outHours>0?round(outbound/outHours,2):null,
+        inbound_units_per_hour:inboundHours>0?round(inbound/inboundHours,2):null,
+        total_units_per_hour:totalUph!==null?round(totalUph,2):null,
+        quality_adjusted_units_per_hour:totalUph!==null&&qualityFactor!==null?round(totalUph*qualityFactor,2):null,
+        on_time_pct:round(onTime,1),
+        pofr:round(weightedByPeriod(rows,"perfect_order_fulfilment_ratio","picking_app_task_count"),2),
+        scan_to_pick_ratio:round(m.scan,2),
+        missing_items_ratio:round(m.missing,2),
+        undelivered_items_ratio:round(m.undelivered,2),
+        bad_goods_rating_ratio:round(m.bad_goods,2),
+        avg_goods_rating:round(m.rating,2),
+        refund_percent:round(weightedByPeriod(rows,"refund_percent","picking_app_task_count"),2),
+        not_collected_items_ratio:round(weightedByPeriod(rows,"not_collected_items_ratio","picking_app_task_count"),2),
+        venue_late_preparation_ratio:round(weightedByPeriod(rows,"venue_late_preparation_ratio","picking_app_task_count"),2),
+        avg_picking_time:round(weightedByPeriod(rows,"avg_picking_time","picking_app_task_count"),2),
+        picking_time_per_item:round(weightedByPeriod(rows,"picking_time_per_item","item_count_total"),2),
+        average_accepted_time:round(m.accepted,2),
+        average_collection_time:round(m.collection,2),
+        average_start_collection_time:round(m.start_collection,2),
+        stock_count:round(m.stock,0)
+      };
+    };
+
     const projected=proxyRows.map((x:any)=>{
       const m=x.metrics,components:any[]=[];
+      const liveMetrics=buildLeaderboardLiveMetrics(x.person,m);
       let dataCount=0,totalInputs=15; // 2 Output + 6 Quality + 3 Speed + 4 IB/SC. People is monthly/manual.
 
       let output=0;
@@ -896,6 +994,7 @@ Deno.serve(async req=>{
       speed=Math.round(speed*2)/2;
       inboundStock=Math.round(inboundStock*2)/2;
       const total=Math.round((output+quality+speed+inboundStock+people)*2)/2;
+      liveMetrics.store_card_points=total;
       const dataCoverage=Math.round(dataCount/totalInputs*100);
       return {
         person_id:x.person.id,
@@ -905,7 +1004,8 @@ Deno.serve(async req=>{
         total_points:total,
         data_coverage_percent:dataCoverage,
         categories:{output,quality,speed,inbound_stock:inboundStock,people},
-        components
+        components,
+        live_metrics:liveMetrics
       };
     }).sort((a:any,b:any)=>b.total_points-a.total_points||b.data_coverage_percent-a.data_coverage_percent||a.display_name.localeCompare(b.display_name,"cs"));
 
@@ -1050,6 +1150,7 @@ Deno.serve(async req=>{
         report_type:previousProjectionSnapshot.report_type,
         created_at:previousProjectionSnapshot.import_created_at||previousProjectionSnapshot.captured_at
       }:null,
+      leaderboard_metric_definitions:leaderboardMetricDefinitions,
       leaderboard:projected.map((x:any)=>({
         rank:x.rank,
         previous_rank:x.previous_rank??null,
@@ -1060,7 +1161,8 @@ Deno.serve(async req=>{
         points:x.total_points,
         coverage:x.data_coverage_percent,
         employment_type:x.employment_type??null,
-        team_effort_eligible:x.team_effort_eligible===true
+        team_effort_eligible:x.team_effort_eligible===true,
+        live_metrics:x.live_metrics||{}
       })),
       explanation:"Průběžná Store Card používá pravidla ze skrytých listů: flexibilní Output/IB/SC = 80 % TOP pro 1 bod a polovina targetu pro 0,5 bodu; Quality a Speed používají pevné hranice z tabulky. People zůstává carry-forward, dokud nenahrajeme aktuální Forms/Team rating. Team effort počítá pouze HPP; DPČ jsou vyloučeni."
     };
@@ -1087,7 +1189,7 @@ Deno.serve(async req=>{
 
     return J({
       ok:true,
-      version:"player-store-card-v9",
+      version:"player-store-card-v11",
       person:{
         person_key:person.person_key,
         display_name:person.display_name,
