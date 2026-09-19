@@ -37,8 +37,8 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&
 function msg(e,t,c=''){e.textContent=t;e.className='status '+c}async function hash(f){let b=await f.arrayBuffer(),h=await crypto.subtle.digest('SHA-256',b);return[...new Uint8Array(h)].map(x=>x.toString(16).padStart(2,'0')).join('')}
 function type(n){n=n.toLowerCase();if(n.includes('metric')&&n.includes('ga'))return'ga_metrics';if(n.includes('daily')&&n.includes('picking'))return'daily_picking';if(n.includes('inbound'))return'inbound';if(n.includes('quinyx'))return'quinyx';if(n.includes('stock'))return'stock_count';if(n.includes('store'))return'store_metrics';return'unknown'}
 async function admin(){let{data:{user}}=await sb.auth.getUser();if(!user)return false;let{data}=await sb.from('admin_users').select('user_id').eq('user_id',user.id).maybeSingle();return!!data}
-async function route(){try{let{data:{session},error}=await sb.auth.getSession();if(error)throw error;if(!session)return;if(!(await admin())){await sb.auth.signOut();msg($('#loginStatus'),'Přihlášení proběhlo, ale účet není v admin_users.','err');return}$('#loginView').classList.add('hidden');$('#appView').classList.remove('hidden');$('#who').textContent=session.user.email;await refresh()}catch(error){msg($('#loginStatus'),'Chyba při ověření účtu: '+(error.message||error),'err')}}
-$('#loginForm').onsubmit=async e=>{e.preventDefault();const b=$('#loginBtn');b.disabled=true;b.textContent='Přihlašuji…';$('#loginStatus').classList.add('hidden');try{let{data,error}=await sb.auth.signInWithPassword({email:$('#email').value.trim(),password:$('#password').value});if(error)throw error;if(!data.session)throw new Error('Supabase nevrátil aktivní relaci.');await route()}catch(error){msg($('#loginStatus'),'Přihlášení selhalo: '+(error.message||error),'err')}finally{b.disabled=false;b.textContent='Přihlásit'}}
+async function route(){let{data:{session}}=await sb.auth.getSession();if(!session)return;if(!(await admin())){await sb.auth.signOut();return msg($('#loginStatus'),'Účet není Arena admin.','err')}$('#loginView').classList.add('hidden');$('#appView').classList.remove('hidden');$('#who').textContent=session.user.email;refresh()}
+$('#loginForm').onsubmit=async e=>{e.preventDefault();let{error}=await sb.auth.signInWithPassword({email:$('#email').value.trim(),password:$('#password').value});if(error)msg($('#loginStatus'),'Přihlášení selhalo: '+error.message,'err');else route()}
 $('#logout').onclick=async()=>{await sb.auth.signOut();location.reload()}
 async function refresh(){
  let [{data:i,error},{count:u},{count:o}]=await Promise.all([
@@ -48,7 +48,7 @@ async function refresh(){
  ]);
  if(error)return;
  $('#importCount').textContent=i.length;$('#unresolvedCount').textContent=u??0;$('#obsCount').textContent=o??0;
- $('#history').innerHTML=i.length?i.map(x=>'<tr><td>'+esc(x.filename)+'</td><td>'+esc(x.report_type||'—')+'</td><td>'+esc(x.period_start||'—')+(x.period_end&&x.period_end!==x.period_start?' → '+esc(x.period_end):'')+'</td><td><span class="pill">'+esc(x.status)+'</span></td><td>'+new Date(x.created_at).toLocaleString('cs-CZ')+'</td><td>'+(['ga_metrics','daily_picking'].includes(x.report_type)&&x.status==='staged'?'<button class="secondary" onclick="analyzeImport(\''+x.id+'\',\''+x.report_type+'\',this)">Analyzovat</button>':'—')+'</td></tr>').join(''):'<tr><td colspan="6" class="muted">Zatím žádné importy.</td></tr>';
+ $('#history').innerHTML=i.length?i.map(x=>'<tr><td>'+esc(x.filename)+'</td><td>'+esc(x.report_type||'—')+'</td><td>'+esc(x.period_start||'—')+(x.period_end&&x.period_end!==x.period_start?' → '+esc(x.period_end):'')+'</td><td><span class="pill">'+esc(x.status)+'</span></td><td>'+new Date(x.created_at).toLocaleString('cs-CZ')+'</td><td>'+(x.report_type==='ga_metrics'&&x.status==='staged'?'<button class="secondary" onclick="analyzeGA(\\''+x.id+'\\',this)">Analyzovat</button>':'—')+'</td></tr>').join(''):'<tr><td colspan="6" class="muted">Zatím žádné importy.</td></tr>';
 }
 const d=$('#drop'),p=$('#picker');d.onclick=()=>p.click();['dragenter','dragover'].forEach(n=>d.addEventListener(n,e=>{e.preventDefault();d.classList.add('over')}));['dragleave','drop'].forEach(n=>d.addEventListener(n,e=>{e.preventDefault();d.classList.remove('over')}));d.ondrop=e=>upload([...e.dataTransfer.files]);p.onchange=e=>upload([...e.target.files]);
 async function upload(fs){for(const f of fs){let row=document.createElement('div');row.className='file';row.innerHTML='<span>'+esc(f.name)+'</span><span class="muted">kontrola…</span>';$('#files').prepend(row);try{let h=await hash(f),{data:dup}=await sb.from('imports').select('id').eq('file_hash',h).maybeSingle();if(dup){row.lastElementChild.innerHTML='<span class="warn">už importováno</span>';continue}let path=new Date().toISOString().slice(0,10)+'/'+crypto.randomUUID()+'_'+f.name.replace(/[^a-zA-Z0-9._-]+/g,'_');let{error:e}=await sb.storage.from('arena-imports').upload(path,f);if(e)throw e;let{error:x}=await sb.from('imports').insert({file_hash:h,filename:f.name,report_type:type(f.name),storage_path:path,status:'staged',parser_version:'datahub-v1',metadata:{size:f.size,mime:f.type||null}});if(x){await sb.storage.from('arena-imports').remove([path]);throw x}row.lastElementChild.innerHTML='<span class="ok">uloženo ✓</span>'}catch(e){row.lastElementChild.innerHTML='<span class="err">'+esc(e.message||e)+'</span>'}}p.value='';await refresh();msg($('#uploadStatus'),'Upload dokončen.','ok')}
@@ -63,15 +63,14 @@ async function extractPdfClient(path){
  }
  return pages.join('\n\n--- PAGE ---\n\n');
 }
-async function analyzeImport(id,reportType,btn){
+async function analyzeGA(id,btn){
  const old=btn.textContent;btn.disabled=true;btn.textContent='Analyzuji…';
  try{
   const {data:{session}}=await sb.auth.getSession();
   if(!session)throw new Error('Relace vypršela. Přihlas se znovu.');
   const {data:imp,error:ie}=await sb.from('imports').select('storage_path').eq('id',id).single(); if(ie)throw ie;
   btn.textContent='Čtu PDF…'; const extracted_text=await extractPdfClient(imp.storage_path); btn.textContent='Parsování…';
-  const endpoint=reportType==='daily_picking'?'parse-daily-picking':'parse-ga-metrics';
-  const res=await fetch('https://yhpgqkklnymfiacrztqf.supabase.co/functions/v1/'+endpoint,{
+  const res=await fetch('https://yhpgqkklnymfiacrztqf.supabase.co/functions/v1/parse-ga-metrics',{
    method:'POST',
    headers:{'Authorization':'Bearer '+session.access_token,'apikey':'sb_publishable_EA9Sbn8ayjr0eHaI2m0s6A_Yct2lL8a','Content-Type':'application/json'},
    body:JSON.stringify({import_id:id,mode:'preview',extracted_text})
@@ -85,15 +84,15 @@ async function analyzeImport(id,reportType,btn){
   $('#pvObs').textContent=out.observation_count??out.observations?.length??'—';
   const unresolved=out.unresolved?.length||0;
   $('#pvStatus').innerHTML=out.preview?'<span class="ok">Preview připraven ✓</span> · unresolved: '+unresolved:'<span class="warn">Endpoint funguje, ale parser ještě nevrátil preview data.</span>';
-  currentPreview={id,out,extracted_text,reportType};
-  renderPreview(out,reportType);
-  $('#pvActions').innerHTML=out.preview?'<button onclick="confirmImport(this)">Potvrdit import</button>':'';
+  currentPreview={id,out,extracted_text};
+  renderPreview(out);
+  $('#pvActions').innerHTML=out.parser_stage&&out.parser_stage.startsWith('ga_metrics_parsed_')?'<button onclick="confirmGA(this)">Potvrdit import</button>':'';
   $('#previewCard').scrollIntoView({behavior:'smooth',block:'start'});
  }catch(e){alert('Analýza selhala: '+e.message)}
  finally{btn.disabled=false;btn.textContent=old}
 }
 
-function renderPreview(out,reportType){
+function renderPreview(out){
  const people=out.people||[], unresolved=new Set(out.unresolved||[]);
  const defs=[
  ['avg_picking_time','Picking'],['avg_packing_time','Packing'],['picking_app_task_count','Tasks'],['items_picked_via_scanner_ratio','Scanner %'],['item_count_total','Items'],['missing_incorrect_items_count','Missing #'],['missing_incorrect_items_rate','Missing %'],['not_collected_items_ratio','Not coll. %'],['perfect_order_fulfilment_ratio','POFR %'],['average_rating_of_goods','Rating'],['purchases_missing_replaced_count','Miss/Repl #'],['merchant_rejection_ratio','Reject %'],['venue_late_preparation_ratio','Late prep %'],['bad_goods_rating_ratio','Bad goods %'],['venue_related_cs_tickets_ratio','CS %'],['refund_percent','Refund %'],['picking_time_per_item','Pick/item'],['packing_time_per_item','Pack/item'],['avg_items_per_order','Items/order']
@@ -103,14 +102,13 @@ function renderPreview(out,reportType){
  const rows=people.map(p=>'<tr><td class="'+(p.person_id?'':'pv-unresolved')+'">'+esc(p.source_identity)+(p.person_id?'':' ⚠')+'</td>'+defs.map(([k])=>{const v=p.values?.[k];return '<td class="'+(v==null?'pv-null':'')+'">'+(v==null?'—':esc(v))+'</td>'}).join('')+'</tr>').join('');
  $('#pvBody').innerHTML='<div class="pv-summary"><span class="pill">Matched '+matched+'/'+people.length+'</span><span class="pill">Unresolved '+unresolved.size+'</span><span class="pill">'+esc(out.period_start||'—')+' → '+esc(out.period_end||'—')+'</span></div><div class="pv-table-wrap"><table class="pv-table">'+head+'<tbody>'+rows+'</tbody></table></div>';
 }
-async function confirmImport(btn){
+async function confirmGA(btn){
  if(!currentPreview)return;
- if((currentPreview.out.unresolved||[]).length){alert('Import nelze potvrdit: '+currentPreview.out.unresolved.join(', '));return}
+ if((currentPreview.out.unresolved||[]).filter(x=>!x.startsWith('woltmark')).length){alert('Import nelze potvrdit: '+currentPreview.out.unresolved.filter(x=>!x.startsWith('woltmark')).join(', '));return}
  const old=btn.textContent;btn.disabled=true;btn.textContent='Zapisuji…';
  try{
   const {data:{session}}=await sb.auth.getSession(); if(!session)throw new Error('Relace vypršela.');
-  const endpoint=currentPreview.reportType==='daily_picking'?'parse-daily-picking':'parse-ga-metrics';
-  const res=await fetch('https://yhpgqkklnymfiacrztqf.supabase.co/functions/v1/'+endpoint,{method:'POST',headers:{'Authorization':'Bearer '+session.access_token,'apikey':'sb_publishable_EA9Sbn8ayjr0eHaI2m0s6A_Yct2lL8a','Content-Type':'application/json'},body:JSON.stringify({import_id:currentPreview.id,mode:'commit',extracted_text:currentPreview.extracted_text})});
+  const res=await fetch('https://yhpgqkklnymfiacrztqf.supabase.co/functions/v1/parse-ga-metrics',{method:'POST',headers:{'Authorization':'Bearer '+session.access_token,'apikey':'sb_publishable_EA9Sbn8ayjr0eHaI2m0s6A_Yct2lL8a','Content-Type':'application/json'},body:JSON.stringify({import_id:currentPreview.id,mode:'commit',extracted_text:currentPreview.extracted_text})});
   const out=await res.json().catch(()=>({})); if(!res.ok)throw new Error(out.detail||out.error||('HTTP '+res.status));
   $('#pvStatus').innerHTML='<span class="ok">Import dokončen ✓</span> · zapsáno '+esc(out.inserted_count)+' observations';
   $('#pvActions').innerHTML=''; $('#pvBody').textContent=JSON.stringify(out,null,2); await refresh();
