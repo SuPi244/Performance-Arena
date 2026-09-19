@@ -2240,7 +2240,7 @@ function renderStoreCardLive(){
  const trBar=document.getElementById('teamRatingCompletionBar');
  const trHost=document.getElementById('teamRatingCompletionPeople');
  const trFoot=document.getElementById('teamRatingCompletionFoot');
- if(trMeta)trMeta.textContent=(trc.completed??0)+' / '+(trc.total??trPeople.length||0)+' · '+(trc.percent??0)+' %';
+ if(trMeta)trMeta.textContent=(trc.completed??0)+' / '+(trc.total??trPeople.length??0)+' · '+(trc.percent??0)+' %';
  if(trBar)trBar.style.width=Math.max(0,Math.min(100,Number(trc.percent||0)))+'%';
  if(trHost){
   trHost.innerHTML=trPeople.length?trPeople.map(x=>{
