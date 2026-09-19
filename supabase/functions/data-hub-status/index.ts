@@ -235,7 +235,7 @@ async function coverage(db:any,requestedMonth:string){
     db.from("store_card_months").select("month,status").eq("month",start),
     db.from("unresolved_identities").select("source_type,status,metadata").eq("status","unresolved").limit(1000),
     db.from("team_rating_responses").select("respondent_person_id,is_valid,disqualified_reason,submitted_at,metadata").eq("response_month",start),
-    db.from("people").select("id,display_name,active").eq("active",true)
+    db.from("people").select("id,display_name,active,employment_type,team_effort_eligible").eq("active",true)
   ]);
   const err=ie||oe||se||sme||sce||ue||tre||ape;if(err)throw err;
   const imps=imports||[],observations=obs||[],shiftRows=shifts||[];
@@ -274,7 +274,7 @@ async function coverage(db:any,requestedMonth:string){
     const k=String(r.respondent_person_id),old=teamRatingLatest.get(k);
     if(!old||String(r.submitted_at)>String(old.submitted_at))teamRatingLatest.set(k,r);
   }
-  const teamRatingPeople=activePeople||[];
+  const teamRatingPeople=(activePeople||[]).filter((p:any)=>p.employment_type==="HPP"||p.team_effort_eligible===true);
   const teamRatingValid=teamRatingPeople.filter((p:any)=>teamRatingLatest.get(String(p.id))?.is_valid===true);
   const teamRatingInvalid=teamRatingPeople.filter((p:any)=>teamRatingLatest.has(String(p.id))&&teamRatingLatest.get(String(p.id))?.is_valid!==true);
   const teamRatingSegments=teamRatingPeople.map((p:any)=>{
