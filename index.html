@@ -1267,6 +1267,27 @@ html[data-theme="light"] .mission-card.quest-readable .quest-progress:before{bac
 }
 </style>
 
+<style id="playerhub-v151-operational-polish">
+/* V151 — restore the sharper game-HUD quest identity without changing the rest of the Arena UI. */
+.mission-card.quest-readable{min-height:132px!important;padding:11px 12px 10px!important;border-radius:5px!important;clip-path:polygon(0 9px,9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%)!important;background:linear-gradient(145deg,rgba(14,30,22,.98),rgba(8,19,14,.99))!important;border-color:rgba(53,231,138,.20)!important}
+.mission-card.quest-readable.monthly{min-height:146px!important}
+.mission-card.quest-readable .mc-icon{width:31px!important;height:31px!important;border-radius:3px!important;border-color:rgba(53,231,138,.22)!important;background:rgba(53,231,138,.08)!important}
+.mission-card.quest-readable .mc-state{margin-right:20px!important;padding:3px 6px!important;border-radius:3px!important;background:rgba(168,85,247,.10)!important;border-color:rgba(168,85,247,.24)!important;font-size:7px!important;letter-spacing:.06em}
+.mission-card.quest-readable .mc-name{margin-top:8px!important;font-size:10px!important;text-transform:uppercase;letter-spacing:.06em}
+.mission-card.quest-readable .mc-value{margin-top:4px!important;font-size:21px!important}
+.mission-card.quest-readable .mc-target{margin-top:5px!important;font-size:8px!important}.mission-card.quest-readable .mc-status{font-size:8px!important;min-height:11px!important}.mission-card.quest-readable .mc-lock{font-size:7px!important}
+.mission-card.quest-readable .quest-progress{height:8px!important;padding-top:8px!important}
+.mission-card.quest-readable .quest-progress:before{height:8px!important;border-radius:1px!important;background:repeating-linear-gradient(90deg,rgba(255,255,255,.08) 0,rgba(255,255,255,.08) calc(10% - 2px),transparent calc(10% - 2px),transparent 10%)!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.05)!important}
+.mission-card.quest-readable .quest-progress span{height:8px!important;border-radius:1px!important;background:repeating-linear-gradient(90deg,#35e78a 0,#35e78a calc(10% - 2px),rgba(134,239,172,.25) calc(10% - 2px),rgba(134,239,172,.25) 10%)!important;box-shadow:0 0 10px rgba(53,231,138,.20)!important}
+.mission-card.quest-readable.warn .quest-progress span{background:repeating-linear-gradient(90deg,#e1b846 0,#e1b846 calc(10% - 2px),rgba(252,211,77,.25) calc(10% - 2px),rgba(252,211,77,.25) 10%)!important}
+.mission-card.quest-readable.bad .quest-progress span{background:repeating-linear-gradient(90deg,#e05a69 0,#e05a69 calc(10% - 2px),rgba(251,113,133,.23) calc(10% - 2px),rgba(251,113,133,.23) 10%)!important}
+.inbound-overview-card{margin-bottom:10px}.detail-live-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.player-live-section{margin-top:12px}
+@media(max-width:760px){.detail-live-grid{grid-template-columns:1fr 1fr}.mission-card.quest-readable{min-height:124px!important}}
+@media(max-width:520px){.detail-live-grid{grid-template-columns:1fr}.mission-card.quest-readable{min-height:118px!important}}
+@media(min-width:3000px){.mission-card.quest-readable{min-height:176px!important;padding:16px!important;border-radius:7px!important}.mission-card.quest-readable.monthly{min-height:192px!important}.mission-card.quest-readable .mc-value{font-size:30px!important}.mission-card.quest-readable .mc-name{font-size:13px!important}.mission-card.quest-readable .mc-target,.mission-card.quest-readable .mc-status{font-size:10px!important}.mission-card.quest-readable .quest-progress,.mission-card.quest-readable .quest-progress:before,.mission-card.quest-readable .quest-progress span{height:11px!important}}
+</style>
+<!-- Player Hub V151 · operational polish -->
 </head>
 <body><div class="ambient-particles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
 <div id="loginOverlay">
@@ -1344,7 +1365,7 @@ html[data-theme="light"] .mission-card.quest-readable .quest-progress:before{bac
   <div class="hub-trend-wrap"><canvas id="hubTrendChart"></canvas></div>
   <div class="hub-trend-explain"><strong id="hubTrendValue">—</strong><span id="hubTrendExplain">Vyber metriku a uvidíš trend po týdnech.</span></div>
 </section></div>
-<div class="section"><div class="section-head"><h3>INBOUND</h3><span id="inboundMeta">—</span></div><div class="metric-grid" id="personalInbound"></div></div><div class="section"><div class="section-head"><h3>POSLEDNÍ TÝDEN</h3><span>zlepšení / zhoršení vs. předchozí týden</span></div><div class="personal-delta-grid" id="personalDeltaGrid"></div></div></section>
+<div class="section"><div class="section-head"><h3>INBOUND</h3><span id="inboundMeta">—</span></div><section class="generated-chart-card inbound-overview-card"><div class="generated-chart-head"><div><div class="generated-chart-title">Inbound trend</div><div class="generated-chart-sub">Normal + ICY + FREEZE · Data Hub</div></div><div><div class="generated-chart-value" id="inboundTrendValue">—</div><div class="generated-chart-trend neutral" id="inboundTrendDelta">—</div></div></div><div class="chart-wrap small"><canvas id="personalInboundChart"></canvas></div><div class="generated-chart-caption"><span class="generated-chart-key"><i></i> inbound celkem</span><span class="generated-chart-key team"><i></i> jednotlivé typy</span></div></section><div class="metric-grid" id="personalInbound"></div></div><div class="section"><div class="section-head"><h3>POSLEDNÍ TÝDEN</h3><span>zlepšení / zhoršení vs. předchozí týden</span></div><div class="personal-delta-grid" id="personalDeltaGrid"></div></div></section>
 <section class="page" id="page-efficiency">
 <div class="hero"><div class="eyebrow">Data Hub · Context efficiency</div><h2>Efektivita</h2><p>Output, efektivita, kvalita a reliability pohromadě. Efektivita je kontextová vrstva — není to automaticky Rank/ELO.</p></div>
 <div class="section"><div class="storecard-wallet-grid">
@@ -1401,7 +1422,7 @@ html[data-theme="light"] .mission-card.quest-readable .quest-progress:before{bac
 <div class="notice" id="globalNotice">Načítám data…</div><div class="notice error hidden" id="fatal"></div>
 </main></div></div>
 <div class="overlay" id="profileOverlay"><div class="modal"><div class="modal-head"><div><div class="eyebrow">Player selector</div><h2 style="margin:5px 0 0">Vyber profil</h2></div><button class="close" id="closeProfile">✕</button></div><div class="section"><input class="tool" id="profileSearch" placeholder="Hledat jméno…" style="width:100%;padding:10px"/></div><div class="team-list" id="profileChoices"></div></div></div>
-<div class="badge-legend-overlay" id="badgeLegendOverlay"><div class="badge-legend-modal" role="dialog" aria-modal="true" aria-labelledby="badgeLegendTitle"><div class="badge-legend-head"><div><h3 id="badgeLegendTitle">🏅 LEGENDA ODZNAKŮ</h3><p>Co jednotlivé odznaky znamenají a jak je získat</p></div><button class="badge-legend-close" id="closeBadgeLegend" aria-label="Zavřít">✕</button></div><p class="badge-legend-tip">Klikni na libovolný odznak v profilu pro otevření této legendy.</p><div class="badge-legend-grid" id="badgeLegendGrid"></div></div></div><div class="overlay" id="detailOverlay"><div class="modal player-modal"><div class="modal-head player-modal-head"><div><div class="eyebrow">Player profile</div><h2 id="detailName" class="player-profile-name">—</h2><div id="detailSubtitle" class="player-profile-sub">Season performance · posledních 13 týdnů</div></div><button class="close" id="closeDetail">✕</button></div><div class="profile-top player-profile-top"><div class="profile-hero player-identity-card"><div class="player-rank-line"><span class="profile-kicker">SEASON RANK</span><span id="detailTier" class="player-tier">—</span></div><div class="player-rank-main"><span id="detailRankCrest" class="player-rank-crest">🏆</span><div><div id="detailRank" class="player-rank-value">—</div><div id="detailElo" class="player-elo-value">—</div></div></div><div class="player-rank-track"><span id="detailRankFill"></span></div><div id="rankUpBurst" class="rank-up-burst" aria-hidden="true"><div class="rank-up-inner"><div class="rank-up-title">RANK UP!</div><div id="rankUpBurstSub" class="rank-up-sub">—</div></div></div></div><div class="profile-hero player-badges-card"><div class="player-card-head"><span class="profile-kicker">BADGES</span><span id="detailBadgeCount" class="player-card-count">0</span></div><div class="badge-row player-detail-badges" id="detailBadges"></div></div></div><div class="profile-grid player-profile-grid" id="detailStats"></div><div class="section player-insights-section"><div class="section-head"><h3>VÝKONNOSTNÍ PROFIL</h3><span>sezónní průměr vs. tým</span></div><div class="detail-insights" id="detailInsights"><div class="insight"><strong>Silná stránka</strong><span>—</span></div><div class="insight"><strong>Největší rezerva</strong><span>—</span></div></div></div><div class="section player-breakdown-section"><div class="section-head"><h3>SEASON BREAKDOWN</h3><span>13týdenní průměr · barva = výkon vs. tým</span></div><div class="breakdown-list" id="detailBreakdown"></div></div></div></div>
+<div class="badge-legend-overlay" id="badgeLegendOverlay"><div class="badge-legend-modal" role="dialog" aria-modal="true" aria-labelledby="badgeLegendTitle"><div class="badge-legend-head"><div><h3 id="badgeLegendTitle">🏅 LEGENDA ODZNAKŮ</h3><p>Co jednotlivé odznaky znamenají a jak je získat</p></div><button class="badge-legend-close" id="closeBadgeLegend" aria-label="Zavřít">✕</button></div><p class="badge-legend-tip">Klikni na libovolný odznak v profilu pro otevření této legendy.</p><div class="badge-legend-grid" id="badgeLegendGrid"></div></div></div><div class="overlay" id="detailOverlay"><div class="modal player-modal"><div class="modal-head player-modal-head"><div><div class="eyebrow">Player profile</div><h2 id="detailName" class="player-profile-name">—</h2><div id="detailSubtitle" class="player-profile-sub">Season performance · posledních 13 týdnů</div></div><button class="close" id="closeDetail">✕</button></div><div class="profile-top player-profile-top"><div class="profile-hero player-identity-card"><div class="player-rank-line"><span class="profile-kicker">SEASON RANK</span><span id="detailTier" class="player-tier">—</span></div><div class="player-rank-main"><span id="detailRankCrest" class="player-rank-crest">🏆</span><div><div id="detailRank" class="player-rank-value">—</div><div id="detailElo" class="player-elo-value">—</div></div></div><div class="player-rank-track"><span id="detailRankFill"></span></div><div id="rankUpBurst" class="rank-up-burst" aria-hidden="true"><div class="rank-up-inner"><div class="rank-up-title">RANK UP!</div><div id="rankUpBurstSub" class="rank-up-sub">—</div></div></div></div><div class="profile-hero player-badges-card"><div class="player-card-head"><span class="profile-kicker">BADGES</span><span id="detailBadgeCount" class="player-card-count">0</span></div><div class="badge-row player-detail-badges" id="detailBadges"></div></div></div><div class="profile-grid player-profile-grid" id="detailStats"></div><div class="section player-live-section"><div class="section-head"><h3>LIVE DATA HUB</h3><span id="detailLiveOpsMeta">aktuální měsíc</span></div><div class="enhanced-kpi-grid detail-live-grid" id="detailLiveOps"><div class="notice">Načítám live data…</div></div></div><div class="section player-insights-section"><div class="section-head"><h3>VÝKONNOSTNÍ PROFIL</h3><span>sezónní průměr vs. tým</span></div><div class="detail-insights" id="detailInsights"><div class="insight"><strong>Silná stránka</strong><span>—</span></div><div class="insight"><strong>Největší rezerva</strong><span>—</span></div></div></div><div class="section player-breakdown-section"><div class="section-head"><h3>SEASON BREAKDOWN</h3><span>13týdenní průměr · barva = výkon vs. tým</span></div><div class="breakdown-list" id="detailBreakdown"></div></div></div></div>
 <div class="loading-overlay" id="loadingOverlay"><div class="loading-card"><div class="loader-orb"><span></span></div><div class="loading-title">Načítám Performance Arena</div><div class="loading-sub" id="loadingStage">Připravuji profil…</div><div class="loading-progress"><span id="loadingProgress"></span></div><div class="loading-tip" id="loadingTip"></div></div></div>
 <script>
 const API_URL='https://script.google.com/macros/s/AKfycbxC38rlABSICaLkd8X1hsqBuOHYhgtg7naei1UyyRPKyHIqW818K4jSIbd74zG-nMqy/exec';
@@ -1787,13 +1808,24 @@ function previousOfficialMetric(id){
  const x=(state.storeCard?.official_metrics||[]).find(m=>m.metric_id===id);
  return x?.value??null;
 }
+function shiftWord(n){n=Number(n)||0;return n===1?'směna':(n>=2&&n<=4?'směny':'směn')}
+function shortCsDate(v){const p=String(v||'').slice(0,10).split('-');return p.length===3?(Number(p[2])+'. '+Number(p[1])+'.'):String(v||'—')}
+function onTimeInfo(eff={}){
+ const sample=Number(eff.tardiness_shift_count??0),count=Number(eff.on_time_count??0),pct=Number(eff.on_time_pct);
+ const late=Array.isArray(eff.late_shifts)?eff.late_shifts:[];
+ const excluded=Number(eff.tardiness_excluded_count??0);
+ const detail=late.slice(0,3).map(s=>shortCsDate(s.shift_date)+' +'+fmt(Number(s.tardiness_min||0),0)+' min').join(' · ');
+ const display=sample>0?(count+' / '+sample+' směn včas'):'—';
+ let status=sample<3?('Zatím '+sample+' '+shiftWord(sample)+' · minimum 3'):late.length?((late.length===1?'1 směna':' '+late.length+' směny')+' mimo toleranci'+(detail?' · '+detail:'')):'Všechny započítané směny včas';
+ if(excluded>0)status+=' · '+excluded+' '+(excluded===1?'výjimka ignorována':'výjimky ignorovány');
+ return {sample,count,pct,late,excluded,display,status,detail};
+}
 function operationalQuestDefs(){
- const d=state.storeCard||{},eff=d.efficiency||{},lp=d.live_personal||{},pr=d.projection||{};
+ const d=state.storeCard||{},eff=d.efficiency||{},pr=d.projection||{};
  const prevInbound=Number(previousOfficialMetric('store_card_inbound_total_units'));
  const inboundTarget=Number.isFinite(prevInbound)&&prevInbound>0?Math.round(prevInbound*.8):500;
  const delta=Number(eff.trend?.delta_pct);
- const ontime=Number(eff.on_time_pct);
- const ontimeSample=Number.isFinite(Number(eff.tardiness_shift_count))?Number(eff.tardiness_shift_count):Number(eff.shift_count||0);
+ const oti=onTimeInfo(eff);
  const quality=Number(eff.quality_factor);
  const inbound=Number(eff.inbound_units);
  const threshold=Number(d.scoring?.reference_threshold_points||11);
@@ -1801,7 +1833,7 @@ function operationalQuestDefs(){
  const pct=(value,target)=>Number.isFinite(value)&&target>0?Math.min(100,Math.max(0,value/target*100)):0;
  return [
   {id:'op_eff',icon:'⚙️',title:'Efficiency Boost',reward:'MONTHLY · +220 XP',desc:'Zlepši Total Units / Worked Hour alespoň o 5 % proti předchozím 7 dnům.',display:Number.isFinite(delta)?(delta>=0?('+'+fmt(delta,1)+' %'):'0 % progress'):'—',target:'Cíl: +5 % vs předchozích 7 dní',status:Number.isFinite(delta)?(delta>=5?'Splněno ✓':delta>=0?(fmt(delta/5*100,0)+' % k cíli'):('Aktuální trend '+fmt(delta,1)+' %')):'Čeká na data',pct:Number.isFinite(delta)?Math.min(100,Math.max(0,(delta/5)*100)):0,done:Number.isFinite(delta)&&delta>=5,tone:Number.isFinite(delta)?(delta>=5?'good':delta<0?'bad':'warn'):'neutral'},
-  {id:'op_time',icon:'⏰',title:'On-Time Operator',reward:'MONTHLY · +180 XP',desc:'Měj alespoň 95 % započítaných směn v toleranci do 5 minut; počítá se od 3 směn.',display:Number.isFinite(ontime)?fmt(ontime,1)+' %':'—',target:'Cíl: ≥ 95 % · min. 3 započítané směny',status:ontimeSample<3?(ontimeSample+' / 3 směny'):Number.isFinite(ontime)?(ontime>=95?'Splněno ✓':fmt(pct(ontime,95),0)+' % k cíli'):'Čeká na data',pct:Number.isFinite(ontime)?pct(ontime,95):0,done:ontimeSample>=3&&Number.isFinite(ontime)&&ontime>=95,tone:ontimeSample<3?'neutral':Number.isFinite(ontime)?(ontime>=95?'good':ontime>=85?'warn':'bad'):'neutral'},
+  {id:'op_time',icon:'⏰',title:'On-Time Operator',reward:'MONTHLY · +180 XP',desc:'Měj alespoň 95 % započítaných směn v toleranci do 5 minut; počítá se od 3 směn.',display:oti.display,target:'Cíl: ≥ 95 % · tolerance 5 min',status:oti.status,pct:Number.isFinite(oti.pct)?pct(oti.pct,95):0,done:oti.sample>=3&&Number.isFinite(oti.pct)&&oti.pct>=95,tone:oti.sample<3?'neutral':Number.isFinite(oti.pct)?(oti.pct>=95?'good':oti.pct>=85?'warn':'bad'):'neutral'},
   {id:'op_quality',icon:'🧪',title:'Quality Engine',reward:'MONTHLY · +250 XP',desc:'Udrž Quality Factor alespoň 99,4 % při reálném outputu.',display:Number.isFinite(quality)?fmt(quality,2)+' %':'—',target:'Cíl: ≥ 99,4 % Quality Factor',status:(eff.total_units||0)<=0?'Čeká na reálný output':Number.isFinite(quality)?(quality>=99.4?'Splněno ✓':('Chybí '+fmt(99.4-quality,2)+' p. b.')):'Čeká na data',pct:Number.isFinite(quality)?pct(quality,99.4):0,done:(eff.total_units||0)>0&&Number.isFinite(quality)&&quality>=99.4,tone:(eff.total_units||0)<=0?'neutral':Number.isFinite(quality)?(quality>=99.4?'good':quality>=98.5?'warn':'bad'):'neutral'},
   {id:'op_inbound',icon:'📦',title:'Inbound Contributor',reward:'MONTHLY · +220 XP',desc:'Dosáhni alespoň 80 % svého posledního oficiálního měsíčního Inboundu (nebo 500 units, pokud historii nemáš).',display:Number.isFinite(inbound)?Math.round(inbound).toLocaleString('cs-CZ')+' units':'—',target:'Cíl: '+inboundTarget.toLocaleString('cs-CZ')+' units',status:Number.isFinite(inbound)?(inbound>=inboundTarget?'Splněno ✓ · '+fmt(inbound/inboundTarget*100,0)+' % cíle':fmt(inbound/inboundTarget*100,0)+' % k cíli'):'Čeká na data',pct:Number.isFinite(inbound)?pct(inbound,inboundTarget):0,done:Number.isFinite(inbound)&&inbound>=inboundTarget,tone:Number.isFinite(inbound)?(inbound>=inboundTarget?'good':inbound>=inboundTarget*.65?'warn':'bad'):'neutral'},
   {id:'op_card',icon:'🎯',title:'Store Card Threshold',reward:'MONTHLY · +300 XP',desc:'Průběžný Store Card odhad je alespoň na aktuálním threshold bodů. Potvrzuje se až uzávěrkou.',display:Number.isFinite(points)?fmt(points,1)+' bodů':'—',target:'Cíl: '+fmt(threshold,1)+' b.',status:Number.isFinite(points)?(points>=threshold?(Number(pr.confidence_percent||0)>=35?'Splněno ✓':'Body splněny · čeká se na coverage'):(fmt(points/threshold*100,0)+' % k cíli')):'Čeká na data',pct:Number.isFinite(points)&&threshold>0?pct(points,threshold):0,done:Number.isFinite(points)&&points>=threshold&&Number(pr.confidence_percent||0)>=35,tone:Number.isFinite(points)?(points>=threshold?'good':points>=threshold*.7?'warn':'bad'):'neutral'}
@@ -1846,11 +1878,10 @@ function renderPersonalFriendlySummary(){
  setText('summaryQualitySub','Scan · Missing · Undelivered · POFR');
  setSummaryState('summaryQualityCard',qualityKnown?(qualityGood===qualityKnown?'good':qualityGood>=Math.ceil(qualityKnown/2)?'warn':'bad'):'warn');
 
- const ontime=Number(eff.on_time_pct);
- const reliabilitySample=Number(eff.tardiness_shift_count??0),reliabilityOnTime=Number(eff.on_time_count??0),reliabilityExcluded=Number(eff.tardiness_excluded_count??0);
- setText('summaryReliability',Number.isFinite(ontime)?fmt(ontime,1)+' % on-time':'Čeká na směny');
- setText('summaryReliabilitySub',reliabilitySample>0?(reliabilityOnTime+' / '+reliabilitySample+' započítaných směn včas'+(reliabilityExcluded>0?' · '+reliabilityExcluded+(reliabilityExcluded===1?' výjimka':' výjimky'):'')):((eff.shift_count||0)+' dokončených směn · '+liveFmt(eff.worked_hours)+' h'));
- setSummaryState('summaryReliabilityCard',Number.isFinite(ontime)?(ontime>=95?'good':ontime>=85?'warn':'bad'):'warn');
+ const oti=onTimeInfo(eff);
+ setText('summaryReliability',oti.display==='—'?'Čeká na směny':oti.display);
+ setText('summaryReliabilitySub',(Number.isFinite(oti.pct)?fmt(oti.pct,1)+' % · ':'')+oti.status);
+ setSummaryState('summaryReliabilityCard',Number.isFinite(oti.pct)?(oti.pct>=95?'good':oti.pct>=85?'warn':'bad'):'warn');
 
  setText('summaryStoreCard',pr.projected_points!=null?(fmt(Number(pr.projected_points),1)+' b. · #'+(pr.projected_rank||'—')):'Čeká na data');
  setText('summaryStoreCardSub',projectionBonusText(pr)+' · confidence '+(pr.confidence_percent??0)+' %');
@@ -1861,6 +1892,7 @@ function renderPersonalFriendlySummary(){
   const parts=[];
   if(Number.isFinite(delta))parts.push(delta>=5?'efektivita jde viditelně nahoru':delta<=-5?'efektivita poslední týden klesá':'efektivita je zhruba stabilní');
   if(qualityKnown)parts.push(qualityGood===qualityKnown?'hlavní quality KPI jsou na cíli':qualityGood+' z '+qualityKnown+' quality KPI jsou na cíli');
+  if(oti.sample)parts.push(oti.display.toLowerCase());
   if(pr.projected_rank)parts.push('Store Card odhad je #'+pr.projected_rank+' z '+(pr.projected_rank_total||'—'));
   narrative.innerHTML='<strong>Co z toho plyne:</strong> '+esc(parts.join(' · ')||'Data se ještě sbírají. Detail níže je k dispozici, když ho potřebuješ.');
  }
@@ -1869,7 +1901,8 @@ function renderPersonalFriendlySummary(){
   ef.innerHTML='<strong>Jednoduše:</strong> '+esc(
    (Number.isFinite(delta)?('trend '+(delta>=0?'+':'')+fmt(delta,1)+' %'):'trend zatím bez dostatku dat')+
    (Number.isFinite(Number(eff.vs_team_percent))?' · proti týmovému průměru '+(Number(eff.vs_team_percent)>=0?'+':'')+fmt(Number(eff.vs_team_percent),1)+' %':'')+
-   (Number.isFinite(Number(eff.quality_factor))?' · quality factor '+fmt(Number(eff.quality_factor),2)+' %':'')
+   (Number.isFinite(Number(eff.quality_factor))?' · quality factor '+fmt(Number(eff.quality_factor),2)+' %':'')+
+   (oti.sample?' · '+oti.display.toLowerCase():'')
   );
  }
 }
@@ -2655,7 +2688,7 @@ function buildMetricCards(){
   const rangeTxt=(state.rangeStart||state.rangeEnd)?` ${state.rangeStart||'…'} – ${state.rangeEnd||'…'}`:(range==='all'?'celá historie':`posledních ${range} týdnů`);
   setText('personalMeta',shown+' týdnů · '+state.history.metricDefinitions.length+' metrik · '+rangeTxt);
 }
-async function renderInbound(){
+async async function renderInbound(){
   const box=document.getElementById('personalInbound');
   if(!box)return;
 
@@ -2675,17 +2708,14 @@ async function renderInbound(){
 
   const all=d?.metric_series||[];
   const order=['inbound_total_units_live','inbound_normal_units','inbound_icy_units','inbound_freez_units'];
-  const labels={
-    inbound_total_units_live:'Inbound celkem',
-    inbound_normal_units:'Normal',
-    inbound_icy_units:'ICY',
-    inbound_freez_units:'FREEZE'
-  };
+  const labels={inbound_total_units_live:'Inbound celkem',inbound_normal_units:'Normal',inbound_icy_units:'ICY',inbound_freez_units:'FREEZE'};
   const rows=order.map(id=>all.find(s=>s.metric_id===id)).filter(Boolean);
 
   if(!rows.length){
     box.innerHTML='<div class="panel">Pro tento profil zatím nejsou v Data Hubu inbound data.</div>';
     setText('inboundMeta','0 týdnů · Data Hub');
+    setText('inboundTrendValue','—');setText('inboundTrendDelta','Bez dat');
+    destroyChart('personalInboundChart');
     return;
   }
 
@@ -2706,6 +2736,34 @@ async function renderInbound(){
     const canvas=document.getElementById('inb_'+x.i);if(!canvas)return;
     charts['inb_'+x.i]=new Chart(canvas,{type:'line',data:{labels:x.sliced.labels,datasets:[{data:x.sliced.arr,borderColor:'#60A5FA',backgroundColor:'rgba(96,165,250,.08)',fill:true,tension:.3,pointRadius:0,spanGaps:true,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{display:false},y:{display:false}}}});
   });
+
+  const union=[...new Set(items.flatMap(x=>x.sliced.labels||[]))].sort();
+  const datasetFor=(item,label,borderColor,dash=[])=>{
+    const map=new Map((item?.sliced.labels||[]).map((l,i)=>[l,item.sliced.arr[i]]));
+    return {label,data:union.map(l=>map.has(l)?map.get(l):null),borderColor,backgroundColor:'transparent',borderWidth:label==='Inbound celkem'?3:1.6,borderDash:dash,tension:.25,pointRadius:2,spanGaps:true};
+  };
+  const totalItem=items.find(x=>x.s.metric_id==='inbound_total_units_live');
+  const normalItem=items.find(x=>x.s.metric_id==='inbound_normal_units');
+  const icyItem=items.find(x=>x.s.metric_id==='inbound_icy_units');
+  const freezeItem=items.find(x=>x.s.metric_id==='inbound_freez_units');
+  const datasets=[];
+  if(totalItem)datasets.push(datasetFor(totalItem,'Inbound celkem','#35E78A'));
+  if(normalItem)datasets.push(datasetFor(normalItem,'Normal','#60A5FA',[5,3]));
+  if(icyItem)datasets.push(datasetFor(icyItem,'ICY','#22D3EE',[3,3]));
+  if(freezeItem)datasets.push(datasetFor(freezeItem,'FREEZE','#A78BFA',[2,4]));
+
+  destroyChart('personalInboundChart');
+  const main=document.getElementById('personalInboundChart');
+  if(main&&union.length){
+    charts.personalInboundChart=new Chart(main,{type:'line',data:{labels:union,datasets},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:true,labels:{color:'#91A79B',boxWidth:12,font:{size:10}}}},scales:{x:{ticks:{color:'#91A79B',maxRotation:0},grid:{display:false}},y:{beginAtZero:true,ticks:{color:'#91A79B'},grid:{color:'rgba(145,167,155,.10)'}}}}});
+  }
+
+  const totalVals=(totalItem?.sliced.arr||[]).map(v=>Number(v)).filter(v=>Number.isFinite(v));
+  const latest=totalVals.length?totalVals.at(-1):null,prev=totalVals.length>1?totalVals.at(-2):null;
+  setText('inboundTrendValue',latest==null?'—':liveFmt(latest,'int')+' units');
+  const dlt=latest!=null&&prev!=null&&prev!==0?(latest-prev)/Math.abs(prev)*100:null;
+  const de=document.getElementById('inboundTrendDelta');
+  if(de){de.className='generated-chart-trend '+(dlt==null?'neutral':dlt>0?'good':dlt<0?'bad':'neutral');de.textContent=dlt==null?'Nedostatek týdnů':((dlt>0?'+':'')+fmt(dlt,1)+' % vs předchozí týden');}
 
   const shown=Math.max(0,...items.map(x=>x.sliced.labels?.length||0));
   setText('inboundMeta',shown+' týdnů · Data Hub');
@@ -3107,6 +3165,26 @@ function resolveTeamPersonName(name){
   return Object.keys(state.team?.people||{}).find(k=>norm(k)===target)||null;
 }
 
+async function renderDetailLiveOps(name){
+ const box=document.getElementById('detailLiveOps'),meta=document.getElementById('detailLiveOpsMeta');if(!box)return;
+ box.innerHTML='<div class="notice">Načítám live Data Hub…</div>';
+ try{
+  const d=await loadStoreCardLive(name),eff=d?.efficiency||{},pr=d?.projection||{},oti=onTimeInfo(eff);
+  if(meta)meta.textContent=(d?.live_personal?.month||'aktuální měsíc')+' · Data Hub';
+  const lateSub=oti.status;
+  const cards=[
+   ['Total Units / h',Number.isFinite(Number(eff.total_units_per_worked_hour))?liveFmt(eff.total_units_per_worked_hour):'—',Number.isFinite(Number(eff.vs_team_percent))?((Number(eff.vs_team_percent)>=0?'+':'')+fmt(Number(eff.vs_team_percent),1)+' % vs tým'):'kontextová efektivita'],
+   ['Inbound MTD',Number.isFinite(Number(eff.inbound_units))?liveFmt(eff.inbound_units,'int'):'—','units v aktuálním měsíci'],
+   ['On-Time',oti.display,lateSub],
+   ['Store Card',pr.projected_points!=null?(fmt(Number(pr.projected_points),1)+' b. · #'+(pr.projected_rank||'—')):'—',projectionBonusText(pr)+' · provisional']
+  ];
+  box.innerHTML=cards.map(x=>'<div class="enhanced-kpi"><div class="ek">'+esc(x[0])+'</div><div class="ev">'+esc(x[1])+'</div><div class="es">'+esc(x[2])+'</div></div>').join('');
+ }catch(e){
+  if(meta)meta.textContent='Data Hub nedostupný';
+  box.innerHTML='<div class="notice error">Live provozní data se nepodařilo načíst.</div>';
+ }
+}
+
 function openDetail(name){
   const resolved=resolveTeamPersonName(name);
   if(!resolved)return;
@@ -3124,6 +3202,7 @@ function openDetail(name){
   document.getElementById('detailInsights').innerHTML=`<div class="insight"><strong>Silná stránka</strong><span>${strong?esc(cleanMetricName(strong.d))+' · '+formatNormVal(strong.avg,strong.d):'—'}</span></div><div class="insight"><strong>Největší rezerva</strong><span>${weak?esc(cleanMetricName(weak.d))+' · '+formatNormVal(weak.avg,weak.d):'—'}</span></div>`;
   document.getElementById('detailBreakdown').innerHTML=scored.map(x=>{const status=x.good===true?'good':x.good===false?'bad':'neutral';const label=x.good===true?'↑ NAD TÝMEM':x.good===false?'↓ POD TÝMEM':'→ VYROVNANÉ';const point=x.pts>0?`+${x.pts}`:String(x.pts);return `<div class="breakdown-row ${status}"><div class="breakdown-metric"><strong>${esc(cleanMetricName(x.d))}</strong><span>${status==='good'?'lepší než tým':status==='bad'?'horší než tým':'bez jasné odchylky'} · ${point} b.</span></div><div class="breakdown-value">${formatNormVal(x.avg,x.d)}</div><div class="breakdown-team">Tým · ${x.teamAvg==null?'—':formatNormVal(x.teamAvg,x.d)}</div><div class="breakdown-status ${status}">${label}</div></div>`}).join('')||'<div class="notice">Nedostatek historických dat.</div>';
   document.getElementById('detailOverlay').classList.add('show');
+  renderDetailLiveOps(name).catch(()=>{});
 }
 
 function badgesForName(name){return badges(name)}
@@ -3545,7 +3624,49 @@ let loginBootstrap=null;
 function showLoginError(msg){const el=document.getElementById('loginError');if(el)el.textContent=msg||'';}
 function closeRundown(){document.getElementById('rundownOverlay')?.classList.add('hidden');}
 function waitForPlayerHistory(ms=6500){return new Promise(resolve=>{const start=Date.now();const tick=()=>{if(state.history?.weeks?.length||Date.now()-start>=ms){resolve();return}setTimeout(tick,120)};tick()})}
-function buildPostLoginRundown(){const overlay=document.getElementById('rundownOverlay');if(!overlay||!state.player)return;const weeks=state.history?.weeks||[],latest=weeks.at(-1),prev=weeks.at(-2);const achievements=achievementDefinitions().filter(x=>x.done);const quests=latest?questDefsForWeek(latest).filter(q=>q.done):[];const lb=playerSeasonData(state.worker),st=streak(state.history),perf=performanceScoreFromLatest(state.player);setText('rundownTitle',state.worker+', tady je tvůj run.');setText('rundownSub',latest?.week?.label?'Shrnutí posledního týdne · '+latest.week.label:'Shrnutí tvého posledního období');const stats=document.getElementById('rundownStats');if(stats)stats.innerHTML=[['Questy',quests.length,quests.length?'splněno tento týden':'zatím žádný splněný quest'],['Achievementy',achievements.length,achievements.length===1?'odemčený achievement':'odemčených achievementů'],['Season Rank',lb.rank==='—'?'—':'#'+lb.rank,lb.elo+' ELO'],['Streak',st,st===1?'týden':'týdny']].map(x=>`<div class="rundown-stat"><div class="label">${x[0]}</div><div class="value">${x[1]}</div><div class="sub">${x[2]}</div></div>`).join('');const defs=[['Avg Picking Time',['Avg Picking Time','Picking Time']],['Scanner Ratio',['Items Picked Via Scanner Ratio','Scanner Ratio']],['Missing / Incorrect',['Missing Incorrect Items Rate','Missing Incorrect']],['POFR',['Perfect Order Fulfilment Ratio','Perfect Order Fulfillment Ratio','POFR']],['Undelivered',['Undelivered']],['Venue Late Preparation',['Venue Late Preparation','Venue Late']]];const moves=defs.map(([label,aliases])=>{if(!latest||!prev)return null;const a=getMetricValFromWeek(latest,aliases),b=getMetricValFromWeek(prev,aliases);if(!a||!b||a.value==null||b.value==null)return null;const mv=movementFor([b.value,a.value],a.name);return mv?{...mv,label,name:a.name}:null}).filter(Boolean);const good=moves.filter(x=>x.cls==='good').sort((a,b)=>Math.abs(b.relative||0)-Math.abs(a.relative||0)).slice(0,3);const bad=moves.filter(x=>x.cls==='bad').sort((a,b)=>Math.abs(b.relative||0)-Math.abs(a.relative||0)).slice(0,2);const wins=document.getElementById('rundownWins');if(wins){const parts=[];quests.slice(0,4).forEach(q=>parts.push(`<div class="rundown-item"><div class="rundown-main"><strong>${q.icon||'✓'} ${esc(q.title)}</strong><span>${esc(q.desc||'Quest splněn')}</span></div><div class="rundown-chip">${esc(q.reward||'SPLNĚNO')}</div></div>`));good.forEach(x=>parts.push(`<div class="rundown-item"><div class="rundown-main"><strong>${esc(x.label)}</strong><span>${esc(formatNormVal(x.current,x.name))} · oproti minulému týdnu</span></div><div class="rundown-good">${x.arrow} ${x.text}</div></div>`));wins.innerHTML=parts.join('')||'<div class="rundown-empty">Tentokrát bez velkého highlightu — další týden je nový run.</div>';}const achBox=document.getElementById('rundownAchievements');if(achBox)achBox.innerHTML=achievements.length?achievements.slice(-8).reverse().map(a=>`<div class="rundown-achievement"><span class="icon">${a.icon}</span><span>${esc(a.title)}</span></div>`).join(''):'<div class="rundown-empty">První achievement je ještě na cestě.</div>';const focus=document.getElementById('rundownFocus');if(focus){const rows=bad.map(x=>`<div class="rundown-item"><div class="rundown-main"><strong>${esc(x.label)}</strong><span>${esc(formatNormVal(x.current,x.name))} · minulý týden ${esc(formatNormVal(x.prev,x.name))}</span></div><div class="rundown-bad">${x.arrow} ${x.text}</div></div>`);if(perf!=null)rows.unshift(`<div class="rundown-item"><div class="rundown-main"><strong>Performance Score</strong><span>Aktuální celková forma</span></div><div class="rundown-good">${fmt(perf,1)} / 100</div></div>`);focus.innerHTML=rows.join('')||'<div class="rundown-empty">Všechno v klidu. Pokračuj v tomhle tempu.</div>';}overlay.classList.remove('hidden');}
+async function buildPostLoginRundown(){
+ const overlay=document.getElementById('rundownOverlay');if(!overlay||!state.player)return;
+ if(!state.storeCard&&state.worker){try{state.storeCard=await loadStoreCardLive(state.worker);renderStoreCardLive();}catch(e){console.warn('rundown Data Hub',e)}}
+ const d=state.storeCard||{},eff=d.efficiency||{},lp=d.live_personal||{},pr=d.projection||{};
+ const achievements=achievementDefinitions().filter(x=>x.done),lb=playerSeasonData(state.worker),st=streak(state.history),oti=onTimeInfo(eff);
+ const delta=Number(eff.trend?.delta_pct),inbound=Number(eff.inbound_units);
+ const op=operationalQuestDefs(),doneOps=op.filter(q=>q.done);
+ setText('rundownTitle',state.worker+', tady je tvůj run.');
+ setText('rundownSub','Live Data Hub · aktuální měsíc'+(eff.trend?.recent_period?' · trend '+eff.trend.recent_period:''));
+ const stats=document.getElementById('rundownStats');
+ if(stats)stats.innerHTML=[
+  ['Season Rank',lb.rank==='—'?'—':'#'+lb.rank,lb.elo+' ELO'],
+  ['Efficiency',Number.isFinite(Number(eff.total_units_per_worked_hour))?liveFmt(eff.total_units_per_worked_hour):'—',Number.isFinite(delta)?((delta>=0?'+':'')+fmt(delta,1)+' % za 7 dní'):'units / worked hour'],
+  ['On-Time',oti.display==='—'?'—':(oti.count+' / '+oti.sample),Number.isFinite(oti.pct)?fmt(oti.pct,1)+' % započítaných směn':'čeká na směny'],
+  ['Inbound MTD',Number.isFinite(inbound)?liveFmt(inbound,'int'):'—','units · aktuální měsíc']
+ ].map(x=>`<div class="rundown-stat"><div class="label">${esc(x[0])}</div><div class="value">${esc(x[1])}</div><div class="sub">${esc(x[2])}</div></div>`).join('');
+
+ const wins=document.getElementById('rundownWins');
+ if(wins){
+  const rows=[];
+  doneOps.slice(0,4).forEach(q=>rows.push(`<div class="rundown-item"><div class="rundown-main"><strong>${q.icon} ${esc(q.title)}</strong><span>${esc(q.display)} · ${esc(q.status)}</span></div><div class="rundown-chip">${esc(q.reward)}</div></div>`));
+  if(Number.isFinite(delta)&&delta>0)rows.push(`<div class="rundown-item"><div class="rundown-main"><strong>⚙️ Efficiency trend</strong><span>${esc(liveFmt(eff.total_units_per_worked_hour))} units/h · stejné live data jako karta Efektivita</span></div><div class="rundown-good">↑ +${fmt(delta,1)} %</div></div>`);
+  if(oti.sample>=3&&oti.late.length===0)rows.push(`<div class="rundown-item"><div class="rundown-main"><strong>⏰ On-Time</strong><span>${esc(oti.display)}${oti.excluded?' · '+oti.excluded+' výjimka ignorována':''}</span></div><div class="rundown-good">✓ ${Number.isFinite(oti.pct)?fmt(oti.pct,1)+' %':''}</div></div>`);
+  wins.innerHTML=rows.join('')||'<div class="rundown-empty">Live data zatím nemají nový highlight.</div>';
+ }
+
+ const achBox=document.getElementById('rundownAchievements');
+ if(achBox)achBox.innerHTML=achievements.length?achievements.slice(-8).reverse().map(a=>`<div class="rundown-achievement"><span class="icon">${a.icon}</span><span>${esc(a.title)}</span></div>`).join(''):'<div class="rundown-empty">První achievement je ještě na cestě.</div>';
+
+ const focus=document.getElementById('rundownFocus');
+ if(focus){
+  const rows=[];
+  if(Number.isFinite(delta)&&delta<0)rows.push(`<div class="rundown-item"><div class="rundown-main"><strong>⚙️ Efficiency trend</strong><span>${esc(liveFmt(eff.total_units_per_worked_hour))} units/h · posledních 7 dní vs předchozích 7</span></div><div class="rundown-bad">↓ ${fmt(delta,1)} %</div></div>`);
+  if(oti.late.length)rows.push(`<div class="rundown-item"><div class="rundown-main"><strong>⏰ On-Time</strong><span>${esc(oti.status)}</span></div><div class="rundown-bad">${esc(oti.display)}</div></div>`);
+  const qualityRows=[['Scanner',lp.scan_to_pick_ratio,98,false],['Missing',lp.missing_items_ratio,.34,true],['Undelivered',lp.undelivered_items_ratio,.24,true],['POFR',lp.pofr,98,false]].filter(x=>x[1]!=null&&Number.isFinite(Number(x[1])));
+  const qualityBad=qualityRows.filter(x=>x[3]?Number(x[1])>x[2]:Number(x[1])<x[2]);
+  if(qualityBad.length)rows.push(`<div class="rundown-item"><div class="rundown-main"><strong>🛡️ Quality</strong><span>${esc(qualityBad.map(x=>x[0]).join(', '))} mimo cíl</span></div><div class="rundown-bad">${qualityBad.length} KPI</div></div>`);
+  const threshold=Number(d.scoring?.reference_threshold_points||11),points=Number(pr.projected_points);
+  if(Number.isFinite(points)&&points<threshold)rows.push(`<div class="rundown-item"><div class="rundown-main"><strong>🎯 Store Card</strong><span>${fmt(points,1)} b. · cíl ${fmt(threshold,1)} b.</span></div><div class="rundown-bad">chybí ${fmt(threshold-points,1)} b.</div></div>`);
+  focus.innerHTML=rows.join('')||'<div class="rundown-empty">Všechno v klidu. Pokračuj v tomhle tempu.</div>';
+ }
+ overlay.classList.remove('hidden');
+}
 document.addEventListener('change',e=>{if(e.target?.id==='hubTrendMetric')renderHubTrend(e.target.value)});
 document.addEventListener('click',e=>{const b=e.target.closest?.('.hub-trend-preset');if(!b)return;document.querySelectorAll('.hub-trend-preset').forEach(x=>x.classList.toggle('active',x===b));const s=chooseHubPreset(b.dataset.hubPreset);if(s)renderHubTrend(s.metric_id)});
 
@@ -3599,7 +3720,7 @@ const t0=performance.now(),b=preloadedBootstrap||await api('bootstrap'),sec=((pe
       setLoading('Dokončuji dashboard…',88,failed.length?'Některá doplňková data se nepodařilo načíst.':'Všechna hlavní data jsou načtená.');
       renderHome();
       checkSeasonTransition();
-      buildPostLoginRundown();
+      await buildPostLoginRundown();
       setLoading('Hotovo',100,failed.length?'Dashboard je připraven, některá doplňková data jsou nedostupná.':'Dashboard je kompletně připraven.');
       finishLoading();
     }catch(e){document.getElementById('apiDot').classList.add('bad');setText('apiText','Offline');const f=document.getElementById('fatal');f.textContent='Nepodařilo se načíst data: '+e.message;f.classList.remove('hidden');finishLoading();}}
