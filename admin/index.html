@@ -631,12 +631,14 @@ document.addEventListener('click',async e=>{
   }catch(err){
    const canFallback=item.report_type!=='universal_metrics'&&item.report_type!=='quinyx'&&item.report_type!=='team_rating'&&item.report_type!=='month_end_reconciliation';
    if(!canFallback)throw err;
-   item.fallback_from=item.report_type;
+   const from=item.report_type;
+   const universalPreview=await edge(PARSERS.universal_metrics,payload);
+   item.fallback_from=from;
    item.report_type='universal_metrics';
+   item.preview=universalPreview;
+   item.preview.fallback_from=from;
    const up=await sb.from('imports').update({report_type:'universal_metrics',parser_version:'universal-fallback-v1'}).eq('id',item.import_id);
    if(up.error)throw up.error;
-   item.preview=await edge(PARSERS.universal_metrics,payload);
-   item.preview.fallback_from=item.fallback_from;
   }
   const pf=await status('preflight',{report_type:item.report_type,preview:item.preview});
   item.preflight=pf.preflight;
