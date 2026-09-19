@@ -19,7 +19,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px 9px
 .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#18392c;font-size:12px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px}
 .stat{padding:15px;background:var(--panel2);border-radius:13px}.stat b{display:block;font-size:23px}.hidden{display:none!important}.filelist{display:grid;gap:8px;margin-top:14px}.file{padding:10px 12px;background:#10231b;border-radius:10px;display:flex;justify-content:space-between;gap:12px}
 @media(max-width:800px){.grid{grid-template-columns:1fr}.stats{grid-template-columns:1fr}.wrap{padding:16px}.top{align-items:flex-start;flex-direction:column}}
-.preview{margin-top:18px}.preview-head{display:flex;justify-content:space-between;gap:12px;align-items:center}.preview-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}.preview-grid div{background:var(--panel2);padding:12px;border-radius:12px}.preview-grid b{display:block;font-size:20px}.preview-json{max-height:420px;overflow:auto;background:#07110d;border:1px solid var(--line);border-radius:12px;padding:12px;white-space:pre-wrap;font:12px/1.45 ui-monospace,monospace}@media(max-width:800px){.preview-grid{grid-template-columns:1fr 1fr}}</style></head><body><div class="wrap">
+.preview{margin-top:18px}.preview-head{display:flex;justify-content:space-between;gap:12px;align-items:center}.preview-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}.preview-grid div{background:var(--panel2);padding:12px;border-radius:12px}.preview-grid b{display:block;font-size:20px}.preview-json{max-height:520px;overflow:auto;background:#07110d;border:1px solid var(--line);border-radius:12px;padding:12px}.pv-summary{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.pv-table-wrap{overflow:auto;max-height:520px;border:1px solid var(--line);border-radius:12px}.pv-table{min-width:2100px}.pv-table th{position:sticky;top:0;background:#10231b;z-index:2;white-space:nowrap}.pv-table th:first-child,.pv-table td:first-child{position:sticky;left:0;background:#10231b;z-index:1;font-weight:800}.pv-table th:first-child{z-index:3}.pv-table td{text-align:right;white-space:nowrap}.pv-table td:first-child{text-align:left}.pv-unresolved{color:var(--amber)}.pv-null{color:var(--muted)}@media(max-width:800px){.preview-grid{grid-template-columns:1fr 1fr}}</style></head><body><div class="wrap">
 <section id="loginView" class="card login"><h1>Performance Arena</h1><p class="muted">Data Hub · Admin</p><form id="loginForm">
 <div class="field"><label>E-mail</label><input id="email" type="email" autocomplete="username" required></div>
 <div class="field"><label>Heslo</label><input id="password" type="password" autocomplete="current-password" required></div><button id="loginBtn">Přihlásit</button></form><div id="loginStatus" class="status hidden"></div></section>
@@ -76,13 +76,23 @@ async function analyzeGA(id,btn){
   const unresolved=out.unresolved?.length||0;
   $('#pvStatus').innerHTML=out.preview?'<span class="ok">Preview připraven ✓</span> · unresolved: '+unresolved:'<span class="warn">Endpoint funguje, ale parser ještě nevrátil preview data.</span>';
   currentPreview={id,out,extracted_text};
-  $('#pvBody').textContent=JSON.stringify(out,null,2);
+  renderPreview(out);
   $('#pvActions').innerHTML=out.parser_stage&&out.parser_stage.startsWith('ga_metrics_parsed_')?'<button onclick="confirmGA(this)">Potvrdit import</button>':'';
   $('#previewCard').scrollIntoView({behavior:'smooth',block:'start'});
  }catch(e){alert('Analýza selhala: '+e.message)}
  finally{btn.disabled=false;btn.textContent=old}
 }
 
+function renderPreview(out){
+ const people=out.people||[], unresolved=new Set(out.unresolved||[]);
+ const defs=[
+ ['avg_picking_time','Picking'],['avg_packing_time','Packing'],['picking_app_task_count','Tasks'],['items_picked_via_scanner_ratio','Scanner %'],['item_count_total','Items'],['missing_incorrect_items_count','Missing #'],['missing_incorrect_items_rate','Missing %'],['not_collected_items_ratio','Not coll. %'],['perfect_order_fulfilment_ratio','POFR %'],['average_rating_of_goods','Rating'],['purchases_missing_replaced_count','Miss/Repl #'],['merchant_rejection_ratio','Reject %'],['venue_late_preparation_ratio','Late prep %'],['bad_goods_rating_ratio','Bad goods %'],['venue_related_cs_tickets_ratio','CS %'],['refund_percent','Refund %'],['picking_time_per_item','Pick/item'],['packing_time_per_item','Pack/item'],['avg_items_per_order','Items/order']
+ ];
+ const matched=people.filter(p=>p.person_id).length;
+ const head='<thead><tr><th>GA</th>'+defs.map(d=>'<th>'+esc(d[1])+'</th>').join('')+'</tr></thead>';
+ const rows=people.map(p=>'<tr><td class="'+(p.person_id?'':'pv-unresolved')+'">'+esc(p.source_identity)+(p.person_id?'':' ⚠')+'</td>'+defs.map(([k])=>{const v=p.values?.[k];return '<td class="'+(v==null?'pv-null':'')+'">'+(v==null?'—':esc(v))+'</td>'}).join('')+'</tr>').join('');
+ $('#pvBody').innerHTML='<div class="pv-summary"><span class="pill">Matched '+matched+'/'+people.length+'</span><span class="pill">Unresolved '+unresolved.size+'</span><span class="pill">'+esc(out.period_start||'—')+' → '+esc(out.period_end||'—')+'</span></div><div class="pv-table-wrap"><table class="pv-table">'+head+'<tbody>'+rows+'</tbody></table></div>';
+}
 async function confirmGA(btn){
  if(!currentPreview)return;
  if((currentPreview.out.unresolved||[]).filter(x=>!x.startsWith('woltmark')).length){alert('Import nelze potvrdit: '+currentPreview.out.unresolved.filter(x=>!x.startsWith('woltmark')).join(', '));return}
