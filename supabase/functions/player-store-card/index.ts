@@ -695,20 +695,48 @@ Deno.serve(async req=>{
     };
 
     // Team/store live MTD estimate + projection inputs.
-    const [{data:activePeople,error:activeErr},{data:teamObs,error:teamErr},{data:shiftRows,error:shiftErr}]=await Promise.all([
+    const [{data:activePeople,error:activeErr},{data:teamObs,error:teamErr},{data:shiftRows,error:shiftErr},{data:teamRatingResponses,error:teamRatingErr}]=await Promise.all([
       db.from("people").select("id,person_key,display_name,full_name,active,employment_type,team_effort_eligible").eq("active",true),
       db.from("metric_observations").select("person_id,metric_id,value,period_start,period_end,source_type")
         .gte("period_start",frame.start).lte("period_start",frame.today).limit(12000),
       db.from("shifts").select("person_id,worked_hours,scheduled_hours,shift_date,shift_type,scheduled_start,actual_start")
-        .gte("shift_date",frame.start).lte("shift_date",frame.today).limit(5000)
+        .gte("shift_date",frame.start).lte("shift_date",frame.today).limit(5000),
+      db.from("team_rating_responses").select("respondent_person_id,is_valid,disqualified_reason,submitted_at,metadata")
+        .eq("response_month",frame.start).order("submitted_at",{ascending:false}).limit(1000)
     ]);
     if(activeErr)throw new Error(activeErr.message);
     if(teamErr)throw new Error(teamErr.message);
     if(shiftErr)throw new Error(shiftErr.message);
+    if(teamRatingErr)throw new Error(teamRatingErr.message);
 
     const activeIds=new Set((activePeople||[]).map((p:any)=>p.id));
     const teamCurrent=(teamObs||[]).filter((r:any)=>activeIds.has(r.person_id));
     const teamCurrentShifts=(shiftRows||[]).filter((r:any)=>activeIds.has(r.person_id));
+
+    const latestTeamRatingByPerson=new Map<string,any>();
+    for(const r of teamRatingResponses||[]){
+      if(!r.respondent_person_id||!activeIds.has(r.respondent_person_id))continue;
+      if(r.disqualified_reason==="outside_form_month"||r.metadata?.within_month===false)continue;
+      const k=String(r.respondent_person_id);
+      if(!latestTeamRatingByPerson.has(k))latestTeamRatingByPerson.set(k,r);
+    }
+    const teamRatingCompletion=(activePeople||[]).map((p:any)=>{
+      const r=latestTeamRatingByPerson.get(String(p.id));
+      const status=r?.is_valid===true?"completed":r?"disqualified":"pending";
+      return {
+        person_id:p.id,
+        display_name:p.display_name,
+        status,
+        submitted_at:r?.submitted_at??null,
+        disqualified_reason:status==="disqualified"?(r?.disqualified_reason||"invalid_response"):null
+      };
+    }).sort((a:any,b:any)=>{
+      const order:any={pending:0,disqualified:1,completed:2};
+      return order[a.status]-order[b.status]||a.display_name.localeCompare(b.display_name,"cs");
+    });
+    const teamRatingCompletedCount=teamRatingCompletion.filter((x:any)=>x.status==="completed").length;
+    const teamRatingDisqualifiedCount=teamRatingCompletion.filter((x:any)=>x.status==="disqualified").length;
+    const teamRatingTotalCount=teamRatingCompletion.length;
 
     const tby=rowsByMetric(teamCurrent);
     let storeOutbound=0,storeInbound=0,storeObservedWorked=0;
@@ -1183,6 +1211,15 @@ Deno.serve(async req=>{
         report_type:previousProjectionSnapshot.report_type,
         created_at:previousProjectionSnapshot.import_created_at||previousProjectionSnapshot.captured_at
       }:null,
+      team_rating_completion:{
+        month:frame.start,
+        completed:teamRatingCompletedCount,
+        disqualified:teamRatingDisqualifiedCount,
+        pending:Math.max(0,teamRatingTotalCount-teamRatingCompletedCount-teamRatingDisqualifiedCount),
+        total:teamRatingTotalCount,
+        percent:teamRatingTotalCount?Math.round(teamRatingCompletedCount/teamRatingTotalCount*100):0,
+        people:teamRatingCompletion
+      },
       leaderboard_metric_definitions:leaderboardMetricDefinitions,
       leaderboard:projected.map((x:any)=>({
         rank:x.rank,
@@ -1222,7 +1259,7 @@ Deno.serve(async req=>{
 
     return J({
       ok:true,
-      version:"player-store-card-v12",
+      version:"player-store-card-v13",
       person:{
         person_key:person.person_key,
         display_name:person.display_name,
