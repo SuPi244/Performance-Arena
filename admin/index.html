@@ -519,4 +519,252 @@ document.addEventListener('click',async e=>{
  }finally{b.disabled=false;b.textContent=old}
 });
 </script>
+
+<style id="datahub-v152-final">
+.bulk-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.bulk-total{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:12px 0}
+.bulk-total>div{background:#10231b;border:1px solid var(--line);border-radius:11px;padding:10px}
+.bulk-total b{display:block;font-size:20px}
+.bulk-item{display:grid;grid-template-columns:minmax(180px,1.4fr) minmax(110px,.7fr) minmax(260px,1.5fr);gap:10px;align-items:start;padding:12px;background:#10231b;border:1px solid var(--line);border-radius:12px}
+.bulk-item+.bulk-item{margin-top:8px}
+.bulk-name{font-weight:800;word-break:break-word}.bulk-type{color:var(--muted);font-size:12px;margin-top:3px}
+.bulk-counts{display:flex;gap:6px;flex-wrap:wrap}.bulk-counts .pill{white-space:nowrap}
+.bulk-details{grid-column:1/-1;margin-top:2px}.bulk-details summary{cursor:pointer;color:var(--muted)}
+.coverage-top{display:flex;gap:12px;align-items:end;justify-content:space-between;flex-wrap:wrap}
+.coverage-top .field{margin:0;min-width:160px}.coverage-overall{font-size:28px;font-weight:900;color:var(--green)}
+.coverage-source{padding:12px 0;border-bottom:1px solid #1c382d}.coverage-source:last-child{border-bottom:0}
+.coverage-head{display:flex;justify-content:space-between;gap:12px;align-items:center}.coverage-head b{font-size:14px}
+.coverage-bar{height:8px;background:#07110d;border-radius:99px;overflow:hidden;margin:8px 0}.coverage-bar span{display:block;height:100%;background:var(--green)}
+.coverage-segments{display:flex;gap:3px;flex-wrap:wrap}.coverage-seg{width:11px;height:11px;border-radius:3px;background:#23382f;border:1px solid #335446}
+.coverage-seg.complete{background:#46e58d}.coverage-seg.partial{background:#ffc65c}.coverage-seg.missing{background:#ff7b7b}.coverage-seg.future{opacity:.28}
+.coverage-meta{font-size:12px;color:var(--muted);margin-top:6px}.coverage-missing{color:var(--red)}
+.v152-badge{display:inline-block;margin-left:7px;padding:2px 7px;border:1px solid #3f7c61;border-radius:999px;color:var(--green);font-size:11px;font-weight:900}
+@media(max-width:800px){.bulk-item{grid-template-columns:1fr}.bulk-details{grid-column:1}.bulk-total{grid-template-columns:1fr 1fr}}
+</style>
+<script>
+(function(){
+ const API_ROOT='https://yhpgqkklnymfiacrztqf.supabase.co/functions/v1';
+ const API_KEY='sb_publishable_EA9Sbn8ayjr0eHaI2m0s6A_Yct2lL8a';
+ const PARSERS={ga_metrics:'parse-ga-metrics',daily_picking:'parse-daily-picking',inbound:'parse-inbound',quinyx:'parse-quinyx',stock_count:'parse-stock-count',store_metrics:'parse-store-metrics'};
+ const LABELS={ga_metrics:'GA Metrics',daily_picking:'Daily Picking',inbound:'Inbound',quinyx:'Quinyx',stock_count:'Stock Count',store_metrics:'Store Metrics'};
+ let batch=[];
+ let busy=false;
+ let xlsxPromise=null;
+
+ function localMonth(){
+  const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+ }
+ async function session(){
+  const r=await sb.auth.getSession();if(!r.data.session)throw new Error('Relace vypršela. Přihlas se znovu.');return r.data.session;
+ }
+ async function edge(slug,payload){
+  const s=await session();
+  const r=await fetch(API_ROOT+'/'+slug,{method:'POST',headers:{Authorization:'Bearer '+s.access_token,apikey:API_KEY,'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const out=await r.json().catch(function(){return{}});
+  if(!r.ok)throw new Error(out.detail||out.error||('HTTP '+r.status));
+  return out;
+ }
+ async function status(action,payload){
+  return edge('data-hub-status',Object.assign({action:action},payload||{}));
+ }
+ function ext(name){const m=String(name||'').toLowerCase().match(/\.([a-z0-9]+)$/);return m?m[1]:''}
+ function supportedReport(file){
+  const r=type(file.name);
+  if(r==='month_end_reconciliation')throw new Error('Monthly Store Card patří do sekce Měsíční uzávěrka.');
+  if(!PARSERS[r])throw new Error('Typ reportu nebyl rozpoznán podle názvu souboru.');
+  if(r==='quinyx'&&ext(file.name)!=='pdf')throw new Error('Quinyx bulk preview zatím vyžaduje PDF export.');
+  return r;
+ }
+ function loadXlsx(){
+  if(window.XLSX)return Promise.resolve(window.XLSX);
+  if(xlsxPromise)return xlsxPromise;
+  xlsxPromise=new Promise(function(resolve,reject){
+   const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+   s.onload=function(){resolve(window.XLSX)};s.onerror=function(){reject(new Error('Nepodařilo se načíst XLS/XLSX parser.'))};document.head.appendChild(s);
+  });
+  return xlsxPromise;
+ }
+ async function spreadsheetText(file){
+  const X=await loadXlsx(),wb=X.read(await file.arrayBuffer(),{type:'array'}),parts=[];
+  wb.SheetNames.forEach(function(n){
+   parts.push('--- SHEET: '+n+' ---');
+   parts.push(X.utils.sheet_to_csv(wb.Sheets[n],{FS:' | ',RS:'\n',blankrows:false}));
+  });
+  return parts.join('\n');
+ }
+ async function sourcePayload(item){
+  const e=ext(item.file.name);
+  if(item.report_type==='quinyx'){
+   item.layout_json=await extractPdfLayoutClient(item.storage_path);
+   return {layout_json:item.layout_json};
+  }
+  if(e==='pdf'){
+   item.extracted_text=await extractPdfClient(item.storage_path);
+  }else if(e==='csv'||e==='txt'){
+   item.extracted_text=await item.file.text();
+  }else if(e==='xls'||e==='xlsx'){
+   item.extracted_text=await spreadsheetText(item.file);
+  }else{
+   throw new Error('Nepodporovaný formát: .'+e);
+  }
+  return {extracted_text:item.extracted_text};
+ }
+ async function stage(file){
+  const report_type=supportedReport(file),h=await hash(file);
+  const q=await sb.from('imports').select('id,status,storage_path,report_type,filename').eq('file_hash',h).maybeSingle();
+  if(q.error)throw q.error;
+  if(q.data){
+   return {file:file,hash:h,report_type:report_type,import_id:q.data.id,storage_path:q.data.storage_path,existing:true,skipCommit:q.data.status==='imported',state:'staged'};
+  }
+  const path='bulk/'+new Date().toISOString().slice(0,10)+'/'+crypto.randomUUID()+'_'+file.name.replace(/[^a-zA-Z0-9._-]+/g,'_');
+  const up=await sb.storage.from('arena-imports').upload(path,file);if(up.error)throw up.error;
+  const ins=await sb.from('imports').insert({file_hash:h,filename:file.name,report_type:report_type,storage_path:path,status:'staged',parser_version:'datahub-v152-bulk',metadata:{size:file.size,mime:file.type||null,bulk_queue:true}}).select('id').single();
+  if(ins.error){await sb.storage.from('arena-imports').remove([path]);throw ins.error}
+  return {file:file,hash:h,report_type:report_type,import_id:ins.data.id,storage_path:path,existing:false,skipCommit:false,state:'staged'};
+ }
+ async function preview(item){
+  item.state='parsing';renderBatch();
+  const src=await sourcePayload(item);
+  const payload=Object.assign({import_id:item.import_id,mode:'preview'},src);
+  item.preview=await edge(PARSERS[item.report_type],payload);
+  const pf=await status('preflight',{report_type:item.report_type,preview:item.preview});
+  item.preflight=pf.preflight;
+  item.state='ready';
+  return item;
+ }
+ function batchSummary(){
+  return batch.reduce(function(a,x){
+   const s=x.preflight&&x.preflight.summary||{};
+   a.new+=Number(s.new||0);a.changed+=Number(s.changed||0);a.unchanged+=Number(s.unchanged||0);a.conflicts+=Number(s.conflicts||0);
+   return a;
+  },{new:0,changed:0,unchanged:0,conflicts:0});
+ }
+ function pill(label,value,cls){return '<span class="pill '+(cls||'')+'">'+esc(label)+' '+esc(value)+'</span>'}
+ function renderBatch(){
+  const host=$('#files');if(!host)return;
+  const total=batchSummary();
+  let html='';
+  if(batch.length){
+   html+='<div class="bulk-total"><div><span class="muted">Nové</span><b>'+total.new+'</b></div><div><span class="muted">Změněné</span><b>'+total.changed+'</b></div><div><span class="muted">Stejné</span><b>'+total.unchanged+'</b></div><div><span class="muted">Konflikty</span><b class="'+(total.conflicts?'err':'ok')+'">'+total.conflicts+'</b></div></div>';
+  }
+  batch.forEach(function(x){
+   const s=x.preflight&&x.preflight.summary||{};
+   let state=x.state==='loading'?'staging…':x.state==='staged'?'staged':x.state==='parsing'?'preview…':x.state==='ready'?(s.conflicts?'blokováno':'připraveno ✓'):x.state==='done'?'importováno ✓':x.state==='duplicate'?'beze změny ✓':'chyba';
+   let cls=x.state==='error'||s.conflicts?'err':(x.state==='ready'||x.state==='done'||x.state==='duplicate'?'ok':'muted');
+   let details='';
+   if(x.error)details='<div class="err">'+esc(x.error)+'</div>';
+   else if(x.preflight){
+    const changes=x.preflight.changes||[],conf=x.preflight.conflict_details||[],warn=x.preflight.warning_details||[];
+    if(changes.length||conf.length||warn.length){
+     details='<details class="bulk-details"><summary>Detaily preview</summary><div style="margin-top:8px;font-size:12px">'+
+      changes.slice(0,30).map(function(z){return '<div><span class="'+(z.action==='changed'?'warn':'ok')+'">'+esc(z.action)+'</span> · '+esc(z.label||z.key)+'</div>'}).join('')+
+      conf.slice(0,30).map(function(z){return '<div class="err">conflict · '+esc(z.label||z.key)+' · '+esc(z.reason||'')+'</div>'}).join('')+
+      warn.slice(0,20).map(function(z){return '<div class="warn">warning · '+esc(z.reason||'')+'</div>'}).join('')+
+      '</div></details>';
+    }
+   }
+   html+='<div class="bulk-item"><div><div class="bulk-name">'+esc(x.file.name)+'</div><div class="bulk-type">'+esc(LABELS[x.report_type]||x.report_type)+(x.skipCommit?' · exact duplicate':'')+'</div></div>'+
+    '<div class="'+cls+'">'+esc(state)+'</div><div class="bulk-counts">'+pill('nové',s.new||0,'ok')+pill('změněné',s.changed||0,'warn')+pill('stejné',s.unchanged||0,'')+pill('konflikty',s.conflicts||0,s.conflicts?'err':'')+'</div>'+details+'</div>';
+  });
+  host.innerHTML=html||'<div class="muted">Fronta je prázdná.</div>';
+  const commit=$('#bulkCommit');
+  if(commit){
+   const blocked=!batch.length||busy||batch.some(function(x){return x.state!=='ready'&&x.state!=='done'&&x.state!=='duplicate'})||batch.some(function(x){return Number(x.preflight&&x.preflight.summary&&x.preflight.summary.conflicts||0)>0});
+   commit.disabled=blocked;
+   commit.textContent=busy?'Pracuji…':'Potvrdit bezpečný balík';
+  }
+ }
+ async function processFiles(files){
+  if(busy)return;busy=true;renderBatch();msg($('#uploadStatus'),'Připravuji bulk preview. Do výkonových dat se zatím nic nezapisuje.','warn');
+  for(const file of files){
+   const shell={file:file,state:'loading',report_type:'unknown'};batch.push(shell);renderBatch();
+   try{
+    const staged=await stage(file);Object.assign(shell,staged);renderBatch();
+    await preview(shell);
+    if(shell.skipCommit&&Number(shell.preflight&&shell.preflight.summary&&shell.preflight.summary.changed||0)===0) shell.state='duplicate';
+   }catch(e){shell.state='error';shell.error=e.message||String(e)}
+   renderBatch();
+  }
+  busy=false;renderBatch();
+  const total=batchSummary();
+  const hasErr=batch.some(function(x){return x.state==='error'});
+  if(hasErr||total.conflicts)msg($('#uploadStatus'),'Preview dokončen, ale balík má chyby nebo konflikty. Nic nebylo zapsáno do výkonových dat.','err');
+  else msg($('#uploadStatus'),'Preview dokončen ✓ Balík je bezpečný k potvrzení.','ok');
+  await refresh();
+ }
+ async function commitBatch(){
+  if(busy)return;
+  const total=batchSummary();
+  if(batch.some(function(x){return x.state==='error'})||total.conflicts)return;
+  busy=true;renderBatch();msg($('#uploadStatus'),'Potvrzuji bezpečný balík…','warn');
+  try{
+   for(const item of batch){
+    if(item.state==='done'||item.state==='duplicate'||item.skipCommit){item.state='done';renderBatch();continue}
+    const src=item.report_type==='quinyx'?{layout_json:item.layout_json}:{extracted_text:item.extracted_text};
+    await edge(PARSERS[item.report_type],Object.assign({import_id:item.import_id,mode:'commit'},src));
+    try{item.result=(await status('import_result',{import_id:item.import_id})).result}catch(_){}
+    item.state='done';renderBatch();
+   }
+   msg($('#uploadStatus'),'V152 bulk import dokončen ✓ Kanonický merge proběhl a audit je uložen.','ok');
+   await refresh();await loadCoverage();
+  }catch(e){
+   msg($('#uploadStatus'),'Import se zastavil: '+(e.message||e),'err');
+  }finally{busy=false;renderBatch()}
+ }
+ function setupUpload(){
+  const drop=$('#drop'),picker=$('#picker'),files=$('#files');if(!drop||!picker||!files)return;
+  const card=drop.closest('.card'),h=card&&card.querySelector('h2'),p=card&&card.querySelector('p');
+  if(h)h.textContent='Bulk Import Queue';
+  if(p)p.textContent='PDF / CSV / XLS / XLSX. Originály se uloží jen do stagingu; výkonová data se zapíšou až po společném preview a potvrzení bezpečného balíku.';
+  drop.innerHTML='<strong>Přetáhni exporty sem</strong><br><span class="muted">můžeš nahrát více souborů najednou · PDF / CSV / XLS / XLSX</span><input id="picker" class="hidden" type="file" multiple accept=".pdf,.csv,.xlsx,.xls">';
+  const newPicker=$('#picker');
+  const bar=document.createElement('div');bar.className='bulk-toolbar';bar.innerHTML='<button id="bulkCommit" disabled>Potvrdit bezpečný balík</button><span class="muted">Nejdřív se vždy spočítá nové / změněné / stejné / konflikty.</span>';
+  drop.insertAdjacentElement('afterend',bar);
+  files.innerHTML='<div class="muted">Fronta je prázdná.</div>';
+  drop.onclick=function(){newPicker.click()};
+  drop.ondrop=function(e){e.preventDefault();drop.classList.remove('over');processFiles([].slice.call(e.dataTransfer.files))};
+  newPicker.onchange=function(e){processFiles([].slice.call(e.target.files));newPicker.value=''};
+  $('#bulkCommit').onclick=commitBatch;
+ }
+ function coverageCard(){
+  return [].slice.call(document.querySelectorAll('.card')).find(function(x){const h=x.querySelector('h2');return h&&h.textContent.trim()==='Data Coverage'});
+ }
+ function stateLabel(s){return s==='complete'?'kompletní':s==='partial'?'průběžné':s==='missing'?'chybí':'budoucí'}
+ async function loadCoverage(){
+  const host=$('#coverageSources'),month=$('#coverageMonth');if(!host||!month)return;
+  host.innerHTML='<div class="muted">Načítám skutečný coverage…</div>';
+  try{
+   const out=await status('coverage',{month:month.value}),cov=out.coverage||{},sources=cov.sources||[];
+   $('#coverageOverall').textContent=(cov.overall_percent==null?'—':cov.overall_percent+' %');
+   $('#coverageThrough').textContent=cov.through?'stav k '+cov.through:'';
+   host.innerHTML=sources.map(function(s){
+    const seg=(s.segments||[]).map(function(x){return '<span class="coverage-seg '+esc(x.state)+'" title="'+esc((x.label||x.key)+' · '+stateLabel(x.state)+(x.range?' · '+x.range:''))+'"></span>'}).join('');
+    const missing=(s.missing||[]);
+    const miss=missing.length?'<div class="coverage-meta coverage-missing">Chybí: '+esc(missing.slice(0,8).join(', '))+(missing.length>8?' +'+(missing.length-8):'')+'</div>':'';
+    const extra=s.id==='quinyx'&&s.planned_shifts!=null?' · '+esc(s.actual_shifts||0)+' / '+esc(s.due_shifts||0)+' směn s actual':'';
+    return '<div class="coverage-source"><div class="coverage-head"><b>'+esc(s.label)+'</b><span class="pill '+(s.state==='complete'?'ok':s.state==='missing'?'err':'warn')+'">'+esc(stateLabel(s.state))+' · '+esc(s.percentage)+' %</span></div>'+
+     '<div class="coverage-bar"><span style="width:'+Math.max(0,Math.min(100,Number(s.percentage||0)))+'%"></span></div><div class="coverage-segments">'+seg+'</div>'+
+     '<div class="coverage-meta">'+esc(s.covered)+' / '+esc(s.expected)+' '+esc(s.cadence==='day'?'dní':s.cadence==='week'?'období':s.cadence==='month'?'měsíců':'záznamů')+extra+(s.unresolved?' · unresolved '+esc(s.unresolved):'')+'</div>'+miss+'</div>';
+   }).join('');
+  }catch(e){host.innerHTML='<div class="err">Coverage se nepodařilo načíst: '+esc(e.message||e)+'</div>'}
+ }
+ function setupCoverage(){
+  const card=coverageCard();if(!card)return;
+  card.innerHTML='<div class="coverage-top"><div><h2 style="margin-bottom:4px">Import Coverage <span class="v152-badge">V152</span></h2><p class="muted" style="margin-bottom:0">Skutečné pokrytí podle uložených období a záznamů, ne statický LIVE štítek.</p></div><div class="field"><label>Měsíc</label><input id="coverageMonth" type="month" value="'+localMonth()+'"></div></div>'+
+   '<div style="display:flex;align-items:baseline;gap:10px;margin:14px 0"><span id="coverageOverall" class="coverage-overall">—</span><span id="coverageThrough" class="muted"></span></div><div id="coverageSources"></div>';
+  $('#coverageMonth').onchange=loadCoverage;
+ }
+ function setup(){
+  if(window.__datahubV152)return;window.__datahubV152=true;
+  document.title='Performance Arena — Data Hub V152';
+  const small=document.querySelector('.brand small');if(small&&!small.textContent.includes('V152'))small.innerHTML+= ' <span class="v152-badge">V152</span>';
+  setupUpload();setupCoverage();renderBatch();
+  sb.auth.onAuthStateChange(function(_event,s){if(s)setTimeout(loadCoverage,50)});
+  sb.auth.getSession().then(function(r){if(r.data.session)setTimeout(loadCoverage,50)});
+  window.loadCoverage=loadCoverage;
+ }
+ setTimeout(setup,0);
+})();
+</script>
+
 </body></html>
