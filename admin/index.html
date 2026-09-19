@@ -53,7 +53,7 @@ let currentPreview=null;
 const sb=supabase.createClient('https://yhpgqkklnymfiacrztqf.supabase.co','sb_publishable_EA9Sbn8ayjr0eHaI2m0s6A_Yct2lL8a'),$=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function msg(e,t,c=''){e.textContent=t;e.className='status '+c}async function hash(f){let b=await f.arrayBuffer(),h=await crypto.subtle.digest('SHA-256',b);return[...new Uint8Array(h)].map(x=>x.toString(16).padStart(2,'0')).join('')}
-function type(n){n=n.toLowerCase();if(n.includes('metric')&&n.includes('ga'))return'ga_metrics';if(n.includes('daily')&&n.includes('picking'))return'daily_picking';if(n.includes('inbound'))return'inbound';if(n.includes('quinyx'))return'quinyx';if(n.includes('stock'))return'stock_count';if(n.includes('store'))return'store_metrics';return'unknown'}
+function type(n){n=n.toLowerCase();if((n.includes('store card')||n.includes('store_card')||n.includes('store-card'))&&(n.includes('month')||/leden|unor|únor|brezen|březen|duben|kveten|květen|cerven|červen|cervenec|červenec|srpen|zari|září|rijen|říjen|listopad|prosinec|january|february|march|april|may|june|july|august|september|october|november|december/.test(n)))return'month_end_reconciliation';if(n.includes('metric')&&n.includes('ga'))return'ga_metrics';if(n.includes('daily')&&n.includes('picking'))return'daily_picking';if(n.includes('inbound'))return'inbound';if(n.includes('quinyx'))return'quinyx';if(n.includes('stock'))return'stock_count';if(n.includes('store'))return'store_metrics';return'unknown'}
 async function admin(){let{data:{user}}=await sb.auth.getUser();if(!user)return false;let{data}=await sb.from('admin_users').select('user_id').eq('user_id',user.id).maybeSingle();return!!data}
 async function route(){let{data:{session}}=await sb.auth.getSession();if(!session)return;if(!(await admin())){await sb.auth.signOut();return msg($('#loginStatus'),'Účet není Arena admin.','err')}$('#loginView').classList.add('hidden');$('#appView').classList.remove('hidden');$('#who').textContent=session.user.email;refresh();setTimeout(()=>{if(typeof loadReconciliation==='function')loadReconciliation();if(typeof loadMonthEnd==='function')loadMonthEnd()},0)}
 $('#loginForm').onsubmit=async e=>{e.preventDefault();let{error}=await sb.auth.signInWithPassword({email:$('#email').value.trim(),password:$('#password').value});if(error)msg($('#loginStatus'),'Přihlášení selhalo: '+error.message,'err');else route()}
@@ -66,7 +66,7 @@ async function refresh(){
  ]);
  if(error)return;
  $('#importCount').textContent=i.length;$('#unresolvedCount').textContent=u??0;$('#obsCount').textContent=o??0;
- $('#history').innerHTML=i.length?i.map(x=>'<tr><td>'+esc(x.filename)+'</td><td>'+esc(x.report_type||'—')+'</td><td>'+esc(x.period_start||'—')+(x.period_end&&x.period_end!==x.period_start?' → '+esc(x.period_end):'')+'</td><td><span class="pill">'+esc(x.status)+'</span></td><td>'+new Date(x.created_at).toLocaleString('cs-CZ')+'</td><td>'+(x.report_type==='ga_metrics'&&x.status==='staged'?'<button class="secondary gaAnalyze" data-id="'+esc(x.id)+'">Analyzovat</button>':x.report_type==='daily_picking'&&x.status==='staged'?'<button class="secondary dailyAnalyze" data-id="'+esc(x.id)+'">Analyzovat</button>':x.report_type==='inbound'&&x.status==='staged'?'<button class="secondary inboundAnalyze" data-id="'+esc(x.id)+'">Analyzovat</button>':x.report_type==='quinyx'&&x.status==='staged'?'<button class="secondary quinyxAnalyze" data-id="'+esc(x.id)+'">Analyzovat</button>':x.report_type==='stock_count'&&x.status==='staged'?'<button class="secondary stockAnalyze" data-id="'+esc(x.id)+'">Analyzovat</button>':x.report_type==='store_metrics'&&x.status==='staged'?'<button class="secondary storeMetricsAnalyze" data-id="'+esc(x.id)+'">Analyzovat</button>':x.report_type==='inbound'&&x.status==='imported'?'<button class="secondary inboundBackfill" data-id="'+esc(x.id)+'">Identity queue</button>':x.report_type==='month_end_reconciliation'&&x.status==='staged'&&/store[ _-]*card/i.test(x.filename||'')?'<button class="secondary storeCardAnalyze" data-id="'+esc(x.id)+'">Analyzovat Store Card</button>':'—')+'</td></tr>').join(''):'<tr><td colspan="6" class="muted">Zatím žádné importy.</td></tr>';
+ $('#history').innerHTML=i.length?i.map(x=>'<tr><td>'+esc(x.filename)+'</td><td>'+esc(x.report_type||'—')+'</td><td>'+esc(x.period_start||'—')+(x.period_end&&x.period_end!==x.period_start?' → '+esc(x.period_end):'')+'</td><td><span class="pill">'+esc(x.status)+'</span></td><td>'+new Date(x.created_at).toLocaleString('cs-CZ')+'</td><td>'+(x.report_type==='ga_metrics'&&x.status==='staged'?'<button class="secondary gaAnalyze" data-id="'+esc(x.id)+'">Analyzovat</button>':x.report_type==='daily_picking'&&x.status==='staged'?'<button class="secondary dailyAnalyze" data-id="'+esc(x.id)+'">Analyzovat</button>':x.report_type==='inbound'&&x.status==='staged'?'<button class="secondary inboundAnalyze" data-id="'+esc(x.id)+'">Analyzovat</button>':x.report_type==='quinyx'&&x.status==='staged'?'<button class="secondary quinyxAnalyze" data-id="'+esc(x.id)+'">Analyzovat</button>':x.report_type==='stock_count'&&x.status==='staged'?'<button class="secondary stockAnalyze" data-id="'+esc(x.id)+'">Analyzovat</button>':x.status==='staged'&&/store[ _-]*card/i.test(x.filename||'')?'<button class="secondary storeCardAnalyze" data-id="'+esc(x.id)+'">Analyzovat Store Card</button>':x.report_type==='store_metrics'&&x.status==='staged'?'<button class="secondary storeMetricsAnalyze" data-id="'+esc(x.id)+'">Analyzovat</button>':x.report_type==='inbound'&&x.status==='imported'?'<button class="secondary inboundBackfill" data-id="'+esc(x.id)+'">Identity queue</button>':'—')+'</td></tr>').join(''):'<tr><td colspan="6" class="muted">Zatím žádné importy.</td></tr>';
 }
 $('#history').addEventListener('click',e=>{const b=e.target.closest('.gaAnalyze');if(b)analyzeGA(b.dataset.id,b)});
 const d=$('#drop'),p=$('#picker');d.onclick=()=>p.click();['dragenter','dragover'].forEach(n=>d.addEventListener(n,e=>{e.preventDefault();d.classList.add('over')}));['dragleave','drop'].forEach(n=>d.addEventListener(n,e=>{e.preventDefault();d.classList.remove('over')}));d.ondrop=e=>upload([...e.dataTransfer.files]);p.onchange=e=>upload([...e.target.files]);
@@ -403,11 +403,12 @@ setTimeout(loadReconciliation,0);
    $('#monthEndFiles').prepend(row);
    try{
     const h=await hash(f);
-    const {data:dup,error:dupErr}=await sb.from('imports').select('id,metadata,report_type').eq('file_hash',h).maybeSingle();
+    const {data:dup,error:dupErr}=await sb.from('imports').select('id,metadata,report_type,status,filename').eq('file_hash',h).maybeSingle();
     if(dupErr)throw dupErr;
     if(dup){
-     const meta={...(dup.metadata||{}),month_end:true,reconciliation_month:month};
-     const {error:ue}=await sb.from('imports').update({metadata:meta}).eq('id',dup.id);
+     const meta={...(dup.metadata||{}),month_end:true,reconciliation_month:month,detected_report_type:dup.report_type||null};
+     const patch=dup.status==='staged'?{metadata:meta,report_type:'month_end_reconciliation',parser_version:'month-end-upload-v2'}:{metadata:meta};
+     const {error:ue}=await sb.from('imports').update(patch).eq('id',dup.id);
      if(ue)throw ue;
      row.lastElementChild.innerHTML='<span class="ok">už existuje · označeno pro month-end ✓</span>';
      continue;
@@ -458,7 +459,7 @@ document.addEventListener('click',async e=>{
  const old=b.textContent;b.disabled=true;b.textContent='Analyzuji…';
  try{
   const {data:{session}}=await sb.auth.getSession();if(!session)throw new Error('Relace vypršela.');
-  const {data:imp,error}=await sb.from('imports').select('storage_path,filename').eq('id',b.dataset.id).single();if(error)throw error;
+  const {data:imp,error}=await sb.from('imports').select('storage_path,filename,metadata').eq('id',b.dataset.id).single();if(error)throw error;
   b.textContent='Čtu PDF…';
   const layout_json=await extractPdfLayoutClient(imp.storage_path);
   b.textContent='Parsování…';
@@ -468,6 +469,7 @@ document.addEventListener('click',async e=>{
    body:JSON.stringify({import_id:b.dataset.id,mode:'preview',filename:imp.filename,layout_json})
   });
   const out=await res.json().catch(()=>({}));if(!res.ok)throw new Error(out.detail||out.error||('HTTP '+res.status));
+  await sb.from('imports').update({report_type:'month_end_reconciliation',parser_version:'store-card-monthly-v1',metadata:{...(imp.metadata||{}),month_end:true,reconciliation_month:(out.period_start||'').slice(0,7),store_card_monthly:true}}).eq('id',b.dataset.id);
   currentPreview={id:b.dataset.id,out,storeCardMonthly:true};
   $('#previewCard').classList.remove('hidden');
   $('#previewCard h2').textContent='Monthly Store Card — Preview';
