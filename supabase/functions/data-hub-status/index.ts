@@ -96,6 +96,17 @@ async function previewRecords(db:any,reportType:string,p:any){
         addStore(r,`${venue.venue||venue.venue_key} · ${metric_id}`);
       }
     }
+  }else if(reportType==="universal_metrics"){
+    for(const x of p.observations||[]){
+      if(!x.person_id||x.value==null)continue;
+      const r={source_type:x.source_type||"universal_metrics",person_id:x.person_id,metric_id:x.metric_id,value:x.value,period_start:x.period_start,period_end:x.period_end,granularity:x.granularity};
+      addMetric(r,`${x.source_identity||x.person_id} · ${x.metric_label||x.metric_id}`);
+    }
+    for(const x of p.store_metrics||[]){
+      if(!x.venue_key||x.value==null)continue;
+      const r={venue_key:x.venue_key,metric_id:x.metric_id,value:x.value,period_start:x.period_start,period_end:x.period_end,granularity:x.granularity};
+      addStore(r,`${x.venue||x.venue_key} · ${x.metric_label||x.metric_id}`);
+    }
   }else if(reportType==="store_card_monthly"){
     for(const person of p.people||[]){
       for(const [metric_id,field] of Object.entries(storeCardPersonFields)){
@@ -177,6 +188,10 @@ async function preflight(db:any,reportType:string,p:any){
     for(const x of p.conflicts||[])conflicts.push({key:"team-rating:"+String(x),label:String(x),reason:"Konflikt Team Rating parseru"});
     for(const x of p.warnings||[])warnings.push({reason:String(x)});
   }
+  if(reportType==="universal_metrics"){
+    (p.conflicts||[]).forEach((x:any,i:number)=>conflicts.push({key:"universal:"+(x.key||x.line||i),label:x.metric_id||x.alias||x.raw_line||"Universal mapping",reason:x.reason||"Nejasné mapování"}));
+    for(const x of p.warnings||[])warnings.push({reason:x.reason||String(x),metric_id:x.metric_id||null,line:x.line||null});
+  }
   if(reportType==="quinyx"){
     const resolved=new Set(raw.map((x:any)=>x.record?.person_key).filter(Boolean));
     const missing=[...new Set((p.rows||[]).map((x:any)=>x.person_key).filter((x:any)=>x&&!resolved.has(x)))];
@@ -231,7 +246,7 @@ async function coverage(db:any,requestedMonth:string){
     db.from("imports").select("id,report_type,period_start,period_end,status,metadata").lte("period_start",end).gte("period_end",queryStart).eq("status","imported"),
     db.from("metric_observations").select("source_type,period_start,period_end").lte("period_start",end).gte("period_end",queryStart).limit(10000),
     db.from("shifts").select("shift_date,scheduled_start,actual_start,shift_type").gte("shift_date",start).lte("shift_date",end).limit(10000),
-    db.from("store_metrics").select("period_start,period_end,metric_id,metadata").lte("period_start",end).gte("period_end",start).limit(10000),
+    db.from("store_metrics").select("venue_key,period_start,period_end,metric_id,metadata").lte("period_start",end).gte("period_end",start).limit(10000),
     db.from("store_card_months").select("month,status").eq("month",start),
     db.from("unresolved_identities").select("source_type,status,metadata").eq("status","unresolved").limit(1000),
     db.from("team_rating_responses").select("respondent_person_id,is_valid,disqualified_reason,submitted_at,metadata").eq("response_month",start),
@@ -262,7 +277,9 @@ async function coverage(db:any,requestedMonth:string){
     return {id,label,cadence:"week",covered,expected:due.length,percentage:pct(covered,due.length),state:coverageState(covered,due.length,segments.some(x=>x.state==="partial")),missing,segments,unresolved:unresolvedCounts[id]||0};
   };
 
-  const storeMetricCovered=imps.some(x=>x.report_type==="store_metrics"&&day(x.period_start)<=start&&day(x.period_end)>=end)||(storeMetrics||[]).some(x=>day(x.period_start)===start&&x.metadata?.source_type==="store_metrics");
+  const storeCoreIds=["store_outbound_seconds_per_unit","store_outercase_scan_ratio","store_pofr","store_weighted_availability","store_uph","store_missing_items_ratio","store_undelivered_items_ratio","store_task_completion_ratio","store_total_score"];
+  const storeCorePresent=new Set((storeMetrics||[]).filter((x:any)=>x.venue_key==="wolt_market_holesovice"&&day(x.period_start)===start&&day(x.period_end)===end).map((x:any)=>x.metric_id));
+  const storeMetricCovered=imps.some(x=>x.report_type==="store_metrics"&&day(x.period_start)<=start&&day(x.period_end)>=end)||storeCoreIds.every((id:string)=>storeCorePresent.has(id));
   const storeCardCovered=(storeCards||[]).length>0||imps.some(x=>(x.report_type==="store_card_monthly"||x.metadata?.store_card_monthly)&&day(x.period_start)<=start&&day(x.period_end)>=end);
   const quinyxCovered=spanCovers(imps,start,end,"quinyx");
   const dueShifts=shiftRows.filter(x=>day(x.shift_date)<=today),actualShifts=dueShifts.filter(x=>x.actual_start),missingActual=dueShifts.filter(x=>!x.actual_start).map(x=>day(x.shift_date));
