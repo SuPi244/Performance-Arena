@@ -27,7 +27,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px 9px
 <div class="stats"><div class="stat"><span class="muted">Importy</span><b id="importCount">—</b></div><div class="stat"><span class="muted">Observations</span><b id="obsCount">—</b></div><div class="stat"><span class="muted">Nerozpoznané identity</span><b id="unresolvedCount">—</b></div></div>
 <div class="grid"><section class="card"><h2>Nahrát data</h2><p class="muted">PDF / CSV / XLSX. Originál se uloží do privátního Storage a vytvoří staging záznam.</p>
 <div id="drop" class="drop"><strong>Přetáhni exporty sem</strong><br><span class="muted">nebo klikni a vyber soubory</span><input id="picker" class="hidden" type="file" multiple accept=".pdf,.csv,.xlsx,.xls"></div><div id="files" class="filelist"></div><div id="uploadStatus" class="status hidden"></div></section>
-<section class="card"><h2>Data Coverage</h2><p class="muted">Stav zdrojů v centrálním datovém skladu.</p><table><tbody><tr><td>GA Metrics</td><td><span class="pill ok">LIVE</span></td></tr><tr><td>Daily Picking</td><td><span class="pill ok">LIVE</span></td></tr><tr><td>Inbound</td><td><span class="pill ok">LIVE</span></td></tr><tr><td>Quinyx</td><td><span class="pill ok">LIVE</span></td></tr><tr><td>Stock Count</td><td><span class="pill ok">LIVE</span></td></tr><tr><td>Store Metrics</td><td><span class="pill ok">LIVE</span></td></tr><tr><td>Month-end reconciliation</td><td><span class="pill ok">READY</span></td></tr></tbody></table></section></div>
+<section class="card"><h2>Data Coverage</h2><p class="muted">Stav zdrojů v centrálním datovém skladu.</p><table><tbody><tr><td>GA Metrics</td><td><span class="pill ok">LIVE</span></td></tr><tr><td>Daily Picking</td><td><span class="pill ok">LIVE</span></td></tr><tr><td>Inbound</td><td><span class="pill ok">LIVE</span></td></tr><tr><td>Quinyx</td><td><span class="pill ok">LIVE</span></td></tr><tr><td>Stock Count</td><td><span class="pill ok">LIVE</span></td></tr><tr><td>Store Metrics</td><td><span class="pill ok">LIVE</span></td></tr><tr><td>Month-end reconciliation</td><td><span class="pill ok">READY</span></td></tr><tr><td>Monthly Store Card</td><td><span class="pill">PREVIEW</span></td></tr></tbody></table></section></div>
 <section id="previewCard" class="card preview hidden"><div class="preview-head"><div><h2 style="margin-bottom:4px">GA Metrics — Import Preview</h2><span class="muted">Pouze náhled. Nic se ještě nezapisuje do metric_observations.</span></div><button class="secondary" onclick="$('#previewCard').classList.add('hidden')">Zavřít</button></div><div class="preview-grid"><div><span class="muted">Období</span><b id="pvPeriod">—</b></div><div><span class="muted">Lidé</span><b id="pvPeople">—</b></div><div><span class="muted">Metriky</span><b id="pvMetrics">—</b></div><div><span class="muted">Observations</span><b id="pvObs">—</b></div></div><div id="pvStatus" class="status"></div><div id="pvActions" style="margin:12px 0"></div><div id="pvBody" class="preview-json"></div></section>
 <section id="reconciliationCard" class="card" style="margin-top:18px"><div class="preview-head"><div><h2 style="margin-bottom:4px">Identity Reconciliation</h2><span class="muted">Month-end kontrola neznámých Wolt ID a dalších aliasů. Nic se nepřiřazuje automaticky bez potvrzené identity.</span></div><button id="reconRefresh" class="secondary">Obnovit</button></div><div class="preview-grid"><div><span class="muted">Unresolved</span><b id="reconUnresolved">—</b></div><div><span class="muted">Wolt User ID</span><b id="reconWolt">—</b></div><div><span class="muted">Ostatní aliasy</span><b id="reconOther">—</b></div><div><span class="muted">Režim</span><b style="font-size:16px">MONTH-END</b></div></div><div id="reconStatus" class="status">Načítám reconciliation queue…</div><div class="pv-table-wrap" style="margin-top:12px"><table><thead><tr><th>Zdroj</th><th>Alias</th><th>Období</th><th>Podklady</th><th>Stav</th></tr></thead><tbody id="reconTable"><tr><td colspan="5" class="muted">Načítám…</td></tr></tbody></table></div></section>
 <section id="monthEndCard" class="card" style="margin-top:18px">
@@ -470,14 +470,14 @@ document.addEventListener('click',async e=>{
   });
   const out=await res.json().catch(()=>({}));if(!res.ok)throw new Error(out.detail||out.error||('HTTP '+res.status));
   await sb.from('imports').update({report_type:'month_end_reconciliation',parser_version:'store-card-monthly-v1',metadata:{...(imp.metadata||{}),month_end:true,reconciliation_month:(out.period_start||'').slice(0,7),store_card_monthly:true}}).eq('id',b.dataset.id);
-  currentPreview={id:b.dataset.id,out,storeCardMonthly:true};
+  currentPreview={id:b.dataset.id,out,storeCardMonthly:true,layout_json,filename:imp.filename};
   $('#previewCard').classList.remove('hidden');
   $('#previewCard h2').textContent='Monthly Store Card — Preview';
   $('#pvPeriod').textContent=(out.period_start||'—')+' → '+(out.period_end||'—');
   $('#pvPeople').textContent=out.people_count??'—';
   $('#pvMetrics').textContent=out.store_count!=null?(out.store_count+' stores'):'—';
   $('#pvObs').textContent=out.confirmed_bonus_total_czk!=null?(Number(out.confirmed_bonus_total_czk).toLocaleString('cs-CZ')+' Kč'):'—';
-  $('#pvStatus').innerHTML='<span class="ok">Store Card preview připraven ✓</span> · threshold '+esc(out.monthly_threshold_points??'—')+' b. · Team effort '+esc(out.team_effort_pct??'—')+' %';
+  $('#pvStatus').innerHTML='<span class="ok">Store Card preview připraven ✓</span> · threshold '+esc(out.monthly_threshold_points??'—')+' b. · Team effort '+esc(out.team_effort_pct??'—')+' % · matched '+esc(out.matched_count??'—')+' · nové historické '+esc(out.new_historical_count??0);
   const payouts=out.payouts||[],people=out.people||[],stores=out.store_metrics||[];
   let html='<h3>Rewards</h3><div class="pv-summary"><span class="pill">TOP bonusy: '+esc((out.top_bonus_czk||[]).join(' / ')||'—')+' Kč</span><span class="pill">Team 40h: '+esc(out.team_bonus_40h_czk??'—')+' Kč</span><span class="pill">Team 30h: '+esc(out.team_bonus_30h_czk??'—')+' Kč</span><span class="pill">Vyplaceno: '+esc(Number(out.confirmed_bonus_total_czk||0).toLocaleString('cs-CZ'))+' Kč</span></div>';
   html+='<div class="pv-table-wrap"><table><thead><tr><th>GA</th><th>Body</th><th>Bonus</th><th>Orders</th><th>Units</th><th>Missing</th><th>Undelivered</th><th>Scan</th><th>IB</th><th>Stock Count</th></tr></thead><tbody>'+people.map(p=>{
@@ -486,10 +486,37 @@ document.addEventListener('click',async e=>{
   }).join('')+'</tbody></table></div>';
   html+='<h3 style="margin-top:18px">Store metrics</h3><div class="pv-table-wrap"><table><thead><tr><th>Venue</th><th>Outbound</th><th>Outercase</th><th>POFR</th><th>Weighted availability</th><th>UPH</th><th>Missing</th><th>Undelivered</th><th>Task</th><th>Total score</th></tr></thead><tbody>'+stores.map(s=>'<tr><td>'+esc(s.venue)+'</td><td>'+esc(s.outbound_seconds_per_unit??'—')+'</td><td>'+esc(s.outercase_scan_ratio??'—')+'</td><td>'+esc(s.pofr??'—')+'</td><td>'+esc(s.weighted_availability??'—')+'</td><td>'+esc(s.uph??'—')+'</td><td>'+esc(s.missing_items_ratio??'—')+'</td><td>'+esc(s.undelivered_items_ratio??'—')+'</td><td>'+esc(s.task_completion_ratio??'—')+'</td><td>'+esc(s.total_score??'—')+'</td></tr>').join('')+'</tbody></table></div>';
   $('#pvBody').innerHTML=html;
-  $('#pvActions').innerHTML='<span class="warn">V1 je pouze preview — nic se ještě nezapisuje. Po ověření tohoto PDF doplníme bezpečný commit.</span>';
+  {
+   const conflicts=(out.identity_conflicts||[]).length;
+   const hist=(out.new_historical_people||[]).map(x=>x.display_name||x.email).join(', ');
+   $('#pvActions').innerHTML=(hist?'<div class="status warn" style="margin-bottom:10px">Nové historické profily (inactive): '+esc(hist)+'</div>':'')+
+    (conflicts?'<span class="err">Commit blokován: identity conflict ('+conflicts+').</span>':'<button class="storeCardConfirm">Potvrdit Store Card import</button>');
+  }
   $('#previewCard').scrollIntoView({behavior:'smooth',block:'start'});
  }catch(err){alert('Store Card analýza selhala: '+(err.message||err))}
  finally{b.disabled=false;b.textContent=old}
+});
+
+document.addEventListener('click',async e=>{
+ const b=e.target.closest('.storeCardConfirm');if(!b)return;
+ if(!currentPreview?.storeCardMonthly)return;
+ const old=b.textContent;b.disabled=true;b.textContent='Zapisuji…';
+ try{
+  const {data:{session}}=await sb.auth.getSession();if(!session)throw new Error('Relace vypršela.');
+  const res=await fetch('https://yhpgqkklnymfiacrztqf.supabase.co/functions/v1/parse-store-card-monthly',{
+   method:'POST',
+   headers:{Authorization:'Bearer '+session.access_token,apikey:'sb_publishable_EA9Sbn8ayjr0eHaI2m0s6A_Yct2lL8a','Content-Type':'application/json'},
+   body:JSON.stringify({import_id:currentPreview.id,mode:'commit',filename:currentPreview.filename,layout_json:currentPreview.layout_json})
+  });
+  const out=await res.json().catch(()=>({}));
+  if(!res.ok)throw new Error(out.detail||out.error||('HTTP '+res.status));
+  $('#pvStatus').innerHTML='<span class="ok">Monthly Store Card import dokončen ✓</span> · '+esc(out.observations_attempted??0)+' monthly observations · '+esc(out.store_metrics_attempted??0)+' store metrics · '+esc(out.bonus_rows_attempted??0)+' bonus rows';
+  $('#pvActions').innerHTML='';
+  await refresh();
+  if(typeof loadMonthEnd==='function')await loadMonthEnd();
+ }catch(err){
+  $('#pvStatus').innerHTML='<span class="err">Store Card commit selhal: '+esc(err.message||err)+'</span>';
+ }finally{b.disabled=false;b.textContent=old}
 });
 </script>
 </body></html>
