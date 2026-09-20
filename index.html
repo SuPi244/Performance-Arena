@@ -1471,6 +1471,15 @@ html[data-theme="light"] .admin-hero{background:linear-gradient(145deg,#f6fbf8,#
 @media(min-width:1800px){.admin-hero{padding:31px}.admin-hero h2{font-size:45px}.admin-summary-card{padding:18px}.admin-summary-card strong{font-size:34px}.admin-health-chart{height:340px}.admin-team-table th{font-size:9px}.admin-team-table td{font-size:10px;padding:11px 12px}}
 </style>
 
+
+<style id="employee-team-pulse-v183">
+.employee-team-pulse-section{overflow:hidden}.employee-team-pulse-summary{display:flex;gap:7px;flex-wrap:wrap;margin:4px 0 10px}.employee-team-pulse-summary span{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:999px;padding:6px 8px;font-size:7.5px;font-weight:900;color:var(--muted);background:rgba(255,255,255,.018)}.employee-team-pulse-summary span.good{color:#86efac;border-color:rgba(34,197,94,.22);background:rgba(34,197,94,.07)}
+.employee-team-pulse-list{display:grid;gap:6px}.employee-pulse-row{display:grid;grid-template-columns:minmax(150px,1.3fr) repeat(4,minmax(75px,.65fr)) minmax(82px,.55fr);gap:7px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:9px 10px;background:rgba(255,255,255,.016);cursor:pointer;transition:.16s ease}.employee-pulse-row:hover{border-color:rgba(53,231,138,.25);transform:translateY(-1px)}.employee-pulse-row.me{border-color:rgba(53,231,138,.28);background:rgba(53,231,138,.045)}.employee-pulse-name strong{display:block;font-size:9px}.employee-pulse-name span{display:block;font-size:7px;color:var(--muted);margin-top:2px}.employee-pulse-kpi{display:flex;align-items:center;gap:5px;font-size:7.5px;font-weight:850;white-space:nowrap}.employee-pulse-kpi i{width:7px;height:7px;border-radius:50%;background:#64748b;box-shadow:0 0 0 3px rgba(100,116,139,.08)}.employee-pulse-kpi.good{color:#86efac}.employee-pulse-kpi.good i{background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.10)}.employee-pulse-kpi.bad{color:#fca5a5}.employee-pulse-kpi.bad i{background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.10)}.employee-pulse-score{justify-self:end;font-size:8px;font-weight:950;padding:5px 7px;border-radius:999px;border:1px solid var(--line);white-space:nowrap}.employee-pulse-score.full{color:#86efac;border-color:rgba(34,197,94,.22);background:rgba(34,197,94,.08)}.employee-pulse-score.mid{color:#fcd34d;border-color:rgba(245,158,11,.20);background:rgba(245,158,11,.07)}.employee-pulse-score.low{color:#fca5a5;border-color:rgba(239,68,68,.20);background:rgba(239,68,68,.07)}.employee-team-pulse-actions{text-align:center;margin-top:9px}.employee-team-pulse-actions .tool{min-width:150px}
+html[data-theme="light"] .employee-pulse-row{background:#f8fbf9}
+@media(max-width:900px){.employee-team-pulse-list{overflow-x:auto}.employee-pulse-row{min-width:760px}}
+@media(min-width:1800px){.employee-pulse-row{padding:12px 14px}.employee-pulse-name strong{font-size:11px}.employee-pulse-kpi{font-size:9px}.employee-pulse-score{font-size:9px}}
+</style>
+
 </head>
 <body><div class="ambient-particles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
 <div id="loginOverlay">
@@ -1486,7 +1495,7 @@ html[data-theme="light"] .admin-hero{background:linear-gradient(145deg,#f6fbf8,#
 <div class="hidden" id="seasonRecapOverlay"><div class="season-recap-card"><div class="rundown-head"><div><div class="rundown-kicker">NOVÁ SEZÓNA</div><div class="rundown-title" id="seasonRecapTitle">Season Recap</div><div class="rundown-sub" id="seasonRecapSub">Tvoje poslední sezóna</div></div><button aria-label="Zavřít" class="rundown-close" id="seasonRecapClose">×</button></div><div class="season-recap-grid" id="seasonRecapStats"></div><div class="season-recap-section"><h4>🏆 Nejdůležitější výsledky</h4><div class="rundown-list" id="seasonRecapWins"></div></div><div class="season-recap-section"><h4>📈 Posun</h4><div class="rundown-list" id="seasonRecapProgress"></div></div><div class="rundown-actions"><button class="rundown-btn" id="seasonRecapContinue">Jdeme na novou sezónu</button></div></div></div>
 <div class="hidden" id="rundownOverlay"><div class="rundown-card"><div class="rundown-head"><div><div class="rundown-kicker">Tvoje poslední výsledky</div><div class="rundown-title" id="rundownTitle">Dobrá práce.</div><div class="rundown-sub" id="rundownSub">Rychlé shrnutí toho, co se ti povedlo.</div></div><button aria-label="Zavřít" class="rundown-close" id="rundownClose">×</button></div><div class="rundown-grid" id="rundownStats"></div><div class="rundown-section"><h4>🔥 Co se ti povedlo</h4><div class="rundown-list" id="rundownWins"></div></div><div class="rundown-section"><h4>🏆 Co jsi odemkl</h4><div class="rundown-achievements" id="rundownAchievements"></div></div><div class="rundown-section"><h4>🎯 Na čem můžeš ještě zabrat</h4><div class="rundown-list" id="rundownFocus"></div></div><div class="rundown-actions"><button class="rundown-btn" id="rundownContinue">Pokračovat do profilu</button></div></div></div>
 <div class="shell">
-<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V182</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
+<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V183</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
 <div class="layout">
 <aside class="sidebar">
 <div class="label" id="profileLabel">Profil</div><select class="select" id="workerSelect"></select>
@@ -1633,6 +1642,17 @@ html[data-theme="light"] .admin-hero{background:linear-gradient(145deg,#f6fbf8,#
   </div>
 </div>
 
+
+<div class="section employee-team-pulse-section">
+  <div class="section-head home-priority-head">
+    <div><span class="home-priority-kicker">TEAM TRANSPARENCY</span><h3>👥 TEAM PULSE</h3></div>
+    <span id="employeeTeamPulseMeta">Picking · Scanner · Missing · POFR</span>
+  </div>
+  <div class="employee-team-pulse-summary" id="employeeTeamPulseSummary"></div>
+  <div class="employee-team-pulse-list" id="employeeTeamPulseList"><div class="notice">Načítám týmový přehled…</div></div>
+  <div class="employee-team-pulse-actions"><button class="tool" id="employeeTeamPulseToggle" onclick="toggleEmployeeTeamPulse()">Zobrazit celý tým</button></div>
+</div>
+
 <div class="section grid2 home-game-loop"><section class="panel"><div class="section-head"><h3>⚔️ AKTIVNÍ VÝZVY</h3><span>co můžeš ovlivnit teď</span></div><div id="questList"></div></section><section class="panel"><div class="section-head"><h3>🏅 ODZNAKY</h3><span>season progress</span></div><div class="badge-row badge-showcase" id="badgeList"></div></section></div>
 
 <details class="section home-deep-dive">
@@ -1719,7 +1739,7 @@ html[data-theme="light"] .admin-hero{background:linear-gradient(145deg,#f6fbf8,#
 </section>
 
 <section class="page" id="page-achievements"><div class="hero"><div class="eyebrow">Collection</div><h2>Achievements</h2><p>Odemykej odznaky za výkon, konzistenci, zlepšení, sezónní postup a výkon Holešovic proti síti.</p><div class="hero-tags"><span class="tag gold" id="achievementCount">0 / 0</span><span class="tag green">SEASON PROGRESS</span></div></div><div class="section subgrid"><div class="summary-card"><span class="summary-label">Odemčeno</span><span class="summary-value" id="achievementUnlocked">—</span></div><div class="summary-card"><span class="summary-label">Zbývá</span><span class="summary-value" id="achievementRemaining">—</span></div><div class="summary-card"><span class="summary-label">Completion</span><span class="summary-value" id="achievementPercent">—</span></div></div><div class="section"><div class="toolbar"><button class="tool achievement-filter active" data-amode="all">Vše</button><button class="tool achievement-filter" data-amode="done">✅ Splněné</button><button class="tool achievement-filter" data-amode="todo">🔒 Nesplněné</button></div></div><div class="section"><div class="achievement-grid" id="achievementGrid"></div></div></section>
-<section class="page" id="page-team"><div class="hero"><div class="eyebrow">Trendy a srovnání</div><h2>Team Trends</h2><p>Jedna metrika napříč historií i aktuálními daty. Denní detail je dostupný tam, kde máme denní zdroj; týdenní pohled plynule navazuje na starší historii.</p></div><div class="section"><div class="toolbar"><select class="tool select" id="teamMetric"></select><button class="tool team-gran active" data-gran="auto">Auto</button><button class="tool team-gran" data-gran="day">Denně</button><button class="tool team-gran" data-gran="week">Týdně</button><button class="tool team-filter active" data-mode="all">Všichni</button><button class="tool team-filter" data-mode="top5">Top 5</button><button class="tool team-filter" data-mode="avg">Pouze průměr</button></div></div><div class="section subgrid"><div class="summary-card"><span class="summary-label">Týmový průměr</span><span class="summary-value" id="teamAvg">—</span></div><div class="summary-card"><span class="summary-label">Nejlepší výkon</span><span class="summary-value" id="teamBest">—</span></div><div class="summary-card"><span class="summary-label">Aktivních pracovníků</span><span class="summary-value" id="teamCount">—</span></div></div><div class="section panel"><div class="chart-wrap"><canvas id="teamChart"></canvas></div></div></section>
+<section class="page" id="page-team"><div class="hero"><div class="eyebrow">Trendy a srovnání</div><h2>Team Trends</h2><p>Jedna metrika napříč historií i aktuálními daty. Denní detail je dostupný tam, kde máme denní zdroj; týdenní pohled plynule navazuje na starší historii.</p></div><div class="section"><div class="toolbar"><select class="tool select" id="teamMetric"></select><button class="tool team-gran active" data-gran="auto">Auto · celá historie</button><button class="tool team-gran" data-gran="day">Denně</button><button class="tool team-gran" data-gran="week">Týdně</button><button class="tool team-filter active" data-mode="all">Všichni</button><button class="tool team-filter" data-mode="top5">Top 5</button><button class="tool team-filter" data-mode="avg">Pouze průměr</button></div></div><div class="section subgrid"><div class="summary-card"><span class="summary-label">Týmový průměr</span><span class="summary-value" id="teamAvg">—</span></div><div class="summary-card"><span class="summary-label">Nejlepší výkon</span><span class="summary-value" id="teamBest">—</span></div><div class="summary-card"><span class="summary-label">Aktivních pracovníků</span><span class="summary-value" id="teamCount">—</span></div></div><div class="section panel"><div class="chart-wrap"><canvas id="teamChart"></canvas></div></div></section>
 <section class="page" id="page-correlation"><div class="hero"><div class="eyebrow">Analýza</div><h2>Korelace</h2><p>Porovnání dvou metrik napříč týmem. Dashboard automaticky vyhodnotí sílu vztahu a přidá jednoduchou interpretaci.</p></div><div class="section"><div class="toolbar"><select class="tool select" id="corrX"></select><select class="tool select" id="corrY"></select></div></div><div class="section subgrid"><div class="summary-card"><span class="summary-label">Korelace r</span><span class="summary-value" id="corrR">—</span></div><div class="summary-card"><span class="summary-label">Vzorek</span><span class="summary-value" id="corrN">—</span></div><div class="summary-card"><span class="summary-label">Síla vztahu</span><span class="summary-value" id="corrStrength">—</span></div></div><div class="section panel"><div class="chart-wrap"><canvas id="corrChart"></canvas></div><div class="notice" id="corrSummary">—</div></div></section>
 <section class="page" id="page-bottlenecks"><div class="hero"><div class="eyebrow">Diagnostika</div><h2>Bottlenecks</h2><p>Identifikuje největší odchylky od cíle a ukáže, co má tým řešit jako první — rychlost, kvalitu nebo přesnost.</p></div><div class="section subgrid"><div class="summary-card"><span class="summary-label">Největší problém</span><span class="summary-value" id="diagTop">—</span></div><div class="summary-card"><span class="summary-label">Ohrožených lidí</span><span class="summary-value" id="diagPeople">—</span></div><div class="summary-card"><span class="summary-label">Priorita</span><span class="summary-value" id="diagPriority">—</span></div></div><div class="diag-4k-columns"><div class="section" id="diagnosticOverview"></div><div class="section"><div class="section-head"><h3>TOP PRIORITY</h3><span>největší odchylky</span></div><div id="bottleneckList"></div></div></div></section>
 <section class="page" id="page-leaderboard"><div class="hero"><div class="eyebrow">Competitive arena</div><h2>Season Leaderboard</h2><p>Sezónní pořadí, metrikové žebříčky a detail hráče.</p></div><div class="section"><div class="toolbar"><button class="tool lb-mode active" data-mode="people">👥 Lidé</button><button class="tool lb-mode" data-mode="stores">🏪 Stores</button><select class="tool select" id="lbMetric" style="max-width:340px"></select></div></div><div class="section"><div class="section-head"><h3 id="lbHeading">SEASON TOP</h3><span id="lbMeta">—</span></div><div class="lb-podium" id="leaderboardPodium"></div></div><div class="section panel"><div class="lb-list" id="leaderboardList"></div></div></section>
@@ -2127,12 +2147,23 @@ function unifiedMetricDef(id){return state.unifiedData?.metrics?.find(x=>x.id===
 function unifiedPersonByName(name){const t=norm(name);return Object.values(state.unifiedData?.people||{}).find(p=>norm(p.name)===t||norm(p.person_key)===t)||null}
 function seriesMap(series){const m=new Map();if(!series)return m;(series.labels||[]).forEach((k,i)=>{const v=Number(series.values?.[i]);if(Number.isFinite(v))m.set(String(k),v)});return m}
 function legacyMetricNameForUnified(def){
- const metrics=state.bootstrap?.metrics||[];
- for(const alias of def?.legacy_names||[]){
-   const a=norm(alias),hit=metrics.find(m=>norm(m.name)===a)||metrics.find(m=>norm(m.name).includes(a)||a.includes(norm(m.name)));
-   if(hit)return hit.name;
- }
- return null;
+ const metrics=state.bootstrap?.metrics||[],headers=state.team?.headers||[];
+ const aliases=[...(def?.legacy_names||[]),def?.label||'',String(def?.id||'').replaceAll('_',' ')]
+   .map(function(x){return norm(x)}).filter(Boolean);
+ const score=function(name){
+   const k=norm(name);let best=0;
+   aliases.forEach(function(a){
+     if(k===a)best=Math.max(best,1000);
+     else if(k.includes(a)||a.includes(k))best=Math.max(best,700-Math.abs(k.length-a.length));
+     const toks=a.split(' ').filter(function(t){return t.length>2&&!['daily','weekly','ratio','rate'].includes(t)});
+     const hit=toks.filter(function(t){return k.includes(t)}).length;
+     if(toks.length)best=Math.max(best,(hit/toks.length)*300);
+   });
+   return best;
+ };
+ const candidates=[...headers,...metrics.map(function(m){return m.name})].filter(Boolean)
+   .map(function(name){return{name,score:score(name)}}).sort(function(a,b){return b.score-a.score});
+ return candidates[0]?.score>=180?candidates[0].name:null;
 }
 async function unifiedTeamMetric(metricId,requested='auto'){
  await loadUnifiedArenaData();
@@ -2150,13 +2181,26 @@ async function unifiedTeamMetric(metricId,requested='auto'){
  }
  const merged=new Map(),keys=new Set(),legacyName=legacyMetricNameForUnified(def);
  let legacy=null;
- if(legacyName){try{legacy=await ensureTeamMetric(legacyName)}catch(e){console.warn('legacy team merge',metricId,e)}}
+ if(legacyName&&state.team?.people&&Array.isArray(state.team.headers)){
+   const idx=findTeamHistoryMetric(legacyName,state.team.headers);
+   if(idx>=0){
+     legacy={labels:state.team.labels||[],weekMeta:state.team.weekMeta||null,people:{}};
+     Object.entries(state.team.people||{}).forEach(function(entry){
+       const name=entry[0],p=entry[1];
+       legacy.people[name]={history:(p.history?.[idx]||[]).slice()};
+     });
+   }
+ }
+ if(!legacy&&legacyName){try{legacy=await ensureTeamMetric(legacyName)}catch(e){console.warn('legacy team merge',metricId,e)}}
  if(legacy?.labels?.length){
    const spans=weekSpans(legacy.labels,legacy.weekMeta||null);
-   Object.entries(legacy.people||{}).forEach(([name,p])=>{
-     const target=unifiedPersonByName(name);if(Object.keys(state.unifiedData.people||{}).length&&!target)return;
-     const canonical=target?.name||name;if(!merged.has(canonical))merged.set(canonical,new Map());const m=merged.get(canonical);
-     (p.history||[]).forEach((v,i)=>{const start=spans[i]?.start,key=start?personalWeekKey(start):null,nv=normalizeMetricValue(v,legacyName);if(key&&nv!=null){m.set(key,nv);keys.add(key)}});
+   Object.entries(legacy.people||{}).forEach(function(entry){
+     const name=entry[0],p=entry[1],target=unifiedPersonByName(name),canonical=target?.name||name;
+     if(!merged.has(canonical))merged.set(canonical,new Map());const map=merged.get(canonical);
+     (p.history||[]).forEach(function(v,i){
+       const start=spans[i]?.start,key=start?personalWeekKey(start):null,nv=normalizeMetricValue(v,legacyName);
+       if(key&&nv!=null){map.set(key,nv);keys.add(key)}
+     });
    });
  }
  for(const p of Object.values(state.unifiedData.people||{})){
@@ -2789,6 +2833,37 @@ function renderHomeKpiTrends(){
  ];
  specs.forEach(renderHomeKpiTrend);
 }
+
+let employeeTeamPulseExpanded=false;
+function employeePulseMetric(m){
+ if(!m||m.value==null)return'<span class="employee-pulse-kpi"><i></i>—</span>';
+ const cls=m.good===true?'good':m.good===false?'bad':'';
+ return'<span class="employee-pulse-kpi '+cls+'"><i></i>'+esc(formatNormVal(m.value,m.name))+'</span>';
+}
+function toggleEmployeeTeamPulse(){employeeTeamPulseExpanded=!employeeTeamPulseExpanded;renderEmployeeTeamPulse()}
+function renderEmployeeTeamPulse(){
+ const box=document.getElementById('employeeTeamPulseList'),summary=document.getElementById('employeeTeamPulseSummary'),toggle=document.getElementById('employeeTeamPulseToggle');
+ if(!box||loginRole==='admin')return;
+ if(!state.team?.people){
+   box.innerHTML='<div class="notice">Týmový přehled se načte spolu s týmovou historií.</div>';
+   if(summary)summary.innerHTML='';if(toggle)toggle.style.display='none';return;
+ }
+ const rows=adminSnapshots().slice().sort(function(a,b){
+   if(a.name===state.worker)return-1;if(b.name===state.worker)return 1;
+   return a.name.localeCompare(b.name,'cs');
+ });
+ const full=rows.filter(function(x){return x.known>0&&x.misses===0}).length;
+ const almost=rows.filter(function(x){return x.known>0&&x.misses===1}).length;
+ if(summary)summary.innerHTML='<span class="good">✓ '+full+' lidí · všechna známá KPI na cíli</span><span>'+almost+' lidí · 1 KPI mimo</span><span>'+rows.length+' aktivních lidí</span>';
+ setText('employeeTeamPulseMeta','Picking · Scanner · Missing · POFR · poslední dostupný týden');
+ const shown=employeeTeamPulseExpanded?rows:rows.slice(0,8);
+ box.innerHTML=shown.map(function(x){
+   const good=Math.max(0,x.known-x.misses),score=x.known?good+'/'+x.known:'—',tone=x.known&&x.misses===0?'full':x.misses<=1?'mid':'low',me=x.name===state.worker;
+   return'<div class="employee-pulse-row'+(me?' me':'')+'" data-employee-pulse-person="'+esc(x.name)+'"><div class="employee-pulse-name"><strong>'+esc(x.name)+(me?' · TY':'')+'</strong><span>'+esc(x.lb.tier||tier(Number(x.lb.elo)||0)[0])+' · '+esc(x.lb.elo)+' ELO</span></div>'+employeePulseMetric(x.metrics.picking)+employeePulseMetric(x.metrics.scanner)+employeePulseMetric(x.metrics.missing)+employeePulseMetric(x.metrics.pofr)+'<span class="employee-pulse-score '+tone+'">'+score+' na cíli</span></div>';
+ }).join('')||'<div class="notice">Týmová KPI zatím nejsou dostupná.</div>';
+ box.querySelectorAll('[data-employee-pulse-person]').forEach(function(el){el.onclick=function(){openDetail(el.getAttribute('data-employee-pulse-person'))}});
+ if(toggle){toggle.style.display=rows.length>8?'inline-flex':'none';toggle.textContent=employeeTeamPulseExpanded?'Zobrazit méně':'Zobrazit celý tým ('+rows.length+')'}
+}
 function renderHomePriority(){
  const d=state.storeCard||{},eff=d.efficiency||{},lp=d.live_personal||{},pr=d.projection||{};
  const points=Number(pr.projected_points),max=Number(d.latest_official_store_card?.max_points||17)||17,threshold=Number(d.scoring?.reference_threshold_points||11)||11;
@@ -2828,6 +2903,7 @@ function renderHomePriority(){
  renderHomeLeaderboardPreview();
  renderHomeMomentum();
  renderHomeKpiTrends();
+ renderEmployeeTeamPulse();
 }
 
 function renderHome(){if(!state.player)return;renderSeasonCountdown();const p=state.player,lb=playerSeasonData(state.worker),sc=performanceScoreFromLatest(p),st=streak(state.history),life=lifetimeProgressFor(state.worker),xp=life.xp,lvl=life.level,within=xp%1000,t=tier(lb.elo);document.body.dataset.tier=t[0];setText('homeName',p.worker);setText('homeTier',t[0]);setText('homeRank','#'+lb.rank);const rankIcon=t[0]==='MASTER'?'💎':t[0]==='GOLD'?'🥇':t[0]==='SILVER'?'🛡️':'🔰';setText('rankCrest',rankIcon);setText('rankHeadline',t[0]==='UNRANKED'?'UNRANKED':t[0]);setText('sElo',lb.elo+' b.');setText('sRank',t[0]==='UNRANKED'?'—':`${t[0]}${lb.status&&lb.status!=='FULL'?' · '+lb.status:''} · #${lb.rank}`);setText('sRankIcon',rankIcon);setText('sPerf',sc==null?'—':fmt(sc,1));setText('sStreak',st);setText('homeLevel','LVL '+lvl);setText('homeXp',within+' / 1000 XP');document.getElementById('xpBar').style.width=(within/10)+'%';setText('seasonMeta',state.team?.labels?.length?('Rank: sezónní ELO · Level: celoživotní XP · '+state.team.labels.length+' týdnů dostupných'):'Aktuální rank · sezónní detail se dopočítá při otevření žebříčku');const rankBar=document.getElementById('rankBar');const rankMin=900,rankMax=1200;const rankPct=Math.min(100,Math.max(0,((lb.elo-rankMin)/(rankMax-rankMin))*100));rankBar.style.width=rankPct+'%';setText('rankProgressText',t[0]==='UNRANKED'?'—':t[0]);setText('rankFrom','');setText('rankTo','');document.querySelectorAll('.rank-rail .rank-stop').forEach((el,i)=>{const min=Number(el.dataset.rankMin||0);el.classList.toggle('active',lb.elo>=min);el.classList.toggle('current',(i===0&&lb.elo<1000)||(i===1&&lb.elo>=1000&&lb.elo<1100)||(i===2&&lb.elo>=1100&&lb.elo<1200)||(i===3&&lb.elo>=1200));});const b=badges(state.worker);document.getElementById('badgeList').innerHTML=b.map(x=>`<span class="badge" data-emoji="${esc(x[0])}" data-title="${esc(x[1])}" title="${esc(x[1])}">${x[0]} ${esc(x[1])}</span>`).join('')||'<span class="empty-badges">Zatím žádné sezónní odznaky</span>';renderQuests();renderHomeScanStrip();renderHomeBreakdown();renderAchievements();renderStoreCardLive();renderStoreQuests().catch(e=>{console.warn('store quests',e);const b=document.getElementById('homeStoreQuestList');if(b)b.innerHTML='<div class=\"notice error\">Store Challenges se nepodařilo načíst.</div>';});animateWidth('xpBar',within/10,850);const rankPct2=Math.min(100,Math.max(0,((lb.elo-900)/(1200-900))*100));animateWidth('rankBar',rankPct2,1000);animateCards('badgeList');animateCards('homeQuestList');animateCards('homeStoreQuestList');renderHomePriority()}
@@ -4236,7 +4312,9 @@ async function renderTeam(){
   if(sel.innerHTML!==html)sel.innerHTML=html;
   if(old&&metrics.some(m=>m.id===old))sel.value=old;else sel.value=(metrics.find(m=>m.id==='avg_picking_time')||metrics[0]).id;
   const def=metrics.find(m=>m.id===sel.value)||metrics[0],requested=state.teamGranularity||'auto';
-  const actual=requested==='auto'?(def.daily_available?'day':'week'):(requested==='day'&&!def.daily_available?'week':requested);
+  // Auto intentionally prefers weekly: this is the only granularity that can
+  // merge the legacy Google Sheets era with the new Data Hub era.
+  const actual=requested==='auto'?'week':(requested==='day'&&!def.daily_available?'week':requested);
   document.querySelectorAll('.team-gran').forEach(b=>b.classList.toggle('active',b.dataset.gran===requested));
   const dayBtn=document.querySelector('.team-gran[data-gran="day"]');if(dayBtn)dayBtn.disabled=!def.daily_available;
   const d=await unifiedTeamMetric(def.id,actual);destroyChart('team');
@@ -4250,7 +4328,7 @@ async function renderTeam(){
   if(state.teamMode==='avg'||state.teamMode==='all')datasets.push({label:'Týmový průměr',data:(d.labels||[]).map((_,i)=>{const a=validPeople.map(p=>p.h[i]).filter(v=>v!=null);return a.length?a.reduce((x,y)=>x+y,0)/a.length:null}),borderColor:'#F59E0B',borderWidth:2.5,borderDash:[6,4],tension:.3,pointRadius:0,spanGaps:true});
   const labels=(d.labels||[]).map(k=>actual==='day'?(fmtDate(dateOnly(k))||k):personalWeekLabel(k));
   charts.team=new Chart(document.getElementById('teamChart'),{type:'line',data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:true,labels:{boxWidth:10,font:{size:9}}}},scales:{x:{ticks:{color:'#91A79B',font:{size:8}},grid:{color:'rgba(134,239,172,.06)'}},y:{ticks:{color:'#91A79B',font:{size:8},callback:v=>formatNormVal(v,def.label)},grid:{color:'rgba(134,239,172,.06)'}}}}});
-  setText('globalNotice','Team Trends · '+def.label+' · '+(actual==='day'?'denní':'týdenní')+' · '+validPeople.length+' pracovníků');
+  setText('globalNotice','Team Trends · '+def.label+' · '+(actual==='day'?'denní Data Hub':'týdenní · Sheets + Data Hub')+' · '+validPeople.length+' pracovníků');
  }catch(err){destroyChart('team');setText('globalNotice','Týmová data se nepodařilo načíst: '+(err?.message||err));console.warn('renderTeam',err)}
 }
 function hasAnyUsableMetricData(person,headers){
@@ -4414,7 +4492,7 @@ function renderAdminDashboard(){
  const tb=document.getElementById('adminTeamRows');if(tb)tb.innerHTML=visible.map(function(x){const sc=x.storeCard,scText=sc?(liveFmt(sc.points,'points')+' · #'+sc.rank):'—',statusText=x.status==='attention'?x.misses+' KPI mimo':x.status==='watch'?'1 KPI mimo':'Na cíli';return'<tr class="'+x.status+'" data-admin-person="'+esc(x.name)+'"><td>#'+esc(x.lb.rank)+'</td><td class="admin-person-name"><strong>'+esc(x.name)+'</strong><span>'+esc(x.lb.tier||tier(Number(x.lb.elo)||0)[0])+'</span></td><td><strong>'+esc(x.lb.elo)+' ELO</strong></td><td>'+adminKpiCell(x.metrics.picking)+'</td><td>'+adminKpiCell(x.metrics.scanner)+'</td><td>'+adminKpiCell(x.metrics.missing)+'</td><td>'+adminKpiCell(x.metrics.pofr)+'</td><td>'+esc(scText)+'</td><td><span class="admin-status '+x.status+'">'+statusText+'</span></td></tr>'}).join('')||'<tr><td colspan="9" class="muted">Tomuto filtru neodpovídá žádný zaměstnanec.</td></tr>';
  document.querySelectorAll('#page-admin [data-admin-person]').forEach(function(el){el.onclick=function(){openDetail(el.getAttribute('data-admin-person')).catch(function(e){console.warn(e)})}});
 }
-async function openPage(page){if(loginRole!=='admin'&&(page==='correlation'||page==='admin'))return;document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-'+page).classList.add('active');document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));if(page==='personal'){if(!state.history)state.history=await api('player_history',{worker:state.worker});if(!state.team){try{state.team=await api('team_history')}catch(e){console.warn('team_history for personal average',e)}}buildMetricCards();renderPersonalFriendlySummary();}if(page==='admin'){await ensureTeam();renderAdminDashboard()}if(page==='home'){renderHome(); if(!state.team) ensureTeam().catch(()=>{}); if(!state.storeHistory) ensureStores().catch(()=>{})}if(page==='efficiency'){renderStoreCardLive()}if(page==='bonuses'){try{state.storeCard=await loadStoreCardLive(state.worker,{force:true})}catch(e){console.warn('fresh bonus wallet reload',e)}renderStoreCardLive()}if(page==='achievements'){renderAchievements(); if(!state.team) ensureTeam().catch(()=>{}); if(!state.storeHistory) ensureStores().catch(()=>{})} if(page==='team'){await loadUnifiedArenaData();await renderTeam()}if(page==='correlation'){await loadUnifiedArenaData();await renderCorrelation()}if(page==='bottlenecks'){await loadUnifiedArenaData();await renderBottlenecks()}if(page==='leaderboard'){if(state.lbMode==='people'){await ensureTeam();if(state.worker){try{state.storeCard=await loadStoreCardLive(state.worker,{force:true})}catch(e){console.warn('live leaderboard refresh',e)}}}else{await loadUnifiedArenaData();await ensureStores()}state.leaderMetric=null;renderLeaderboard()}if(page==='store'){await loadUnifiedArenaData();await ensureStores();renderStoreCardLive();drawStore();renderStoreQuests().catch(()=>{})}}
+async function openPage(page){if(loginRole!=='admin'&&(page==='correlation'||page==='admin'))return;document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-'+page).classList.add('active');document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));if(page==='personal'){if(!state.history)state.history=await api('player_history',{worker:state.worker});if(!state.team){try{state.team=await api('team_history')}catch(e){console.warn('team_history for personal average',e)}}buildMetricCards();renderPersonalFriendlySummary();}if(page==='admin'){await ensureTeam();renderAdminDashboard()}if(page==='home'){renderHome(); if(!state.team) ensureTeam().catch(()=>{}); if(!state.storeHistory) ensureStores().catch(()=>{})}if(page==='efficiency'){renderStoreCardLive()}if(page==='bonuses'){try{state.storeCard=await loadStoreCardLive(state.worker,{force:true})}catch(e){console.warn('fresh bonus wallet reload',e)}renderStoreCardLive()}if(page==='achievements'){renderAchievements(); if(!state.team) ensureTeam().catch(()=>{}); if(!state.storeHistory) ensureStores().catch(()=>{})} if(page==='team'){await ensureTeam();await loadUnifiedArenaData();await renderTeam()}if(page==='correlation'){await loadUnifiedArenaData();await renderCorrelation()}if(page==='bottlenecks'){await loadUnifiedArenaData();await renderBottlenecks()}if(page==='leaderboard'){if(state.lbMode==='people'){await ensureTeam();if(state.worker){try{state.storeCard=await loadStoreCardLive(state.worker,{force:true})}catch(e){console.warn('live leaderboard refresh',e)}}}else{await loadUnifiedArenaData();await ensureStores()}state.leaderMetric=null;renderLeaderboard()}if(page==='store'){await loadUnifiedArenaData();await ensureStores();renderStoreCardLive();drawStore();renderStoreQuests().catch(()=>{})}}
 
 function syncDateBounds(){const startInput=document.getElementById('personalDateStart'),endInput=document.getElementById('personalDateEnd');if(startInput&&endInput&&state.history?.weeks?.length){const spans=historyWeekSpans(state.history),first=spans[0]?.start,last=spans.at(-1)?.end;if(first){const v=first.toISOString().slice(0,10);startInput.min=v;endInput.min=v}if(last){const v=last.toISOString().slice(0,10);startInput.max=v;endInput.max=v}}}
 function setLoading(stage,progress,tip){const el=document.getElementById('loadingStage'),bar=document.getElementById('loadingProgress'),t=document.getElementById('loadingTip');if(el)el.textContent=stage||'';if(bar)bar.style.width=Math.max(4,Math.min(100,progress||0))+'%';if(t&&tip)t.textContent=tip;}
