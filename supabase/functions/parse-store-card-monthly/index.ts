@@ -187,30 +187,68 @@ function parsePeople(layout:any[],identityHints:any[]=[]){
   return out;
 }
 
-function parseRewards(layout:any[],people:any[],period:any){
+function parseRewards(layout:any[],people:any[],period:any,knownPeople:any[]=[]){
   const p=layout[0]; if(!p)return {};
-  const rows=groupRows(p,1.4);
+  const rows=groupRows(p,1.6);
+  const key=(s:any)=>compact(String(s||""));
 
-  const names=new Map(people.map((x:any)=>[norm(x.display_name||""),x]));
+  // Build a canonical identity map from the people table, not from parsed Store Card
+  // display strings. Old PDFs often append the first KPI value to the person's name
+  // (e.g. "Pavel Kyselka 41"), which previously made every payout look unmatched.
+  const canonical=new Map<string,Set<string>>();
+  const add=(name:any,pid:any)=>{
+    const k=key(name);if(!k||!pid)return;
+    if(!canonical.has(k))canonical.set(k,new Set());
+    canonical.get(k)!.add(String(pid));
+  };
+  for(const kp of knownPeople||[]){
+    add(kp.display_name,kp.id);add(kp.full_name,kp.id);
+  }
+  for(const pp of people||[]){
+    const pid=pp.hint_person_id||pp.person_id||null;
+    add(pp.display_name,pid);add(pp.picker_login,pid);
+    if(pp.email)add(String(pp.email).split("@")[0].replace(/[._-]+/g," "),pid);
+  }
+  const resolveName=(name:any)=>{
+    const k=key(name);if(!k)return null;
+    const exact=canonical.get(k);
+    if(exact&&exact.size===1)return [...exact][0];
+    // Historical layouts can leave a numeric KPI glued to the name. Accept only a
+    // unique canonical prefix, never a fuzzy multi-person guess.
+    const candidates=new Set<string>();
+    for(const [ck,pids] of canonical){
+      if(ck.length<5)continue;
+      if(k.startsWith(ck)||ck.startsWith(k)){
+        for(const pid of pids)candidates.add(pid);
+      }
+    }
+    return candidates.size===1?[...candidates][0]:null;
+  };
+
+  const personById=new Map<string,any>();
+  for(const pp of people||[]){
+    const pid=pp.hint_person_id||pp.person_id||null;
+    if(pid&&!personById.has(String(pid)))personById.set(String(pid),pp);
+  }
+
   const colorAware=(p.items||[]).some((i:any)=>typeof i.red_bg==="boolean");
-  const ineligibleEmails=new Set<string>();
+  const ineligiblePersonIds=new Set<string>();
   if(colorAware){
     for(const r of rows){
-      const resultName=txt(r,80,165);
-      if(!resultName)continue;
-      const hit=names.get(norm(resultName));
-      if(!hit)continue;
+      const resultName=txt(r,75,185);
+      const pid=resolveName(resultName);
+      if(!pid)continue;
       const red=(r.items||[]).some((i:any)=>{
         const x=center(i);
-        return x>=80&&x<165&&i.red_bg===true;
+        return x>=75&&x<185&&i.red_bg===true;
       });
-      if(red&&hit.email)ineligibleEmails.add(normAlias(hit.email));
+      if(red)ineligiblePersonIds.add(String(pid));
     }
   }
 
   let top_bonus_czk:number[]=[];
   for(const r of rows){
-    const vals=r.items.filter((i:any)=>center(i)>=390&&center(i)<575).map((i:any)=>n(i.text)).filter((x:any)=>x!=null);
+    const vals=r.items.filter((i:any)=>center(i)>=385&&center(i)<590).map((i:any)=>n(i.text)).filter((x:any)=>x!=null);
     if(vals.length>=5&&vals[0]>=500){top_bonus_czk=vals.slice(0,5);break}
   }
 
@@ -221,36 +259,58 @@ function parseRewards(layout:any[],people:any[],period:any){
       const perc=r.items.map((i:any)=>String(i.text)).find((s:string)=>/%/.test(s));
       team_effort_pct=perc?n(perc):null;
     }
-    if(txt(r,395,430)==="40h/w"){team_bonus_40h=val(r,470,493)}
-    if(txt(r,395,430)==="30h/w"){team_bonus_30h=val(r,470,493)}
+    if(/40h\/w/i.test(txt(r,385,445))){team_bonus_40h=val(r,450,510)}
+    if(/30h\/w/i.test(txt(r,385,445))){team_bonus_30h=val(r,450,510)}
   }
 
-  // Payout table starts around x=238 and amount around x=321.
+  // Official payout table on page 1. Match payout names to canonical person_id.
+  // Keep coordinates broad enough for Jan-Aug layouts, then validate by canonical name.
   const payouts:any[]=[];
+  const payoutSeen=new Set<string>();
   for(const r of rows){
-    const name=txt(r,232,312),amount=val(r,312,335);
-    if(!name||amount==null)continue;
-    const hit=names.get(norm(name));
-    if(hit){
-      const eligible=colorAware?!ineligibleEmails.has(normAlias(hit.email)):null;
-      payouts.push({
-        email:hit.email,
-        display_name:hit.display_name,
-        confirmed_bonus_czk:amount,
-        bonus_eligible:eligible,
-        eligibility_source:eligible===false?"official_store_card_red_cell":eligible===true?"official_store_card_color":"unknown"
-      });
+    const nameCandidates=[
+      txt(r,220,320),
+      txt(r,225,330),
+      txt(r,230,345)
+    ].filter(Boolean);
+    let pid:string|null=null,sourceName="";
+    for(const nm of nameCandidates){
+      const hit=resolveName(nm);
+      if(hit){pid=hit;sourceName=nm;break}
     }
+    if(!pid)continue;
+
+    // Amount column shifted a little between historical sheets.
+    const amountCandidates=[
+      val(r,305,350),val(r,300,365),val(r,315,375)
+    ].filter((x:any)=>x!=null&&Number.isFinite(Number(x))) as number[];
+    const plausible=amountCandidates.find((x:any)=>x>=0&&x<=20000);
+    if(plausible==null)continue;
+
+    const dedupeKey=String(pid)+"|"+String(plausible);
+    if(payoutSeen.has(dedupeKey))continue;
+    payoutSeen.add(dedupeKey);
+
+    const pp=personById.get(String(pid))||{};
+    const eligible=colorAware?!ineligiblePersonIds.has(String(pid)):null;
+    payouts.push({
+      person_id:String(pid),
+      email:pp.email||null,
+      display_name:(knownPeople||[]).find((x:any)=>String(x.id)===String(pid))?.full_name||pp.display_name||sourceName,
+      source_name:sourceName,
+      confirmed_bonus_czk:Number(plausible),
+      bonus_eligible:eligible,
+      eligibility_source:eligible===false?"official_store_card_red_cell":eligible===true?"official_store_card_color":"unknown"
+    });
   }
 
-  // Monthly threshold table is on the far right of page 1.
   let monthly_threshold_points:number|null=null;
   if(period){
     const en=Object.entries(MONTHS).find(([k,v])=>v===period.month&&/^[a-z]+$/.test(k))?.[0];
     if(en){
       for(const r of rows){
-        const label=txt(r,650,710).toLowerCase();
-        if(label===en){monthly_threshold_points=val(r,720,748);break}
+        const label=txt(r,645,715).toLowerCase();
+        if(label===en){monthly_threshold_points=val(r,715,752);break}
       }
     }
   }
@@ -258,7 +318,8 @@ function parseRewards(layout:any[],people:any[],period:any){
   return {
     top_bonus_czk,team_effort_pct,team_bonus_40h,team_bonus_30h,monthly_threshold_points,payouts,
     color_eligibility_detected:colorAware,
-    ineligible_people:payouts.filter((x:any)=>x.bonus_eligible===false).map((x:any)=>x.display_name)
+    ineligible_people:payouts.filter((x:any)=>x.bonus_eligible===false).map((x:any)=>x.display_name),
+    payout_match_count:payouts.length
   };
 }
 
@@ -512,7 +573,7 @@ Deno.serve(async req=>{
     return J({error:"No Store Card people rows parsed",diagnostics:{parser:"v9",pages:layout.length,period_start:period.period_start,period_end:period.period_end,page_samples:diagnosticPages}},422);
   }
 
-  const rewards=parseRewards(layout,people,period);
+  const rewards=parseRewards(layout,people,period,knownPeople||[]);
   const maxima=parseMaxima(layout);
   const stores=parseStoreMetrics(layout);
 
@@ -546,7 +607,7 @@ Deno.serve(async req=>{
   };
 
   if(mode==="preview"){
-   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v9",
+   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v10",
     note:"Preview only. Existing identities are resolved by email/picker login. New historical people are shown before commit."});
   }
 
@@ -635,21 +696,22 @@ Deno.serve(async req=>{
    team_bonus_30h_czk:rewards.team_bonus_30h,
    source_import_id:import_id,
    status:"official",
-   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v9",filename:imp.filename},
+   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v10",filename:imp.filename},
    updated_at:new Date().toISOString()
   };
   const {error:sce}=await db.from("store_card_months").upsert(monthRow,{onConflict:"month"});
   if(sce)return J({error:"Store Card month write failed",detail:sce.message},500);
 
-  const payoutMap=new Map((rewards.payouts||[]).map((x:any)=>[normAlias(x.email),x]));
+  const payoutByPerson=new Map((rewards.payouts||[]).filter((x:any)=>x.person_id).map((x:any)=>[String(x.person_id),x]));
+  const payoutByEmail=new Map((rewards.payouts||[]).filter((x:any)=>x.email).map((x:any)=>[normAlias(x.email),x]));
   const bonusRows=resolved.filter((p:any)=>p.person_id).map((p:any)=>{
-   const payout:any=payoutMap.get(normAlias(p.email))||null;
+   const payout:any=payoutByPerson.get(String(p.person_id))||payoutByEmail.get(normAlias(p.email))||null;
    return {
    person_id:p.person_id,
    bonus_month:period.period_start,
    amount:Number(payout?.confirmed_bonus_czk??0),
    currency:"CZK",
-   status:"confirmed",
+   status:payout?"confirmed":"pending_unparsed",
    source_type:"store_card_monthly",
    import_id,
    source_record_key:`store_card_bonus:${period.period_start}:${normAlias(p.email||p.picker_login||p.person_id)}`,
@@ -659,7 +721,7 @@ Deno.serve(async req=>{
     display_name:p.display_name,
     total_points:p.total_points,
     team_effort_percent:rewards.team_effort_pct,
-    official_payout_czk:Number(payout?.confirmed_bonus_czk??0),
+    official_payout_czk:payout?Number(payout.confirmed_bonus_czk):null,
     bonus_eligible:payout?.bonus_eligible??null,
     eligibility_source:payout?.eligibility_source??"unknown",
     official:true
@@ -705,7 +767,7 @@ Deno.serve(async req=>{
    status:"imported",
    period_start:period.period_start,
    period_end:period.period_end,
-   parser_version:"store-card-monthly-v9",
+   parser_version:"store-card-monthly-v10",
    record_count:totalRecords,
    metadata:{
     ...(imp.metadata||{}),
@@ -723,7 +785,7 @@ Deno.serve(async req=>{
    ...common,
    preview:false,
    committed:true,
-   parser_stage:"store-card-monthly-committed-v7",
+   parser_stage:"store-card-monthly-committed-v10",
    observations_attempted:obs.length,
    observations_inserted:obsWritten,
    store_metrics_attempted:storeRows.length,
