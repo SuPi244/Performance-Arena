@@ -75,8 +75,14 @@ Deno.serve(async req=>{
 
     const compact=(s:any)=>norm(String(s||"")).replace(/[^a-z0-9]+/g,"");
     const isTechnicalIdentity=(s:any)=>{const x=compact(s);return x==="woltmark"||x.startsWith("woltmarketholesovice")};
-    const ignored=p.rows.filter((r:any)=>isTechnicalIdentity(r.alias));
-    const humanRows=p.rows.filter((r:any)=>!isTechnicalIdentity(r.alias));
+    const technicalRows=p.rows.filter((r:any)=>isTechnicalIdentity(r.alias));
+    const candidateRows=p.rows.filter((r:any)=>!isTechnicalIdentity(r.alias));
+    const {data:persistentIgnored,error:ignoreErr}=await db.from("ignored_identities").select("normalized_value").eq("source_type","stock_count");
+    if(ignoreErr)return J({error:ignoreErr.message},500);
+    const ignoredSet=new Set((persistentIgnored||[]).map((x:any)=>norm(x.normalized_value)));
+    const burnerRows=candidateRows.filter((r:any)=>ignoredSet.has(norm(r.alias)));
+    const ignored=[...technicalRows,...burnerRows];
+    const humanRows=candidateRows.filter((r:any)=>!ignoredSet.has(norm(r.alias)));
     const aliases=humanRows.map((r:any)=>norm(r.alias));
     const aliasLookup=aliases.length?await db.from("person_aliases")
       .select("person_id,normalized_value,confirmed").in("normalized_value",aliases):{data:[],error:null};
@@ -97,7 +103,7 @@ Deno.serve(async req=>{
     const matched=rows.filter((r:any)=>r.person_id);
 
     if(mode==="preview") return J({
-      ok:true,preview:true,parser_stage:"stock_count_parsed_v1",
+      ok:true,preview:true,parser_stage:"stock_count_parsed_v2",
       import_id,filename:imp.filename,
       period_start:p.period_start,period_end:p.period_end,
       source_row_count:p.source_rows.length,
@@ -168,7 +174,7 @@ Deno.serve(async req=>{
       status:"imported",
       period_start:p.period_start,
       period_end:p.period_end,
-      parser_version:"stock-count-v3"
+      parser_version:"stock-count-v4"
     }).eq("id",import_id);
 
     return J({
