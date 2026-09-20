@@ -39,7 +39,7 @@ const defs:Def[]=[
  {id:"start_collection_time",label:"Average Start Collection Time",unit:"number",lower_is_better:true,category:"speed",weekly:[],daily:["daily_avg_start_collection_time"],aggregation:"avg",legacy_names:["Average Start Collection Time"]},
  {id:"ready_pickup_time",label:"Average Ready for Pickup Time",unit:"number",lower_is_better:true,category:"speed",weekly:[],daily:["daily_avg_ready_for_pickup_time"],aggregation:"avg",legacy_names:["Average Ready for Pickup Time"]},
  {id:"production_time",label:"Total Production Time",unit:"number",lower_is_better:true,category:"speed",weekly:[],daily:["daily_total_production_time"],aggregation:"avg",legacy_names:["Total Production Time"]},
- {id:"inbound_normal",label:"Inbound Units",unit:"count",lower_is_better:false,category:"volume",weekly:[],daily:["inbound_normal_units"],monthly:["store_card_inbound_total_units"],aggregation:"sum",legacy_names:["Inbound Units"]},
+ {id:"inbound_normal",label:"Inbound Normal Units",unit:"count",lower_is_better:false,category:"volume",weekly:[],daily:["inbound_normal_units"],monthly:["store_card_inbound_total_units"],aggregation:"sum",legacy_names:["Inbound Units","Inbound Normal Units"]},
  {id:"inbound_icy",label:"Inbound ICY Units",unit:"count",lower_is_better:false,category:"volume",weekly:[],daily:["inbound_icy_units"],monthly:["store_card_inbound_icy_units"],aggregation:"sum",legacy_names:["Inbound ICY Units"]},
  {id:"inbound_freeze",label:"Inbound FREEZE Units",unit:"count",lower_is_better:false,category:"volume",weekly:[],daily:["inbound_freez_units"],monthly:["store_card_inbound_freeze_units"],aggregation:"sum",legacy_names:["Inbound FREEZE Units"]},
  {id:"stock_count",label:"Stock Count",unit:"count",lower_is_better:false,category:"volume",weekly:[],daily:["stock_count_adjustment_count"],monthly:["store_card_stock_count"],aggregation:"sum",legacy_names:["Stock Count"]},
@@ -152,16 +152,41 @@ Deno.serve(async(req)=>{
     // fallback point and always prefer the more granular Data Hub rows when available.
     if(d.monthly?.length){
       const mg=new Map<string,{values:number[],period_end:string}>();
-      for(const id of d.monthly){
-        for(const r of byMetric.get(id)||[]){
+
+      if(d.id==="inbound_normal"){
+        // Store Card "IB total units" already includes ICY + FREEZE. The detailed
+        // inbound feed exposes Normal/ICY/FREEZE separately, so derive the Normal
+        // monthly fallback instead of treating Total as Normal and double-counting.
+        const totals=(byMetric.get("store_card_inbound_total_units")||[]).filter((r:any)=>r.source_type==="store_card_monthly");
+        const icyByMonth=new Map<string,number>();
+        const freezeByMonth=new Map<string,number>();
+        for(const r of byMetric.get("store_card_inbound_icy_units")||[]){
           if(r.source_type!=="store_card_monthly")continue;
-          const v=num(r.value),k=day(r.period_start),pe=day(r.period_end||r.period_start);
-          if(v===null||!k)continue;
-          if(!mg.has(k))mg.set(k,{values:[],period_end:pe||k});
-          const g=mg.get(k)!;g.values.push(v);
-          if(pe&&pe>g.period_end)g.period_end=pe;
+          const v=num(r.value),k=day(r.period_start);if(v!==null&&k)icyByMonth.set(k,(icyByMonth.get(k)||0)+v);
+        }
+        for(const r of byMetric.get("store_card_inbound_freeze_units")||[]){
+          if(r.source_type!=="store_card_monthly")continue;
+          const v=num(r.value),k=day(r.period_start);if(v!==null&&k)freezeByMonth.set(k,(freezeByMonth.get(k)||0)+v);
+        }
+        for(const r of totals){
+          const total=num(r.value),k=day(r.period_start),pe=day(r.period_end||r.period_start);
+          if(total===null||!k)continue;
+          const normal=Math.max(0,total-(icyByMonth.get(k)||0)-(freezeByMonth.get(k)||0));
+          mg.set(k,{values:[normal],period_end:pe||k});
+        }
+      }else{
+        for(const id of d.monthly){
+          for(const r of byMetric.get(id)||[]){
+            if(r.source_type!=="store_card_monthly")continue;
+            const v=num(r.value),k=day(r.period_start),pe=day(r.period_end||r.period_start);
+            if(v===null||!k)continue;
+            if(!mg.has(k))mg.set(k,{values:[],period_end:pe||k});
+            const g=mg.get(k)!;g.values.push(v);
+            if(pe&&pe>g.period_end)g.period_end=pe;
+          }
         }
       }
+
       if(mg.size){
         const labels=[...mg.keys()].sort();
         monthly[d.id]={
@@ -242,7 +267,7 @@ Deno.serve(async(req)=>{
   }
 
   return J({
-    ok:true,version:"arena-unified-data-v3",since,
+    ok:true,version:"arena-unified-data-v4",since,
     metrics:defs.map(d=>({id:d.id,label:d.label,unit:d.unit,lower_is_better:d.lower_is_better,category:d.category,legacy_names:d.legacy_names,daily_available:Object.values(team).some((p:any)=>!!p.daily[d.id]),weekly_available:Object.values(team).some((p:any)=>!!p.weekly[d.id]),monthly_available:Object.values(team).some((p:any)=>!!p.monthly?.[d.id]),monthly_source_ids:d.monthly||[]})),
     people:team,
     store:{metrics:Object.entries(storeDefs).map(([id,d]:any)=>({id,...d})),stores:storeMap}
