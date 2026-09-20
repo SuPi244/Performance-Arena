@@ -17,7 +17,7 @@ const {data:imp,error:ie}=await sb.from("imports").select("*").eq("id",import_id
 const p=parse(extracted_text);if(!p.rows.length)return J({error:"No GA rows detected"},422);
 const norm=(s:string)=>s.trim().toLowerCase();
 const compact=(s:string)=>norm(s).replace(/[^a-z0-9]+/g,"");
-const isTechnicalIdentity=(s:string)=>compact(s).startsWith("woltmarketholesovice");
+const isTechnicalIdentity=(s:string)=>{const x=compact(s);return x==="woltmark"||x.startsWith("woltmarketholesovice")};
 const ignoredRows=p.rows.filter((r:any)=>isTechnicalIdentity(r.alias));
 const humanRows=p.rows.filter((r:any)=>!isTechnicalIdentity(r.alias));
 const names=humanRows.map((r:any)=>r.alias);
