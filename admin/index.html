@@ -697,7 +697,7 @@ document.addEventListener('click',async e=>{
   return hit?hit.id:'';
  }
  function identityFixHtml(z,itemIndex){
-  const alias=String(z.label||String(z.key||'').replace(/^identity:/,''));
+  const alias=String(z.alias_value||String(z.key||'').replace(/^identity:/,'')||z.label||'');
   const aliasType=String(z.alias_type||'');
   const suggested=suggestedPersonId(alias);
   const opts=['<option value="">Vyber člověka…</option>'].concat(identityPeople.map(function(p){
