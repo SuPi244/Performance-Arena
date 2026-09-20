@@ -1376,7 +1376,7 @@ html[data-theme="light"] .sc-you-badge{color:#166534;background:rgba(34,197,94,.
 <div class="hidden" id="seasonRecapOverlay"><div class="season-recap-card"><div class="rundown-head"><div><div class="rundown-kicker">NOVÁ SEZÓNA</div><div class="rundown-title" id="seasonRecapTitle">Season Recap</div><div class="rundown-sub" id="seasonRecapSub">Tvoje poslední sezóna</div></div><button aria-label="Zavřít" class="rundown-close" id="seasonRecapClose">×</button></div><div class="season-recap-grid" id="seasonRecapStats"></div><div class="season-recap-section"><h4>🏆 Nejdůležitější výsledky</h4><div class="rundown-list" id="seasonRecapWins"></div></div><div class="season-recap-section"><h4>📈 Posun</h4><div class="rundown-list" id="seasonRecapProgress"></div></div><div class="rundown-actions"><button class="rundown-btn" id="seasonRecapContinue">Jdeme na novou sezónu</button></div></div></div>
 <div class="hidden" id="rundownOverlay"><div class="rundown-card"><div class="rundown-head"><div><div class="rundown-kicker">Tvoje poslední výsledky</div><div class="rundown-title" id="rundownTitle">Dobrá práce.</div><div class="rundown-sub" id="rundownSub">Rychlé shrnutí toho, co se ti povedlo.</div></div><button aria-label="Zavřít" class="rundown-close" id="rundownClose">×</button></div><div class="rundown-grid" id="rundownStats"></div><div class="rundown-section"><h4>🔥 Co se ti povedlo</h4><div class="rundown-list" id="rundownWins"></div></div><div class="rundown-section"><h4>🏆 Co jsi odemkl</h4><div class="rundown-achievements" id="rundownAchievements"></div></div><div class="rundown-section"><h4>🎯 Na čem můžeš ještě zabrat</h4><div class="rundown-list" id="rundownFocus"></div></div><div class="rundown-actions"><button class="rundown-btn" id="rundownContinue">Pokračovat do profilu</button></div></div></div>
 <div class="shell">
-<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V158</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
+<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V160</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
 <div class="layout">
 <aside class="sidebar">
 <div class="label">Profil</div><select class="select" id="workerSelect"></select>
@@ -2222,9 +2222,11 @@ function renderStoreCardLive(){
   const rows=w.history||[];
   bh.innerHTML=rows.length?rows.map(x=>{
    const eligible=x?.metadata?.bonus_eligible;
-   const status=eligible===false?'<span class="err">BEZ NÁROKU</span>':esc(x.status||'confirmed');
-   return '<tr><td>'+esc(x.bonus_month||'—')+'</td><td><strong>'+esc(czk(x.amount))+'</strong></td><td>'+status+'</td><td>'+esc(x.metadata?.total_points!=null?liveFmt(x.metadata.total_points,'points'):'—')+'</td></tr>';
-  }).join(''):'<tr><td colspan="4" class="muted">Zatím žádný potvrzený bonus.</td></tr>';
+   const pending=x.status==='pending_unparsed'||x.payout_parsed===false;
+   const status=pending?'<span class="warn">ČEKÁ NA REPARSE</span>':eligible===false?'<span class="err">BEZ NÁROKU</span>':esc(x.status||'confirmed');
+   const amount=pending?'<span class="warn">—</span>':'<strong>'+esc(czk(x.amount))+'</strong>';
+   return '<tr><td>'+esc(x.bonus_month||'—')+'</td><td>'+amount+'</td><td>'+status+'</td><td>'+esc(x.metadata?.total_points!=null?liveFmt(x.metadata.total_points,'points'):'—')+'</td></tr>';
+  }).join(''):'<tr><td colspan="4" class="muted">Zatím bez bonus historie.</td></tr>';
  }
  const bl=document.getElementById('bonusLiveMonthGrid');
  if(bl){
