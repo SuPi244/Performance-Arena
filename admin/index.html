@@ -929,7 +929,7 @@ document.addEventListener('click',async e=>{
   const [stagedRes,legacyRes]=await Promise.all([
    sb.from('imports').select('id,file_hash,filename,report_type,storage_path,status,parser_version,metadata,created_at').eq('status','staged').order('created_at',{ascending:true}).limit(100),
    sb.from('imports').select('id,file_hash,filename,report_type,storage_path,status,parser_version,metadata,created_at')
-    .eq('status','imported').eq('report_type','store_card_monthly').neq('parser_version','store-card-monthly-v21').order('created_at',{ascending:true}).limit(50)
+    .eq('status','imported').eq('report_type','store_card_monthly').neq('parser_version','store-card-monthly-v22').order('created_at',{ascending:true}).limit(50)
   ]);
   if(stagedRes.error)throw stagedRes.error;if(legacyRes.error)throw legacyRes.error;
   const rows=[...(stagedRes.data||[]),...(legacyRes.data||[])];
@@ -942,7 +942,7 @@ document.addEventListener('click',async e=>{
    let report_type=PARSERS[x.report_type]?x.report_type:(detected||'universal_metrics');
    if(x.parser_version==='universal-fallback-v1'&&detected&&detected!=='universal_metrics')report_type=detected;
    if(x.status==='imported'&&x.parser_version==='store-card-monthly-v2')report_type='store_card_monthly';
-   const payoutReparse=x.status==='imported'&&x.report_type==='store_card_monthly'&&x.parser_version!=='store-card-monthly-v21';
+   const payoutReparse=x.status==='imported'&&x.report_type==='store_card_monthly'&&x.parser_version!=='store-card-monthly-v22';
    loaded.push({
     file:file,hash:x.file_hash,report_type:report_type,import_id:x.id,storage_path:x.storage_path,
     existing:true,skipCommit:x.status==='imported'&&!payoutReparse,legacyReparse:payoutReparse,forceCommit:payoutReparse,state:'staged'
@@ -1118,14 +1118,14 @@ document.addEventListener('click',async e=>{
  }
  function setupCoverage(){
   const card=coverageCard();if(!card)return;
-  card.innerHTML='<div class="coverage-top"><div><h2 style="margin-bottom:4px">Data Coverage <span class="v152-badge">V172</span></h2><p class="muted" style="margin-bottom:0">% = skutečně zapsané časové pokrytí ve zvoleném měsíci. Pod každým zdrojem vidíš i pokrytí typů metrik, historii a staged soubory, které se ještě nepočítají.</p></div><div class="field"><label>Měsíc · detail</label><input id="coverageMonth" type="month" value="'+localMonth()+'"></div></div>'+
+  card.innerHTML='<div class="coverage-top"><div><h2 style="margin-bottom:4px">Data Coverage <span class="v152-badge">V173</span></h2><p class="muted" style="margin-bottom:0">% = skutečně zapsané časové pokrytí ve zvoleném měsíci. Pod každým zdrojem vidíš i pokrytí typů metrik, historii a staged soubory, které se ještě nepočítají.</p></div><div class="field"><label>Měsíc · detail</label><input id="coverageMonth" type="month" value="'+localMonth()+'"></div></div>'+
    '<div style="display:flex;align-items:baseline;gap:10px;margin:14px 0"><span id="coverageOverall" class="coverage-overall">—</span><span id="coverageThrough" class="muted"></span></div><div id="coverageSources"></div>';
   $('#coverageMonth').onchange=loadCoverage;
  }
  function setup(){
   if(window.__datahubV152)return;window.__datahubV152=true;
-  document.title='Performance Arena — Data Hub V172';
-  const small=document.querySelector('.brand small');if(small&&!/V1(?:5[2-9]|6[01])/.test(small.textContent))small.innerHTML+= ' <span class="v152-badge">V172</span>';
+  document.title='Performance Arena — Data Hub V173';
+  const small=document.querySelector('.brand small');if(small&&!/V1(?:5[2-9]|6[01])/.test(small.textContent))small.innerHTML+= ' <span class="v152-badge">V173</span>';
   setupUpload();setupCoverage();renderBatch();
   ensureIdentityPeople().then(renderBatch).catch(function(){});
   sb.auth.onAuthStateChange(function(_event,s){if(s)setTimeout(loadCoverage,50)});
