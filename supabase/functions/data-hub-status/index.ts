@@ -429,16 +429,55 @@ async function resolveIdentity(db:any,body:any){
   if(pe)throw pe;if(!person)throw new Error("Person not found");
   const aliasType=String(body.alias_type||aliasTypeFor(reportType,alias));
   const normalizedValue=normIdentity(alias);
+  const cleaned=(v:any)=>normIdentity(v).replace(/[….]+$/g,"");
+  const aliasPrefix=cleaned(alias);
+
   const {error}=await db.from("person_aliases").upsert({
     person_id:personId,alias_type:aliasType,alias_value:alias,
     source:"data_hub_manual_confirmation",confirmed:true
   },{onConflict:"alias_type,normalized_value"});
   if(error)throw error;
+
+  // Truncated Wolt IDs in PDF exports end with an ellipsis. Persist the visible
+  // prefix too, so future inbound previews can resolve it without asking again.
+  if(aliasType==="wolt_user_id"&&aliasPrefix&&aliasPrefix!==normalizedValue&&aliasPrefix.length>=12){
+    const {error:prefixErr}=await db.from("person_aliases").upsert({
+      person_id:personId,alias_type:aliasType,alias_value:aliasPrefix,
+      source:"data_hub_manual_confirmation_prefix",confirmed:true
+    },{onConflict:"alias_type,normalized_value"});
+    if(prefixErr)throw prefixErr;
+  }
+
   await db.from("ignored_identities").delete().eq("source_type",reportType).eq("normalized_value",normalizedValue);
-  await db.from("unresolved_identities")
-    .update({status:"resolved",resolved_person_id:personId,resolved_at:new Date().toISOString()})
-    .eq("status","unresolved").eq("source_type",reportType).eq("alias_value",alias);
-  return {alias,alias_type:aliasType,normalized_value:normalizedValue,person_id:personId,display_name:person.display_name,active:person.active};
+  if(aliasPrefix&&aliasPrefix!==normalizedValue){
+    await db.from("ignored_identities").delete().eq("source_type",reportType).eq("normalized_value",aliasPrefix);
+  }
+
+  let resolvedRows=0;
+  if(aliasType==="wolt_user_id"){
+    const {data:pending,error:qe}=await db.from("unresolved_identities")
+      .select("id,alias_value")
+      .eq("status","unresolved").eq("source_type",reportType).eq("alias_type","wolt_user_id");
+    if(qe)throw qe;
+    const ids=(pending||[]).filter((x:any)=>{
+      const p=cleaned(x.alias_value);
+      return p===aliasPrefix || (aliasPrefix.length>=12&&(p.startsWith(aliasPrefix)||aliasPrefix.startsWith(p)));
+    }).map((x:any)=>x.id);
+    if(ids.length){
+      const {error:re}=await db.from("unresolved_identities")
+        .update({status:"resolved",resolved_person_id:personId,resolved_at:new Date().toISOString()})
+        .in("id",ids);
+      if(re)throw re;resolvedRows=ids.length;
+    }
+  }else{
+    const {data:resolved,error:re}=await db.from("unresolved_identities")
+      .update({status:"resolved",resolved_person_id:personId,resolved_at:new Date().toISOString()})
+      .eq("status","unresolved").eq("source_type",reportType).eq("alias_value",alias)
+      .select("id");
+    if(re)throw re;resolvedRows=(resolved||[]).length;
+  }
+
+  return {alias,alias_type:aliasType,normalized_value:normalizedValue,person_id:personId,display_name:person.display_name,active:person.active,resolved_rows:resolvedRows};
 }
 
 async function ignoreIdentity(db:any,body:any){
