@@ -1421,7 +1421,7 @@ html[data-theme="light"] .unified-static-card{background:#f7fbf8!important}
 <div class="hidden" id="seasonRecapOverlay"><div class="season-recap-card"><div class="rundown-head"><div><div class="rundown-kicker">NOVÁ SEZÓNA</div><div class="rundown-title" id="seasonRecapTitle">Season Recap</div><div class="rundown-sub" id="seasonRecapSub">Tvoje poslední sezóna</div></div><button aria-label="Zavřít" class="rundown-close" id="seasonRecapClose">×</button></div><div class="season-recap-grid" id="seasonRecapStats"></div><div class="season-recap-section"><h4>🏆 Nejdůležitější výsledky</h4><div class="rundown-list" id="seasonRecapWins"></div></div><div class="season-recap-section"><h4>📈 Posun</h4><div class="rundown-list" id="seasonRecapProgress"></div></div><div class="rundown-actions"><button class="rundown-btn" id="seasonRecapContinue">Jdeme na novou sezónu</button></div></div></div>
 <div class="hidden" id="rundownOverlay"><div class="rundown-card"><div class="rundown-head"><div><div class="rundown-kicker">Tvoje poslední výsledky</div><div class="rundown-title" id="rundownTitle">Dobrá práce.</div><div class="rundown-sub" id="rundownSub">Rychlé shrnutí toho, co se ti povedlo.</div></div><button aria-label="Zavřít" class="rundown-close" id="rundownClose">×</button></div><div class="rundown-grid" id="rundownStats"></div><div class="rundown-section"><h4>🔥 Co se ti povedlo</h4><div class="rundown-list" id="rundownWins"></div></div><div class="rundown-section"><h4>🏆 Co jsi odemkl</h4><div class="rundown-achievements" id="rundownAchievements"></div></div><div class="rundown-section"><h4>🎯 Na čem můžeš ještě zabrat</h4><div class="rundown-list" id="rundownFocus"></div></div><div class="rundown-actions"><button class="rundown-btn" id="rundownContinue">Pokračovat do profilu</button></div></div></div>
 <div class="shell">
-<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V177</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
+<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V178</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
 <div class="layout">
 <aside class="sidebar">
 <div class="label">Profil</div><select class="select" id="workerSelect"></select>
@@ -3256,70 +3256,36 @@ async function renderInbound(){
 }
 
 async function renderCorrelation(){
-  const headers=(state.bootstrap?.metrics||[]).map(x=>x.name).filter(h=>!isIgnored(h));
-  if(!headers.length)return;
+ try{
+  const u=await loadUnifiedArenaData(),metrics=(u.metrics||[]).filter(m=>m.weekly_available);
+  if(metrics.length<2)return;
   const xSelect=document.getElementById('corrX'),ySelect=document.getElementById('corrY');
-  const xDefault=headers.find(h=>norm(h).includes('picking time'))||headers[0];
-  const yDefault=headers.find(h=>norm(h).includes('scanner'))||headers[1]||headers[0];
-  const opts=headers.map(h=>`<option value="${esc(h)}">${esc(cleanMetricName(h))}</option>`).join('');
-  if(!xSelect.options.length)xSelect.innerHTML=opts;
-  if(!ySelect.options.length)ySelect.innerHTML=opts;
-  if(!xSelect.value)xSelect.value=xDefault;
-  if(!ySelect.value||ySelect.value===xSelect.value)ySelect.value=yDefault;
+  const opts=metrics.map(m=>'<option value="'+esc(m.id)+'">'+esc(m.label)+'</option>').join('');
+  const oldX=xSelect.value,oldY=ySelect.value;xSelect.innerHTML=opts;ySelect.innerHTML=opts;
+  xSelect.value=metrics.some(m=>m.id===oldX)?oldX:(metrics.find(m=>m.id==='avg_picking_time')||metrics[0]).id;
+  ySelect.value=metrics.some(m=>m.id===oldY&&m.id!==xSelect.value)?oldY:(metrics.find(m=>m.id==='scanner_ratio'&&m.id!==xSelect.value)||metrics.find(m=>m.id!==xSelect.value)||metrics[0]).id;
   const draw=async()=>{
-    const xName=xSelect.value,yName=ySelect.value;
-    setText('corrSummary','Načítám dvě vybrané týmové metriky…');
-    try{
-      const [xd,yd]=await Promise.all([ensureTeamMetric(xName),ensureTeamMetric(yName)]);
-      destroyChart('corr');
-      const names=[...new Set([...Object.keys(xd.people||{}),...Object.keys(yd.people||{})])];
-      const pts=[];
-      names.forEach(name=>{
-        const xh=(xd.people[name]?.history||[]).map(v=>normalizeMetricValue(v,xName));
-        const yh=(yd.people[name]?.history||[]).map(v=>normalizeMetricValue(v,yName));
-        const len=Math.min(xh.length,yh.length);
-        for(let i=len-1;i>=0;i--){
-          const x=n(xh[i]),y=n(yh[i]);
-          if(x!=null&&y!=null){pts.push({x,y,name,week:(xd.labels||[])[i]||(yd.labels||[])[i]||''});break;}
-        }
-      });
-      const xv=pts.map(p=>p.x),yv=pts.map(p=>p.y);
-      const mx=xv.reduce((a,b)=>a+b,0)/(xv.length||1),my=yv.reduce((a,b)=>a+b,0)/(yv.length||1);
-      let r=null,slope=null,intercept=null;
-      if(pts.length>2){
-        let num=0,dx=0,dy=0;pts.forEach(p=>{const a=p.x-mx,b=p.y-my;num+=a*b;dx+=a*a;dy+=b*b});
-        r=num/Math.sqrt((dx*dy)||1);
-        slope=dx?num/dx:null;intercept=slope==null?null:my-slope*mx;
-      }
-      const ar=Math.abs(r??0);
-      const strength=ar>=.8?'Velmi silná':ar>=.6?'Silná':ar>=.4?'Střední':ar>=.2?'Slabá':'Velmi slabá';
-      const direction=r==null?'—':r>=.05?'pozitivní':r<=-.05?'negativní':'neutrální';
-      let insight='Málo dat pro spolehlivou interpretaci.';
-      if(r!=null){
-        if(ar<.2)insight=`Mezi metrikami je velmi slabý vztah. ${cleanMetricName(xName)} sama o sobě pravděpodobně nevysvětluje změny v ${cleanMetricName(yName)}.`;
-        else if(r>0)insight=`Vyšší ${cleanMetricName(xName)} má v tomto vzorku tendenci jít spolu s vyšší ${cleanMetricName(yName)}.`;
-        else insight=`Vyšší ${cleanMetricName(xName)} má v tomto vzorku tendenci souviset s nižší ${cleanMetricName(yName)}.`;
-      }
-      setText('corrR',r==null?'—':r.toFixed(3));
-      setText('corrN',String(pts.length));
-      setText('corrStrength',strength);
-      setText('corrSummary',`${strength} ${direction} vztah · ${cleanMetricName(xName)} × ${cleanMetricName(yName)} · ${insight}`);
-      const trendData=[];
-      if(slope!=null&&pts.length>1){
-        const minX=Math.min(...xv),maxX=Math.max(...xv);
-        trendData.push({x:minX,y:slope*minX+intercept},{x:maxX,y:slope*maxX+intercept});
-      }
-      charts.corr=new Chart(document.getElementById('corrChart'),{
-        type:'scatter',
-        data:{datasets:[
-          {label:'Pracovníci',data:pts,backgroundColor:'#35E78A',borderColor:'#35E78A',pointRadius:5,pointHoverRadius:7},
-          ...(trendData.length?[{type:'line',label:'Trend',data:trendData,borderColor:'#F59E0B',borderWidth:2,borderDash:[6,4],pointRadius:0,tension:0,fill:false}]:[])
-        ]},
-        options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'nearest',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.datasetIndex===0?`${pts[c.dataIndex]?.name||'Pracovník'}${pts[c.dataIndex]?.week?' · '+pts[c.dataIndex].week:''}: ${formatNormVal(c.parsed.x,xName)} / ${formatNormVal(c.parsed.y,yName)}`:`Trend: ${formatNormVal(c.parsed.x,xName)} / ${formatNormVal(c.parsed.y,yName)}`}}},scales:{x:{title:{display:true,text:cleanMetricName(xName),color:'#86EFAC'},ticks:{color:'#91A79B',callback:v=>formatNormVal(v,xName)}},y:{title:{display:true,text:cleanMetricName(yName),color:'#86EFAC'},ticks:{color:'#91A79B',callback:v=>formatNormVal(v,yName)}}}}
-      });
-    }catch(e){setText('corrR','—');setText('corrN','—');setText('corrStrength','—');setText('corrSummary','Data korelace se nepodařilo načíst.');console.warn('correlation',e)}
+   const xdDef=unifiedMetricDef(xSelect.value),ydDef=unifiedMetricDef(ySelect.value);if(!xdDef||!ydDef)return;
+   setText('corrSummary','Načítám sjednocené týmové metriky…');
+   try{
+    const [xd,yd]=await Promise.all([unifiedTeamMetric(xdDef.id,'week'),unifiedTeamMetric(ydDef.id,'week')]);destroyChart('corr');
+    const names=[...new Set([...Object.keys(xd.people||{}),...Object.keys(yd.people||{})])],pts=[];
+    for(const name of names){
+      const xm=new Map((xd.labels||[]).map((k,i)=>[k,xd.people[name]?.history?.[i]??null])),ym=new Map((yd.labels||[]).map((k,i)=>[k,yd.people[name]?.history?.[i]??null]));
+      const common=[...new Set([...xm.keys(),...ym.keys()])].sort().reverse();
+      for(const k of common){const x=Number(xm.get(k)),y=Number(ym.get(k));if(Number.isFinite(x)&&Number.isFinite(y)){pts.push({x,y,name,week:personalWeekLabel(k)});break}}
+    }
+    const xv=pts.map(p=>p.x),yv=pts.map(p=>p.y),mx=xv.reduce((a,b)=>a+b,0)/(xv.length||1),my=yv.reduce((a,b)=>a+b,0)/(yv.length||1);let r=null,slope=null,intercept=null;
+    if(pts.length>2){let num=0,dx=0,dy=0;pts.forEach(p=>{const a=p.x-mx,b=p.y-my;num+=a*b;dx+=a*a;dy+=b*b});r=num/Math.sqrt((dx*dy)||1);slope=dx?num/dx:null;intercept=slope==null?null:my-slope*mx}
+    const ar=Math.abs(r??0),strength=ar>=.8?'Velmi silná':ar>=.6?'Silná':ar>=.4?'Střední':ar>=.2?'Slabá':'Velmi slabá',direction=r==null?'—':r>=.05?'pozitivní':r<=-.05?'negativní':'neutrální';
+    let insight='Málo dat pro spolehlivou interpretaci.';if(r!=null){if(ar<.2)insight='Mezi metrikami je velmi slabý vztah.';else if(r>0)insight='Vyšší '+xdDef.label+' má v tomto vzorku tendenci jít spolu s vyšší '+ydDef.label+'.';else insight='Vyšší '+xdDef.label+' má v tomto vzorku tendenci souviset s nižší '+ydDef.label+'.'}
+    setText('corrR',r==null?'—':r.toFixed(3));setText('corrN',String(pts.length));setText('corrStrength',strength);setText('corrSummary',strength+' '+direction+' vztah · '+xdDef.label+' × '+ydDef.label+' · '+insight);
+    const trend=[];if(slope!=null&&pts.length>1){const min=Math.min(...xv),max=Math.max(...xv);trend.push({x:min,y:slope*min+intercept},{x:max,y:slope*max+intercept})}
+    charts.corr=new Chart(document.getElementById('corrChart'),{type:'scatter',data:{datasets:[{label:'Pracovníci',data:pts,backgroundColor:'#35E78A',borderColor:'#35E78A',pointRadius:5,pointHoverRadius:7},...(trend.length?[{type:'line',label:'Trend',data:trend,borderColor:'#F59E0B',borderWidth:2,borderDash:[6,4],pointRadius:0,tension:0,fill:false}]:[])]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'nearest',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.datasetIndex===0?(pts[ctx.dataIndex]?.name||'Pracovník')+' · '+(pts[ctx.dataIndex]?.week||'')+': '+formatNormVal(ctx.parsed.x,xdDef.label)+' / '+formatNormVal(ctx.parsed.y,ydDef.label):'Trend'}}},scales:{x:{title:{display:true,text:xdDef.label,color:'#86EFAC'},ticks:{color:'#91A79B',callback:v=>formatNormVal(v,xdDef.label)}},y:{title:{display:true,text:ydDef.label,color:'#86EFAC'},ticks:{color:'#91A79B',callback:v=>formatNormVal(v,ydDef.label)}}}}});
+   }catch(err){setText('corrR','—');setText('corrN','—');setText('corrStrength','—');setText('corrSummary','Data korelace se nepodařilo načíst.');console.warn('correlation',err)}
   };
-  xSelect.onchange=draw;ySelect.onchange=draw;draw();
+  xSelect.onchange=draw;ySelect.onchange=draw;await draw();
+ }catch(err){console.warn('correlation setup',err)}
 }
 async function renderBottlenecks(){
  const overview=document.getElementById('diagnosticOverview'),list=document.getElementById('bottleneckList');
@@ -3971,6 +3937,12 @@ async function renderStores(){
  const store=state.unifiedData?.store;if(!store)return;
  const entries=Object.values(store.stores||{}).sort((a,b)=>a.name.localeCompare(b.name,'cs')),sel=document.getElementById('storeSelect'),cmp=document.getElementById('storeCompare');if(!sel||!cmp)return;
  const saved=localStorage.getItem('arenaStoreName');
+ if(!localStorage.getItem('arenaUnifiedStoreV178')){
+   state.storeRangeStart='';state.storeRangeEnd='';state.storeRange='all';
+   localStorage.removeItem('arenaStoreRangeStart');localStorage.removeItem('arenaStoreRangeEnd');
+   const a=document.getElementById('storeDateStart'),b=document.getElementById('storeDateEnd');if(a)a.value='';if(b)b.value='';
+   localStorage.setItem('arenaUnifiedStoreV178','1');
+ }
  sel.innerHTML=entries.map(s=>'<option value="'+esc(s.key)+'">'+esc(s.name)+'</option>').join('');
  const holes=entries.find(s=>norm(s.name).includes('holesovice'));if(saved&&entries.some(s=>s.key===saved))sel.value=saved;else if(holes)sel.value=holes.key;
  cmp.innerHTML='<option value="">Bez srovnání</option>'+entries.map(s=>'<option value="'+esc(s.key)+'">'+esc(s.name)+'</option>').join('');
@@ -4000,7 +3972,7 @@ function drawStore(){
  document.getElementById('storeMetrics').innerHTML=rows.filter(x=>!keyIds.has(x.def.id)).map((x,i)=>card(x,i+100)).join('')||'<div class="notice">Další store metriky zatím bez dat.</div>';
  setText('storeMeta',new Set(rows.flatMap(x=>x.labels)).size+' měsíců · '+rows.length+' metrik · oficiální Store Card'+(liveMonth?' + aktuální měsíc':''));
 }
-async function openPage(page){if(loginRole!=='admin'&&page==='correlation')return;document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-'+page).classList.add('active');document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));if(page==='personal'){if(!state.history)state.history=await api('player_history',{worker:state.worker});if(!state.team){try{state.team=await api('team_history')}catch(e){console.warn('team_history for personal average',e)}}buildMetricCards();renderPersonalFriendlySummary();}if(page==='home'){renderHome(); if(!state.team) ensureTeam().catch(()=>{}); if(!state.storeHistory) ensureStores().catch(()=>{})}if(page==='efficiency'){renderStoreCardLive()}if(page==='bonuses'){try{state.storeCard=await loadStoreCardLive(state.worker,{force:true})}catch(e){console.warn('fresh bonus wallet reload',e)}renderStoreCardLive()}if(page==='achievements'){renderAchievements(); if(!state.team) ensureTeam().catch(()=>{}); if(!state.storeHistory) ensureStores().catch(()=>{})} if(page==='team'){await loadUnifiedArenaData();await renderTeam()}if(page==='correlation'){await renderCorrelation()}if(page==='bottlenecks'){await loadUnifiedArenaData();await renderBottlenecks()}if(page==='leaderboard'){if(state.lbMode==='people'){await ensureTeam();if(state.worker){try{state.storeCard=await loadStoreCardLive(state.worker,{force:true})}catch(e){console.warn('live leaderboard refresh',e)}}}else{await loadUnifiedArenaData();await ensureStores()}state.leaderMetric=null;renderLeaderboard()}if(page==='store'){await loadUnifiedArenaData();await ensureStores();renderStoreCardLive();drawStore();renderStoreQuests().catch(()=>{})}}
+async function openPage(page){if(loginRole!=='admin'&&page==='correlation')return;document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-'+page).classList.add('active');document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));if(page==='personal'){if(!state.history)state.history=await api('player_history',{worker:state.worker});if(!state.team){try{state.team=await api('team_history')}catch(e){console.warn('team_history for personal average',e)}}buildMetricCards();renderPersonalFriendlySummary();}if(page==='home'){renderHome(); if(!state.team) ensureTeam().catch(()=>{}); if(!state.storeHistory) ensureStores().catch(()=>{})}if(page==='efficiency'){renderStoreCardLive()}if(page==='bonuses'){try{state.storeCard=await loadStoreCardLive(state.worker,{force:true})}catch(e){console.warn('fresh bonus wallet reload',e)}renderStoreCardLive()}if(page==='achievements'){renderAchievements(); if(!state.team) ensureTeam().catch(()=>{}); if(!state.storeHistory) ensureStores().catch(()=>{})} if(page==='team'){await loadUnifiedArenaData();await renderTeam()}if(page==='correlation'){await loadUnifiedArenaData();await renderCorrelation()}if(page==='bottlenecks'){await loadUnifiedArenaData();await renderBottlenecks()}if(page==='leaderboard'){if(state.lbMode==='people'){await ensureTeam();if(state.worker){try{state.storeCard=await loadStoreCardLive(state.worker,{force:true})}catch(e){console.warn('live leaderboard refresh',e)}}}else{await loadUnifiedArenaData();await ensureStores()}state.leaderMetric=null;renderLeaderboard()}if(page==='store'){await loadUnifiedArenaData();await ensureStores();renderStoreCardLive();drawStore();renderStoreQuests().catch(()=>{})}}
 
 function syncDateBounds(){const startInput=document.getElementById('personalDateStart'),endInput=document.getElementById('personalDateEnd');if(startInput&&endInput&&state.history?.weeks?.length){const spans=historyWeekSpans(state.history),first=spans[0]?.start,last=spans.at(-1)?.end;if(first){const v=first.toISOString().slice(0,10);startInput.min=v;endInput.min=v}if(last){const v=last.toISOString().slice(0,10);startInput.max=v;endInput.max=v}}}
 function setLoading(stage,progress,tip){const el=document.getElementById('loadingStage'),bar=document.getElementById('loadingProgress'),t=document.getElementById('loadingTip');if(el)el.textContent=stage||'';if(bar)bar.style.width=Math.max(4,Math.min(100,progress||0))+'%';if(t&&tip)t.textContent=tip;}
