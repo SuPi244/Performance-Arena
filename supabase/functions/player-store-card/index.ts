@@ -314,6 +314,11 @@ Deno.serve(async req=>{
     if(historyShiftErr)throw new Error(historyShiftErr.message);
 
     const by=rowsByMetric(personalRows||[]);
+    const personalDataDates=(personalRows||[]).map((r:any)=>String(r.period_end||r.period_start||"").slice(0,10)).filter(Boolean).sort();
+    const dailyPickingDates=(personalRows||[]).filter((r:any)=>r.source_type==="daily_picking")
+      .map((r:any)=>String(r.period_end||r.period_start||"").slice(0,10)).filter(Boolean).sort();
+    const personalDataThrough=personalDataDates.at(-1)||null;
+    const dailyPickingThrough=dailyPickingDates.at(-1)||null;
     // OUTBOUND semantics:
     // - Picking App Task Count = outbound orders/tasks.
     // - Items Picked Count = actual picked outbound units (preferred).
@@ -326,6 +331,8 @@ Deno.serve(async req=>{
       month:frame.key,
       period_start:frame.start,
       through:frame.today,
+      data_through:personalDataThrough,
+      daily_picking_through:dailyPickingThrough,
       orders_picked:outboundOrdersMTD,
       total_units_picked:outboundUnitsMTD,
       outbound_orders:outboundOrdersMTD,
@@ -811,6 +818,11 @@ Deno.serve(async req=>{
     const activeIds=new Set((activePeople||[]).map((p:any)=>p.id));
     const teamCurrent=(teamObs||[]).filter((r:any)=>activeIds.has(r.person_id));
     const teamCurrentShifts=(shiftRows||[]).filter((r:any)=>activeIds.has(r.person_id));
+    const teamDataDates=teamCurrent.map((r:any)=>String(r.period_end||r.period_start||"").slice(0,10)).filter(Boolean).sort();
+    const teamDailyPickingDates=teamCurrent.filter((r:any)=>r.source_type==="daily_picking")
+      .map((r:any)=>String(r.period_end||r.period_start||"").slice(0,10)).filter(Boolean).sort();
+    const teamDataThrough=teamDataDates.at(-1)||null;
+    const teamDailyPickingThrough=teamDailyPickingDates.at(-1)||null;
 
     const latestTeamRatingByPerson=new Map<string,any>();
     for(const r of teamRatingResponses||[]){
@@ -858,6 +870,8 @@ Deno.serve(async req=>{
     const liveStore={
       month:frame.key,
       through:frame.today,
+      data_through:teamDataThrough,
+      daily_picking_through:teamDailyPickingThrough,
       uph:storeObservedWorked>0?round((storeOutbound+storeInbound)/storeObservedWorked,2):null,
       pofr:round(weightedAcrossPeople(teamCurrent,"perfect_order_fulfilment_ratio","picking_app_task_count"),2),
       missing_items_ratio:round(weightedAcrossPeople(teamCurrent,"missing_incorrect_items_rate","item_count_total"),2),
@@ -1302,7 +1316,9 @@ Deno.serve(async req=>{
         id:latestProjectionImport.id,
         report_type:latestProjectionImport.report_type,
         filename:latestProjectionImport.filename,
-        created_at:latestProjectionImport.created_at
+        created_at:latestProjectionImport.created_at,
+        period_start:latestProjectionImport.period_start,
+        period_end:latestProjectionImport.period_end
       }:null,
       movement_baseline_import:previousProjectionSnapshot?{
         id:previousProjectionSnapshot.import_id,
@@ -1357,7 +1373,7 @@ Deno.serve(async req=>{
 
     return J({
       ok:true,
-      version:"player-store-card-v17",
+      version:"player-store-card-v18",
       person:{
         person_key:person.person_key,
         display_name:person.display_name,
