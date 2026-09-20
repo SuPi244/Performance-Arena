@@ -1617,14 +1617,20 @@ html[data-theme="light"] .home-season-card{background:radial-gradient(circle at 
 </style>
 
 
-<style id="leaderboard-strength-v189">
-.strength-tag{display:inline-flex;align-items:center;gap:5px;width:max-content;max-width:100%;margin-top:7px;padding:5px 8px;border:1px solid rgba(124,92,255,.28);border-radius:999px;background:linear-gradient(90deg,rgba(124,92,255,.13),rgba(53,231,138,.06));color:#ddd6fe;font-size:7.5px;font-weight:900;letter-spacing:.015em;box-shadow:inset 0 1px 0 rgba(255,255,255,.035)}
-.strength-tag i{font-style:normal;font-size:9px}.strength-tag b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.strength-tag em{font-style:normal;color:#86efac;border-left:1px solid rgba(255,255,255,.10);padding-left:5px}
-.strength-tag.compact{margin-top:4px;padding:3px 6px;font-size:6.5px;gap:4px}.strength-tag.compact i{font-size:7.5px}
-.home-lb-name .strength-tag{display:flex}.home-lb-row{min-height:56px}.lb-podium-card .strength-tag{margin-left:auto;margin-right:auto}.leader-row .strength-tag{margin-top:4px}
-@media(min-width:1800px){.strength-tag{font-size:9px;padding:6px 9px}.strength-tag.compact{font-size:8px;padding:4px 7px}.home-lb-row{min-height:65px}}
-@media(max-width:700px){.strength-tag{font-size:7px}.strength-tag.compact{font-size:6.5px}}
-html[data-theme="light"] .strength-tag{color:#5b3fc4;background:linear-gradient(90deg,rgba(124,92,255,.09),rgba(34,197,94,.05))}
+
+
+
+<style id="home-best-leaderboard-v190">
+.home-best-metrics{margin-top:10px;padding-top:9px;border-top:1px solid rgba(124,92,255,.14)}
+.home-best-metrics-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:7px}
+.home-best-metrics-head>span{font-size:7.5px;font-weight:1000;letter-spacing:.07em;color:#c4b5fd}.home-best-metrics-head>small{font-size:6.5px;color:var(--muted)}
+.home-best-metrics-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.home-best-metric{appearance:none;border:1px solid rgba(124,92,255,.18);border-radius:9px;padding:7px 8px;background:linear-gradient(145deg,rgba(124,92,255,.075),rgba(53,231,138,.025));color:var(--text);display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:7px;align-items:center;text-align:left;cursor:pointer;transition:.16s ease}
+.home-best-metric:hover{transform:translateY(-1px);border-color:rgba(124,92,255,.42);background:linear-gradient(145deg,rgba(124,92,255,.12),rgba(53,231,138,.04))}
+.home-best-medal{font-size:13px}.home-best-copy{min-width:0}.home-best-copy b{display:block;font-size:7.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.home-best-copy small{display:block;font-size:6.5px;color:var(--muted);margin-top:2px}.home-best-metric>strong{font-size:10px;color:#86efac;white-space:nowrap}.home-best-metric>strong em{font-style:normal;font-size:6.5px;color:var(--muted)}
+.home-lb-row[data-home-detail-name]{cursor:pointer}.home-lb-row[data-home-detail-name]:hover{border-color:rgba(124,92,255,.32)}
+@media(max-width:700px){.home-best-metrics-list{grid-template-columns:1fr}.home-best-metrics-head{align-items:flex-start;flex-direction:column}}
+@media(min-width:1800px){.home-best-metric{padding:9px 10px}.home-best-copy b{font-size:9px}.home-best-copy small{font-size:7.5px}.home-best-metric>strong{font-size:12px}}
 </style>
 
 </head>
@@ -1642,7 +1648,7 @@ html[data-theme="light"] .strength-tag{color:#5b3fc4;background:linear-gradient(
 <div class="hidden" id="seasonRecapOverlay"><div class="season-recap-card"><div class="rundown-head"><div><div class="rundown-kicker">NOVÁ SEZÓNA</div><div class="rundown-title" id="seasonRecapTitle">Season Recap</div><div class="rundown-sub" id="seasonRecapSub">Tvoje poslední sezóna</div></div><button aria-label="Zavřít" class="rundown-close" id="seasonRecapClose">×</button></div><div class="season-recap-grid" id="seasonRecapStats"></div><div class="season-recap-section"><h4>🏆 Nejdůležitější výsledky</h4><div class="rundown-list" id="seasonRecapWins"></div></div><div class="season-recap-section"><h4>📈 Posun</h4><div class="rundown-list" id="seasonRecapProgress"></div></div><div class="rundown-actions"><button class="rundown-btn" id="seasonRecapContinue">Jdeme na novou sezónu</button></div></div></div>
 <div class="hidden" id="rundownOverlay"><div class="rundown-card"><div class="rundown-head"><div><div class="rundown-kicker">Tvoje poslední výsledky</div><div class="rundown-title" id="rundownTitle">Dobrá práce.</div><div class="rundown-sub" id="rundownSub">Rychlé shrnutí toho, co se ti povedlo.</div></div><button aria-label="Zavřít" class="rundown-close" id="rundownClose">×</button></div><div class="rundown-grid" id="rundownStats"></div><div class="rundown-section"><h4>🔥 Co se ti povedlo</h4><div class="rundown-list" id="rundownWins"></div></div><div class="rundown-section"><h4>🏆 Co jsi odemkl</h4><div class="rundown-achievements" id="rundownAchievements"></div></div><div class="rundown-section"><h4>🎯 Na čem můžeš ještě zabrat</h4><div class="rundown-list" id="rundownFocus"></div></div><div class="rundown-actions"><button class="rundown-btn" id="rundownContinue">Pokračovat do profilu</button></div></div></div>
 <div class="shell">
-<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V189</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
+<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V190</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
 <div class="layout">
 <aside class="sidebar">
 <div class="label" id="profileLabel">Profil</div><select class="select" id="workerSelect"></select>
@@ -1776,6 +1782,10 @@ html[data-theme="light"] .strength-tag{color:#5b3fc4;background:linear-gradient(
     <div class="section-head"><div><span class="home-priority-kicker">COMPETITION</span><h3>🏆 SEASON LEADERBOARD</h3></div><button class="tool" onclick="openPage('leaderboard')">Celý žebříček</button></div>
     <div class="home-leaderboard-list" id="homeLeaderboardPreview"><div class="notice">Načítám pořadí…</div></div>
     <div class="home-leaderboard-you" id="homeLeaderboardYou">Tvoje pozice se načítá…</div>
+    <div class="home-best-metrics">
+      <div class="home-best-metrics-head"><span>💪 KDE JSEM NEJSILNĚJŠÍ</span><small>stejné pořadí jako v leaderboardu</small></div>
+      <div class="home-best-metrics-list" id="homeBestMetrics"><span class="muted">Načítám tvoje nejlepší kategorie…</span></div>
+    </div>
   </section>
 </div>
 
@@ -2912,43 +2922,57 @@ function renderStoreCardLive(){
 }
 
 
-function leaderboardStrengthMap(){
- const snaps=adminSnapshots();
- const defs=[
-  {key:'picking',label:'Picking',icon:'⚡',lower:true},
-  {key:'scanner',label:'Scanner',icon:'📡',lower:false},
-  {key:'missing',label:'Missing',icon:'🛡️',lower:true},
-  {key:'pofr',label:'POFR',icon:'💚',lower:false}
- ];
- const out=new Map();
+function homeBestLeaderboardPositions(name){
+ const defs=liveLeaderboardMetricDefs().filter(function(d){
+   const id=String(d.id||'');
+   return id&&id!=='store_card_points';
+ });
+ const out=[];
  defs.forEach(function(def){
-   const ranked=snaps.map(function(x){
-     const m=x.metrics?.[def.key],v=Number(m?.value);
-     return Number.isFinite(v)?{name:x.name,value:v}:null;
-   }).filter(Boolean).sort(function(a,b){return def.lower?a.value-b.value:b.value-a.value});
-   ranked.forEach(function(row,i){
-     const candidate={key:def.key,label:def.label,icon:def.icon,rank:i+1,total:ranked.length,value:row.value,score:(i+1)/(ranked.length||1)};
-     const old=out.get(row.name);
-     if(!old||candidate.score<old.score||(candidate.score===old.score&&candidate.rank<old.rank))out.set(row.name,candidate);
+   const rows=playerLeaderboardRows('live:'+def.id,null);
+   const row=rows.find(function(x){return norm(x.name)===norm(name)});
+   if(!row||!rows.length)return;
+   out.push({
+     id:def.id,label:def.label,rank:row.rank,total:rows.length,value:row.value,def,
+     percentile:row.rank/rows.length
    });
  });
- return out;
+ return out.sort(function(a,b){return a.percentile-b.percentile||a.rank-b.rank||a.label.localeCompare(b.label,'cs')});
 }
-function leaderboardStrengthHtml(strength,compact){
- if(!strength||strength.total<2)return'';
- return '<span class="strength-tag'+(compact?' compact':'')+'"><i>'+strength.icon+'</i><b>'+esc(strength.label)+'</b><em>#'+strength.rank+'/'+strength.total+'</em></span>';
+function renderHomeBestMetrics(){
+ const box=document.getElementById('homeBestMetrics');if(!box)return;
+ const best=homeBestLeaderboardPositions(state.worker).slice(0,3);
+ if(!best.length){box.innerHTML='<span class="muted">Pro aktuální období zatím není dost leaderboard dat.</span>';return}
+ box.innerHTML=best.map(function(x,i){
+   const medal=i===0?'🥇':i===1?'🥈':'🥉';
+   return '<button class="home-best-metric" data-best-mode="live:'+esc(x.id)+'"><span class="home-best-medal">'+medal+'</span><span class="home-best-copy"><b>'+esc(x.label)+'</b><small>'+esc(formatLiveLeaderboardValue(x.value,x.def))+'</small></span><strong>#'+x.rank+'<em>/'+x.total+'</em></strong></button>';
+ }).join('');
+ box.querySelectorAll('[data-best-mode]').forEach(function(btn){
+   btn.onclick=function(){
+     state.lbMode='people';
+     openPage('leaderboard').then(function(){
+       const sel=document.getElementById('lbMetric');
+       if(sel&&[...sel.options].some(function(o){return o.value===btn.dataset.bestMode})){
+         sel.value=btn.dataset.bestMode;
+         renderLeaderboard();
+       }
+     });
+   };
+ });
 }
 function renderHomeLeaderboardPreview(){
  const box=document.getElementById('homeLeaderboardPreview');if(!box)return;
- const list=seasonRank(),strengths=leaderboardStrengthMap();
- if(!list.length){box.innerHTML='<div class="notice">Žebříček se načte spolu s týmovými daty.</div>';setText('homeLeaderboardYou','Tvoje pozice se načítá…');return;}
+ const list=seasonRank();
+ if(!list.length){box.innerHTML='<div class="notice">Žebříček se načte spolu s týmovými daty.</div>';setText('homeLeaderboardYou','Tvoje pozice se načítá…');renderHomeBestMetrics();return;}
  const top=list.slice(0,5);
  box.innerHTML=top.map(function(x){
-  const me=x.name===state.worker,medal=x.rank===1?'🥇':x.rank===2?'🥈':x.rank===3?'🥉':'#'+x.rank,strength=strengths.get(x.name);
-  return '<div class="home-lb-row'+(me?' me':'')+'"><div class="home-lb-rank">'+medal+'</div><div class="home-lb-name"><strong>'+esc(x.name)+(me?' · TY':'')+'</strong><span>'+esc(x.tier||tier(Number(x.elo)||0)[0])+'</span>'+leaderboardStrengthHtml(strength,true)+'</div><div class="home-lb-score">'+esc(x.elo!=null?x.elo+' ELO':'—')+'</div></div>';
+  const me=x.name===state.worker,medal=x.rank===1?'🥇':x.rank===2?'🥈':x.rank===3?'🥉':'#'+x.rank;
+  return '<div class="home-lb-row'+(me?' me':'')+'" data-home-detail-name="'+esc(x.name)+'"><div class="home-lb-rank">'+medal+'</div><div class="home-lb-name"><strong>'+esc(x.name)+(me?' · TY':'')+'</strong><span>'+esc(x.tier||tier(Number(x.elo)||0)[0])+'</span></div><div class="home-lb-score">'+esc(x.elo!=null?x.elo+' ELO':'—')+'</div></div>';
  }).join('');
- const mine=list.find(function(x){return x.name===state.worker}),myStrength=mine?strengths.get(mine.name):null;
- setText('homeLeaderboardYou',mine?('Ty: #'+mine.rank+' z '+list.length+' · '+mine.elo+' ELO · '+(mine.tier||tier(Number(mine.elo)||0)[0])+(myStrength?' · silná stránka '+myStrength.label+' #'+myStrength.rank+'/'+myStrength.total:'')):'Aktuální profil zatím není v sezónním pořadí.');
+ box.querySelectorAll('[data-home-detail-name]').forEach(function(row){row.onclick=function(){openDetail(row.getAttribute('data-home-detail-name')).catch(function(e){console.warn(e)})}});
+ const mine=list.find(function(x){return x.name===state.worker});
+ setText('homeLeaderboardYou',mine?('Ty: #'+mine.rank+' z '+list.length+' · '+mine.elo+' ELO · '+(mine.tier||tier(Number(mine.elo)||0)[0])):'Aktuální profil zatím není v sezónním pořadí.');
+ renderHomeBestMetrics();
 }
 
 function homeMetricHeaderIndex(spec){
@@ -4240,19 +4264,18 @@ function playerLeaderboardRows(mode,data){
 }
 
 function bindProfileClickTargets(){
-  document.querySelectorAll('#leaderboardPodium [data-detail-name], #leaderboardList [data-detail-name]').forEach(el=>{
+  document.querySelectorAll('#leaderboardPodium [data-detail-name], #leaderboardList [data-detail-name]').forEach(function(el){
     const name=el.getAttribute('data-detail-name');
     if(!name)return;
     el.style.cursor='pointer';
-    el.onclick=null;
-    el.addEventListener('click',function(ev){
+    el.onclick=function(ev){
       ev.preventDefault();
       ev.stopPropagation();
-      openDetail(name).catch(err=>{
+      openDetail(name).catch(function(err){
         console.error('openDetail failed',name,err);
         setText('globalNotice','Profil se nepodařilo otevřít: '+(err?.message||err));
-      })
-    },{once:true});
+      });
+    };
   });
 }
 
@@ -4289,7 +4312,6 @@ async function renderLeaderboard(){
       :'Aktuální metrika')
     :'Měsíční historie · pořadí podle zvoleného KPI');
   let list=[];
-  const strengths=state.lbMode==='people'?leaderboardStrengthMap():new Map();
   if(state.lbMode==='people'){
     if(mode==='elo' || mode==='level'){
       await ensureTeam();
@@ -4314,17 +4336,15 @@ async function renderLeaderboard(){
     const medal=['🥇','🥈','🥉'][i], current=x.name===state.worker?' lb-current':'';
     const value=leaderboardValueText(x,mode);
     const sub=mode==='level'?`${x.xp||0} XP · Level ${x.level} · #${x.rank}`:(x.elo!=null?`${x.tier} · Rank #${x.rank}`:(x.level!=null?`${x.xp||0} XP · Level ${x.level} · #${x.rank}`:(cleanMetricName(x.metric||'Store Score')+(x.period?' · '+x.period:''))));
-    const strength=state.lbMode==='people'?strengths.get(x.name):null;
-    return `<div class="lb-podium-card p${i+1}${current}" data-detail-name="${state.lbMode==='people'?esc(x.name):''}"><div class="lb-medal">${medal}</div><div class="lb-podium-name">${esc(x.name)}</div><div class="lb-podium-sub">${esc(sub)}</div>${leaderboardStrengthHtml(strength,false)}<div class="lb-podium-elo">${esc(value)}</div>${x.name===state.worker?'<div class="lb-trend" style="color:#86EFAC">● TY</div>':''}</div>`;
+    return `<div class="lb-podium-card p${i+1}${current}" data-detail-name="${state.lbMode==='people'?esc(x.name):''}"><div class="lb-medal">${medal}</div><div class="lb-podium-name">${esc(x.name)}</div><div class="lb-podium-sub">${esc(sub)}</div><div class="lb-podium-elo">${esc(value)}</div>${x.name===state.worker?'<div class="lb-trend" style="color:#86EFAC">● TY</div>':''}</div>`;
   }).join('');
   document.getElementById('leaderboardPodium').innerHTML=podiumHtml||'<div class="notice">Žádná data pro tento žebříček.</div>';
   const rows=list.slice(3).map(x=>{
     const mine=x.name===state.worker?' lb-current':'';
-    if(x.elo!=null){const t=tier(x.elo),strength=strengths.get(x.name);return `<div class="leader-row${mine}" data-detail-name="${esc(x.name)}"><div class="leader-rank">#${x.rank}</div><div><div class="leader-name">${esc(x.name)}${mine?' · TY':''}</div><div class="leader-meta" style="color:${t[1]}">${t[0]}${x.status&&x.status!=='FULL'?' · '+x.status:''} · Season ELO</div>${leaderboardStrengthHtml(strength,true)}</div><div class="leader-value">${x.elo} b.</div><div class="leader-action">DETAIL →</div></div>`} if(x.level!=null){const strength=strengths.get(x.name);return `<div class="leader-row${mine}" data-detail-name="${esc(x.name)}"><div class="leader-rank">#${x.rank}</div><div><div class="leader-name">${esc(x.name)}${mine?' · TY':''}</div><div class="leader-meta">LVL ${x.level} · ${x.value} XP · celoživotně</div>${leaderboardStrengthHtml(strength,true)}</div><div class="leader-value">LVL ${x.level}<small style="display:block;font-size:10px;color:var(--muted);margin-top:3px">${x.xp||0} XP</small></div><div class="leader-action">DETAIL →</div></div>`}
+    if(x.elo!=null){const t=tier(x.elo);return `<div class="leader-row${mine}" data-detail-name="${esc(x.name)}"><div class="leader-rank">#${x.rank}</div><div><div class="leader-name">${esc(x.name)}${mine?' · TY':''}</div><div class="leader-meta" style="color:${t[1]}">${t[0]}${x.status&&x.status!=='FULL'?' · '+x.status:''} · Season ELO</div></div><div class="leader-value">${x.elo} b.</div><div class="leader-action">DETAIL →</div></div>`} if(x.level!=null){return `<div class="leader-row${mine}" data-detail-name="${esc(x.name)}"><div class="leader-rank">#${x.rank}</div><div><div class="leader-name">${esc(x.name)}${mine?' · TY':''}</div><div class="leader-meta">LVL ${x.level} · ${x.value} XP · celoživotně</div></div><div class="leader-value">LVL ${x.level}<small style="display:block;font-size:10px;color:var(--muted);margin-top:3px">${x.xp||0} XP</small></div><div class="leader-action">DETAIL →</div></div>`}
     const metricMeta=cleanMetricName(x.metric||'Store Score')+(x.period?' · '+x.period:'');
     const metricValue=x.live?formatLiveLeaderboardValue(x.value,x.liveDef):formatNormVal(x.value,x.metric||'');
-    const strength=state.lbMode==='people'?strengths.get(x.name):null;
-    return `<div class="leader-row${mine}" data-detail-name="${state.lbMode==='people'?esc(x.name):''}"><div class="leader-rank">#${x.rank}</div><div><div class="leader-name">${esc(x.name)}${mine?' · TY':''}</div><div class="leader-meta">${esc(metricMeta)}</div>${leaderboardStrengthHtml(strength,true)}</div><div class="leader-value">${esc(metricValue)}</div><div class="leader-action">${x.rank<=5?'TOP 5':''}</div></div>`;
+    return `<div class="leader-row${mine}" data-detail-name="${state.lbMode==='people'?esc(x.name):''}"><div class="leader-rank">#${x.rank}</div><div><div class="leader-name">${esc(x.name)}${mine?' · TY':''}</div><div class="leader-meta">${esc(metricMeta)}</div></div><div class="leader-value">${esc(metricValue)}</div><div class="leader-action">${x.rank<=5?'TOP 5':''}</div></div>`;
   }).join('');
   document.getElementById('leaderboardList').innerHTML=rows||'<div class="notice">Žádná další data.</div>';
 
