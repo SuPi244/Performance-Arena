@@ -510,36 +510,64 @@ function parseRewardsText(rawText:string,people:any[],knownPeople:any[],base:any
   const raw=String(rawText||"");
   if(!raw.trim())return null;
   const page1=raw.split(/\n\s*--- PAGE ---\s*\n/i)[0]||raw;
-  const lines=page1.split(/\r?\n/).map(x=>x.replace(/\s*\|\s*/g," | ").replace(/\s+/g," ").trim()).filter(Boolean);
-  const folded=(s:any)=>String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
   const clean=(s:any)=>String(s||"").replace(/\|/g," ").replace(/\s+/g," ").trim();
-  const cleanLines=lines.map(clean);
-  const flat=cleanLines.join(" \n ");
+  const lines=page1.split(/\r?\n/).map(clean).filter(Boolean);
+  const flat=clean(lines.join(" "));
+  const folded=(s:any)=>String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+  const flatFold=folded(flat);
+  const escRe=(s:string)=>s.replace(/[.*+?^$(){}|[\]\\]/g,"\\$&");
+  const money=(s:any)=>{
+    const raw=String(s||"").replace(/\s/g,"").replace(/\./g,"").replace(/,/g,".");
+    const v=Number(raw);return Number.isFinite(v)?v:null;
+  };
 
   let teamEffort:number|null=null,high:number|null=null,mid:number|null=null;
   let team40:number[]|null=null,team30:number[]|null=null;
 
-  for(const line of cleanLines){
-    if(/team effort avg/i.test(line)){
-      const m=line.match(/team effort avg[^\d-]*(-?\d+(?:[.,]\d+)?)\s*%/i)||line.match(/(-?\d+(?:[.,]\d+)?)\s*%/);
-      if(m){const v=n(m[1]);if(v!=null)teamEffort=Number(v)}
+  const effortMatch=flat.match(/team\s+effort\s+avg[^\d-]{0,40}(-?\d+(?:[.,]\d+)?)\s*%/i);
+  if(effortMatch){const v=n(effortMatch[1]);if(v!=null)teamEffort=Number(v)}
+
+  const teamAt=flatFold.indexOf("team bonus");
+  const teamSegment=teamAt>=0?flat.slice(teamAt,teamAt+1400):flat;
+
+  const ge=[...teamSegment.matchAll(/(?:≥|>=|>)\s*(\d+(?:[.,]\d+)?)\s*%/g)]
+    .map(m=>n(m[1])).filter((x:any)=>x!=null) as number[];
+  const lt=teamSegment.match(/<\s*(\d+(?:[.,]\d+)?)\s*%/);
+  if(ge.length>=2){high=Number(ge[0]);mid=Number(ge[1])}
+
+  if(high==null||mid==null){
+    const before40=teamSegment.split(/40h\s*\/\s*w/i)[0]||teamSegment;
+    const ps=(before40.match(/\d+(?:[.,]\d+)?\s*%/g)||[])
+      .map(x=>n(x)).filter((x:any)=>x!=null&&x>=0&&x<=100) as number[];
+    if(ps.length>=2){high=Number(ps[0]);mid=Number(ps[1])}
+  }
+  if((high==null||mid==null)&&lt){
+    const lv=n(lt[1]);
+    if(lv!=null&&mid==null)mid=Number(lv);
+  }
+
+  const parseTeamRow=(label:string)=>{
+    const re=new RegExp(label+"\\s*\\/\\s*w[^0-9]{0,35}([0-9][0-9 .]*)\\s+([0-9][0-9 .]*)\\s+([0-9][0-9 .]*)","i");
+    const m=teamSegment.match(re)||flat.match(re);
+    if(!m)return null;
+    const vals=[money(m[1]),money(m[2]),money(m[3])];
+    return vals.every(v=>v!=null&&v>=0&&v<=20000)?vals.map(Number):null;
+  };
+  team40=parseTeamRow("40h");
+  team30=parseTeamRow("30h");
+
+  if(!team40){
+    const m=teamSegment.match(/40h\s*\/\s*w([\s\S]{0,90})/i);
+    if(m){
+      const vals=(m[1].match(/\b\d{1,5}\b/g)||[]).map(Number).filter(v=>v>=0&&v<=20000);
+      if(vals.length>=3)team40=vals.slice(0,3);
     }
-    if(/%/.test(line)&&(/[≥>]/.test(line)||/>=/.test(line))&&/</.test(line)){
-      const hi=[...line.matchAll(/(?:≥|>=|>)\s*(\d+(?:[.,]\d+)?)\s*%/g)].map(m=>n(m[1])).filter((x:any)=>x!=null) as number[];
-      const lo=line.match(/<\s*(\d+(?:[.,]\d+)?)\s*%/);
-      if(hi.length>=2&&lo){
-        high=Number(hi[0]);mid=Number(hi[1]);
-      }
-    }
-    if(/40h\s*\/\s*w/i.test(line)){
-      const tail=line.replace(/^.*?40h\s*\/\s*w/i," ");
-      const vals=(tail.match(/-?\d+(?:[.,]\d+)?/g)||[]).map(x=>n(x)).filter((x:any)=>x!=null&&x>=0&&x<=20000) as number[];
-      if(vals.length>=3)team40=vals.slice(0,3).map(Number);
-    }
-    if(/30h\s*\/\s*w/i.test(line)){
-      const tail=line.replace(/^.*?30h\s*\/\s*w/i," ");
-      const vals=(tail.match(/-?\d+(?:[.,]\d+)?/g)||[]).map(x=>n(x)).filter((x:any)=>x!=null&&x>=0&&x<=20000) as number[];
-      if(vals.length>=3)team30=vals.slice(0,3).map(Number);
+  }
+  if(!team30){
+    const m=teamSegment.match(/30h\s*\/\s*w([\s\S]{0,90})/i);
+    if(m){
+      const vals=(m[1].match(/\b\d{1,5}\b/g)||[]).map(Number).filter(v=>v>=0&&v<=20000);
+      if(vals.length>=3)team30=vals.slice(0,3);
     }
   }
 
@@ -550,12 +578,15 @@ function parseRewardsText(rawText:string,people:any[],knownPeople:any[],base:any
 
   const ids=new Map<string,any>();
   const addName=(pid:any,name:any,extra:any={})=>{
-    const id=String(pid||"");const nm=String(name||"").trim();if(!id||!nm)return;
+    const id=String(pid||""),nm=clean(name);if(!id||!nm)return;
     if(!ids.has(id))ids.set(id,{person_id:id,names:[],...extra});
     const rec=ids.get(id);if(!rec.names.includes(nm))rec.names.push(nm);
     for(const [k,v] of Object.entries(extra||{})){if(rec[k]==null&&v!=null)rec[k]=v}
   };
-  for(const kp of knownPeople||[]){addName(kp.id,kp.full_name,{display_name:kp.full_name||kp.display_name});addName(kp.id,kp.display_name,{display_name:kp.full_name||kp.display_name})}
+  for(const kp of knownPeople||[]){
+    addName(kp.id,kp.full_name,{display_name:kp.full_name||kp.display_name});
+    addName(kp.id,kp.display_name,{display_name:kp.full_name||kp.display_name});
+  }
   for(const pp of people||[]){
     const pid=pp.hint_person_id||pp.person_id||null;
     addName(pid,pp.display_name,{display_name:pp.display_name,email:pp.email,picker_login:pp.picker_login});
@@ -563,52 +594,52 @@ function parseRewardsText(rawText:string,people:any[],knownPeople:any[],base:any
     if(pp.email)addName(pid,String(pp.email).split("@")[0].replace(/[._-]+/g," "),{display_name:pp.display_name,email:pp.email,picker_login:pp.picker_login});
   }
 
+  const allTeam=new Set<number>([0]);
+  for(const arr of [team40||[],team30||[]])for(const v of arr)if(Number.isFinite(Number(v)))allTeam.add(Number(v));
   const possible=new Set<number>([0]);
-  for(const v of [selected40,selected30])if(v!=null&&Number.isFinite(Number(v)))possible.add(Number(v));
+  for(const t of allTeam)possible.add(t);
   for(const b of top){
     possible.add(Number(b));
-    for(const t of [selected40,selected30,0])if(t!=null&&Number.isFinite(Number(t)))possible.add(Number(b)+Number(t));
+    for(const t of allTeam)possible.add(Number(b)+Number(t));
   }
 
-  const flatFold=folded(flat);
   const geomByPerson=new Map((base?.payouts||[]).filter((x:any)=>x.person_id).map((x:any)=>[String(x.person_id),x]));
   const payouts:any[]=[];
+
   for(const rec of ids.values()){
     let best:any=null;
     for(const name of rec.names.sort((a:string,b:string)=>b.length-a.length)){
       const fn=folded(name).replace(/\s+/g," ").trim();if(fn.length<5)continue;
-      let pos=0;
-      while((pos=flatFold.indexOf(fn,pos))>=0){
-        const after=flatFold.slice(pos+fn.length,pos+fn.length+34);
-        const ms=[...after.matchAll(/(?<![\d.,])(\d{1,5})(?![\d.,])/g)];
-        for(const m of ms){
-          const amount=Number(m[1]);if(!possible.has(amount))continue;
-          const distance=Number(m.index||0);
-          if(!best||distance<best.distance)best={amount,distance,source_name:name,position:pos};
-        }
-        pos+=Math.max(1,fn.length);
+      const re=new RegExp(escRe(fn)+"\\s+([0-9]{1,5})(?![.,]\\d)","g");
+      let m:any;
+      while((m=re.exec(flatFold))){
+        const amount=Number(m[1]);
+        if(!possible.has(amount))continue;
+        const afterTeam=teamAt>=0&&m.index>=teamAt;
+        const score=(afterTeam?100000:0)-m.index;
+        if(!best||score>best.score)best={amount,score,source_name:name,position:m.index};
       }
     }
     if(!best)continue;
 
     const amount=Number(best.amount),decomp:any[]=[];
-    for(let rank=0;rank<Math.min(5,top.length);rank++){
-      for(const tb of [
-        {hours_band:"40h",value:selected40,tier},
-        {hours_band:"30h",value:selected30,tier},
-        {hours_band:"none",value:0,tier:null}
-      ]){
-        if(tb.value==null)continue;
-        if(Number(top[rank])+Number(tb.value)===amount)decomp.push({top_rank:rank+1,top_bonus_czk:Number(top[rank]),team_bonus_czk:Number(tb.value),hours_band:tb.hours_band,team_tier:tb.tier,rule_match:true});
-      }
-    }
-    for(const tb of [
+    const selectedTeam=[
       {hours_band:"40h",value:selected40,tier},
       {hours_band:"30h",value:selected30,tier},
       {hours_band:"none",value:0,tier:null}
-    ]){
-      if(tb.value!=null&&Number(tb.value)===amount)decomp.push({top_rank:null,top_bonus_czk:0,team_bonus_czk:Number(tb.value),hours_band:tb.hours_band,team_tier:tb.tier,rule_match:true});
+    ].filter((x:any)=>x.value!=null&&Number.isFinite(Number(x.value)));
+
+    for(let rank=0;rank<Math.min(5,top.length);rank++){
+      for(const tb of selectedTeam){
+        if(Number(top[rank])+Number(tb.value)===amount){
+          decomp.push({top_rank:rank+1,top_bonus_czk:Number(top[rank]),team_bonus_czk:Number(tb.value),hours_band:tb.hours_band,team_tier:tb.tier,rule_match:true});
+        }
+      }
     }
+    for(const tb of selectedTeam){
+      if(Number(tb.value)===amount)decomp.push({top_rank:null,top_bonus_czk:0,team_bonus_czk:Number(tb.value),hours_band:tb.hours_band,team_tier:tb.tier,rule_match:true});
+    }
+
     const geom=geomByPerson.get(String(rec.person_id))||null;
     payouts.push({
       person_id:String(rec.person_id),
@@ -622,16 +653,23 @@ function parseRewardsText(rawText:string,people:any[],knownPeople:any[],base:any
       payout_decomposition:decomp.length===1?decomp[0]:null,
       payout_decomposition_candidates:decomp,
       payout_rule_match:decomp.length>0,
-      payout_match_source:"pdf_text_layer"
+      payout_match_source:"pdf_text_immediate_amount"
     });
   }
 
   return {
     team_effort_pct:teamEffort,
-    threshold_high:high,
-    threshold_mid:mid,
+    threshold_high:high,threshold_mid:mid,
     team40,team30,tier,selected40,selected30,payouts,
-    diagnostics:{lines:cleanLines.length,possible_amounts:[...possible].sort((a,b)=>a-b),matched_payouts:payouts.length}
+    diagnostics:{
+      lines:lines.length,
+      team_segment_found:teamAt>=0,
+      threshold_high:high,threshold_mid:mid,
+      team40,team30,
+      possible_amounts:[...possible].sort((a,b)=>a-b),
+      matched_payouts:payouts.length,
+      matched_names:payouts.map((p:any)=>p.display_name)
+    }
   };
 }
 
@@ -968,7 +1006,7 @@ Deno.serve(async req=>{
   };
 
   if(mode==="preview"){
-   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v13",
+   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v14",
     note:"Preview only. Existing identities are resolved by email/picker login. New historical people are shown before commit."});
   }
 
@@ -1057,7 +1095,7 @@ Deno.serve(async req=>{
    team_bonus_30h_czk:rewards.team_bonus_30h,
    source_import_id:import_id,
    status:"official",
-   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v13",filename:imp.filename,bonus_rules:{top_bonus_czk:rewards.top_bonus_czk||[],team_bonus:rewards.team_bonus_rules||null}},
+   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v14",filename:imp.filename,bonus_rules:{top_bonus_czk:rewards.top_bonus_czk||[],team_bonus:rewards.team_bonus_rules||null}},
    updated_at:new Date().toISOString()
   };
   const {error:sce}=await db.from("store_card_months").upsert(monthRow,{onConflict:"month"});
@@ -1131,7 +1169,7 @@ Deno.serve(async req=>{
    status:"imported",
    period_start:period.period_start,
    period_end:period.period_end,
-   parser_version:"store-card-monthly-v13",
+   parser_version:"store-card-monthly-v14",
    record_count:totalRecords,
    metadata:{
     ...(imp.metadata||{}),
@@ -1149,7 +1187,7 @@ Deno.serve(async req=>{
    ...common,
    preview:false,
    committed:true,
-   parser_stage:"store-card-monthly-committed-v13",
+   parser_stage:"store-card-monthly-committed-v14",
    observations_attempted:obs.length,
    observations_inserted:obsWritten,
    store_metrics_attempted:storeRows.length,
