@@ -776,7 +776,7 @@ document.addEventListener('click',async e=>{
   }
   batch.forEach(function(x){
    const s=x.preflight&&x.preflight.summary||{};
-   let state=x.state==='loading'?'staging…':x.state==='staged'?'staged':x.state==='parsing'?'preview…':x.state==='ready'?(s.conflicts?'blokováno':'připraveno ✓'):x.state==='done'?'importováno ✓':x.state==='duplicate'?'beze změny ✓':x.state==='skipped'?'vynecháno':'chyba';
+   let state=x.state==='loading'?'staging…':x.state==='staged'?'staged':x.state==='parsing'?'preview…':x.state==='committing'?'importuji…':x.state==='ready'?(s.conflicts?'blokováno':'připraveno ✓'):x.state==='done'?'importováno ✓':x.state==='duplicate'?'beze změny ✓':x.state==='skipped'?'vynecháno':'chyba';
    let cls=x.state==='error'||s.conflicts?'err':(x.state==='ready'||x.state==='done'||x.state==='duplicate'?'ok':'muted');
    let details='';
    if(x.error)details='<div class="err">'+esc(x.error)+'</div>';
@@ -911,23 +911,42 @@ document.addEventListener('click',async e=>{
  }
  async function commitBatch(){
   if(busy)return;
+  const active=batch.filter(function(x){return x.state!=='skipped'});
   const total=batchSummary();
-  if(batch.some(function(x){return x.state==='error'})||total.conflicts)return;
-  busy=true;renderBatch();msg($('#uploadStatus'),'Potvrzuji bezpečný balík…','warn');
+  if(!active.length)return;
+  if(active.some(function(x){return Number(x.preflight&&x.preflight.summary&&x.preflight.summary.conflicts||0)>0})){
+   return msg($('#uploadStatus'),'Import je zablokovaný konfliktem. Oprav identitu nebo soubor vynech z bulku.','err');
+  }
+  busy=true;renderBatch();
+  let imported=0,failed=0,unchanged=0;
+  msg($('#uploadStatus'),'3/3 Importuji celý bulk. Každý soubor se potvrzuje samostatně, chyba jednoho už nezastaví ostatní.','warn');
   try{
    for(const item of batch){
     if(item.state==='skipped')continue;
-    if(item.state==='done'||item.state==='duplicate'||item.skipCommit){item.state='done';renderBatch();continue}
-    const src=item.report_type==='quinyx'?{layout_json:item.layout_json}:
-      item.report_type==='store_card_monthly'?{layout_json:item.layout_json,filename:item.file.name}:{extracted_text:item.extracted_text};
-    await edge(PARSERS[item.report_type],Object.assign({import_id:item.import_id,mode:'commit'},src));
-    try{item.result=(await status('import_result',{import_id:item.import_id})).result}catch(_){}
-    item.state='done';renderBatch();
+    if(item.state==='done'){continue}
+    if(item.state==='duplicate'||item.skipCommit){
+     item.state='done';unchanged++;renderBatch();continue;
+    }
+    item.state='committing';item.error=null;renderBatch();
+    try{
+     const src=await sourcePayload(item);
+     item.result=await edge(PARSERS[item.report_type],Object.assign({import_id:item.import_id,mode:'commit'},src));
+     try{item.result.audit=(await status('import_result',{import_id:item.import_id})).result}catch(_){}
+     item.state='done';imported++;
+    }catch(e){
+     item.state='error';
+     item.error='Commit selhal: '+(e.message||e);
+     failed++;
+    }
+    renderBatch();
    }
-   msg($('#uploadStatus'),'V152 bulk import dokončen ✓ Kanonický merge proběhl a audit je uložen.','ok');
-   await refresh();await loadCoverage();
-  }catch(e){
-   msg($('#uploadStatus'),'Import se zastavil: '+(e.message||e),'err');
+   await refresh();
+   await loadCoverage();
+   if(failed){
+    msg($('#uploadStatus'),'Bulk dokončen částečně: '+imported+' souborů importováno, '+unchanged+' beze změny, '+failed+' selhalo. Úspěšné soubory jsou zapsané; chybné zůstaly k opravě a můžeš je znovu analyzovat.','err');
+   }else{
+    msg($('#uploadStatus'),'Bulk import dokončen ✓ '+imported+' souborů importováno, '+unchanged+' beze změny. Coverage bylo přepočítáno z databáze.','ok');
+   }
   }finally{busy=false;renderBatch()}
  }
  function setupUpload(){
@@ -967,33 +986,45 @@ document.addEventListener('click',async e=>{
  function stateLabel(s){return s==='complete'?'kompletní':s==='partial'?'průběžné':s==='missing'?'chybí':'budoucí'}
  async function loadCoverage(){
   const host=$('#coverageSources'),month=$('#coverageMonth');if(!host||!month)return;
-  host.innerHTML='<div class="muted">Načítám skutečný coverage…</div>';
+  host.innerHTML='<div class="muted">Načítám coverage přímo z uložených dat…</div>';
   try{
    const out=await status('coverage',{month:month.value}),cov=out.coverage||{},sources=cov.sources||[];
    $('#coverageOverall').textContent=(cov.overall_percent==null?'—':cov.overall_percent+' %');
-   $('#coverageThrough').textContent=cov.through?'stav k '+cov.through:'';
+   $('#coverageThrough').textContent=(cov.through?'stav k '+cov.through:'')+(cov.staged_total?' · '+cov.staged_total+' souborů staged':'');
    host.innerHTML=sources.map(function(s){
     const seg=(s.segments||[]).map(function(x){return '<span class="coverage-seg '+esc(x.state)+'" title="'+esc((x.label||x.key)+' · '+stateLabel(x.state)+(x.range?' · '+x.range:''))+'"></span>'}).join('');
     const missing=(s.missing||[]);
     const miss=missing.length?'<div class="coverage-meta coverage-missing">Chybí: '+esc(missing.slice(0,8).join(', '))+(missing.length>8?' +'+(missing.length-8):'')+'</div>':'';
-    const extra=s.id==='quinyx'&&s.planned_shifts!=null?' · '+esc(s.actual_shifts||0)+' / '+esc(s.due_shifts||0)+' směn s actual':
-      s.id==='team_rating'?' · '+esc(s.received||0)+' odpovědí'+(s.disqualified?' · '+esc(s.disqualified)+' DQ':''):'';
+    const h=s.history||{};
+    const history=h.first_date?'<div class="coverage-meta">Historie v DB: <b>'+esc(h.month_count||0)+' měsíců</b> · '+esc(h.first_date)+' → '+esc(h.last_date)+' · '+esc(h.imported_files||0)+' importovaných souborů</div>':
+      '<div class="coverage-meta">Historie v DB: zatím žádné potvrzené období</div>';
+    const staged=h.staged_files?'<div class="coverage-meta warn">⚠ '+esc(h.staged_files)+' staged souborů čeká na import — do coverage se zatím nepočítají.</div>':'';
+    const metricLine=(s.metrics_expected!=null&&Number(s.metrics_expected)>0&&s.id!=='quinyx')
+      ?'<div class="coverage-meta">Metriky v období: <b>'+esc(s.metrics_covered||0)+' / '+esc(s.metrics_expected)+'</b> · '+esc(s.metrics_percentage||0)+' % typů metrik dostupných</div>':'';
+    let mainMeta='';
+    if(s.id==='quinyx'){
+      mainMeta='Časové pokrytí: '+esc(s.scheduled_days||0)+' / '+esc(s.expected_days||0)+' dní s plánem · actual '+esc(s.actual_shifts||0)+' / '+esc(s.due_shifts||0)+' směn';
+    }else if(s.id==='team_rating'){
+      mainMeta='Pokrytí: '+esc(s.covered)+' / '+esc(s.expected)+' lidí · '+esc(s.received||0)+' odpovědí'+(s.disqualified?' · '+esc(s.disqualified)+' DQ':'');
+    }else{
+      mainMeta='Časové pokrytí: '+esc(s.covered)+' / '+esc(s.expected)+' '+esc(s.cadence==='day'?'dní':s.cadence==='week'?'období':s.cadence==='month'?'měsíců':'záznamů');
+    }
     return '<div class="coverage-source"><div class="coverage-head"><b>'+esc(s.label)+'</b><span class="pill '+(s.state==='complete'?'ok':s.state==='missing'?'err':'warn')+'">'+esc(stateLabel(s.state))+' · '+esc(s.percentage)+' %</span></div>'+
      '<div class="coverage-bar"><span style="width:'+Math.max(0,Math.min(100,Number(s.percentage||0)))+'%"></span></div><div class="coverage-segments">'+seg+'</div>'+
-     '<div class="coverage-meta">'+esc(s.covered)+' / '+esc(s.expected)+' '+esc(s.cadence==='day'?'dní':s.cadence==='week'?'období':s.cadence==='month'?'měsíců':'záznamů')+extra+(s.unresolved?' · unresolved '+esc(s.unresolved):'')+'</div>'+miss+'</div>';
+     '<div class="coverage-meta">'+mainMeta+(s.unresolved?' · unresolved '+esc(s.unresolved):'')+'</div>'+metricLine+history+staged+miss+'</div>';
    }).join('');
   }catch(e){host.innerHTML='<div class="err">Coverage se nepodařilo načíst: '+esc(e.message||e)+'</div>'}
  }
  function setupCoverage(){
   const card=coverageCard();if(!card)return;
-  card.innerHTML='<div class="coverage-top"><div><h2 style="margin-bottom:4px">Import Coverage <span class="v152-badge">V152</span></h2><p class="muted" style="margin-bottom:0">Skutečné pokrytí podle uložených období a záznamů, ne statický LIVE štítek.</p></div><div class="field"><label>Měsíc</label><input id="coverageMonth" type="month" value="'+localMonth()+'"></div></div>'+
+  card.innerHTML='<div class="coverage-top"><div><h2 style="margin-bottom:4px">Data Coverage <span class="v152-badge">V153</span></h2><p class="muted" style="margin-bottom:0">% = skutečně zapsané časové pokrytí ve zvoleném měsíci. Pod každým zdrojem vidíš i pokrytí typů metrik, historii a staged soubory, které se ještě nepočítají.</p></div><div class="field"><label>Měsíc · detail</label><input id="coverageMonth" type="month" value="'+localMonth()+'"></div></div>'+
    '<div style="display:flex;align-items:baseline;gap:10px;margin:14px 0"><span id="coverageOverall" class="coverage-overall">—</span><span id="coverageThrough" class="muted"></span></div><div id="coverageSources"></div>';
   $('#coverageMonth').onchange=loadCoverage;
  }
  function setup(){
   if(window.__datahubV152)return;window.__datahubV152=true;
-  document.title='Performance Arena — Data Hub V152';
-  const small=document.querySelector('.brand small');if(small&&!small.textContent.includes('V152'))small.innerHTML+= ' <span class="v152-badge">V152</span>';
+  document.title='Performance Arena — Data Hub V153';
+  const small=document.querySelector('.brand small');if(small&&!/V15[23]/.test(small.textContent))small.innerHTML+= ' <span class="v152-badge">V153</span>';
   setupUpload();setupCoverage();renderBatch();
   ensureIdentityPeople().then(renderBatch).catch(function(){});
   sb.auth.onAuthStateChange(function(_event,s){if(s)setTimeout(loadCoverage,50)});
