@@ -719,7 +719,9 @@ function parseRewardsText(rawText:string,people:any[],knownPeople:any[],base:any
       team40,team30,
       possible_amounts:[...possible].sort((a,b)=>a-b),
       matched_payouts:payouts.length,
-      matched_names:payouts.map((p:any)=>p.display_name)
+      matched_names:payouts.map((p:any)=>p.display_name),
+      known_people_available:ids.size,
+      unknown_people_policy:"ignore_not_in_people_table"
     }
   };
 }
@@ -1068,12 +1070,14 @@ Deno.serve(async req=>{
    payouts:rewards.payouts,
    reward_parse_source:rewards.reward_parse_source||"layout_only",
    reward_text_diagnostics:rewards.reward_text_diagnostics||null,
+   unknown_people_ignored:true,
+   historical_top_only:rewards.team_bonus_exists===false,
    people:resolved,
    store_metrics:stores
   };
 
   if(mode==="preview"){
-   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v16",
+   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v17",
     note:"Preview only. Existing identities are resolved by email/picker login. New historical people are shown before commit."});
   }
 
@@ -1162,7 +1166,7 @@ Deno.serve(async req=>{
    team_bonus_30h_czk:rewards.team_bonus_30h,
    source_import_id:import_id,
    status:"official",
-   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v16",filename:imp.filename,bonus_rules:{top_bonus_czk:rewards.top_bonus_czk||[],team_bonus:rewards.team_bonus_rules||null}},
+   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v17",filename:imp.filename,bonus_rules:{top_bonus_czk:rewards.top_bonus_czk||[],team_bonus:rewards.team_bonus_rules||null}},
    updated_at:new Date().toISOString()
   };
   const {error:sce}=await db.from("store_card_months").upsert(monthRow,{onConflict:"month"});
@@ -1170,14 +1174,16 @@ Deno.serve(async req=>{
 
   const payoutByPerson=new Map((rewards.payouts||[]).filter((x:any)=>x.person_id).map((x:any)=>[String(x.person_id),x]));
   const payoutByEmail=new Map((rewards.payouts||[]).filter((x:any)=>x.email).map((x:any)=>[normAlias(x.email),x]));
+  const historicalTopOnly=rewards.team_bonus_exists===false;
   const bonusRows=resolved.filter((p:any)=>p.person_id).map((p:any)=>{
    const payout:any=payoutByPerson.get(String(p.person_id))||payoutByEmail.get(normAlias(p.email))||null;
+   const inferredZero=historicalTopOnly&&!payout;
    return {
    person_id:p.person_id,
    bonus_month:period.period_start,
    amount:Number(payout?.confirmed_bonus_czk??0),
    currency:"CZK",
-   status:payout?"confirmed":"pending_unparsed",
+   status:(payout||inferredZero)?"confirmed":"pending_unparsed",
    source_type:"store_card_monthly",
    import_id,
    source_record_key:`store_card_bonus:${period.period_start}:${normAlias(p.email||p.picker_login||p.person_id)}`,
@@ -1187,12 +1193,14 @@ Deno.serve(async req=>{
     display_name:p.display_name,
     total_points:p.total_points,
     team_effort_percent:rewards.team_effort_pct,
-    official_payout_czk:payout?Number(payout.confirmed_bonus_czk):null,
-    bonus_eligible:payout?.bonus_eligible??null,
-    eligibility_source:payout?.eligibility_source??"unknown",
+    official_payout_czk:payout?Number(payout.confirmed_bonus_czk):(inferredZero?0:null),
+    bonus_eligible:payout?.bonus_eligible??(inferredZero?true:null),
+    eligibility_source:payout?.eligibility_source??(inferredZero?"historical_top_only_no_payout_row":"unknown"),
     payout_decomposition:payout?.payout_decomposition??null,
     payout_decomposition_candidates:payout?.payout_decomposition_candidates??[],
     bonus_rules_snapshot:{top_bonus_czk:rewards.top_bonus_czk||[],team_bonus:rewards.team_bonus_rules||null},
+    historical_top_only_inferred_zero:inferredZero,
+    unknown_people_ignored:true,
     official:true
    },
    updated_at:new Date().toISOString()
@@ -1236,7 +1244,7 @@ Deno.serve(async req=>{
    status:"imported",
    period_start:period.period_start,
    period_end:period.period_end,
-   parser_version:"store-card-monthly-v16",
+   parser_version:"store-card-monthly-v17",
    record_count:totalRecords,
    metadata:{
     ...(imp.metadata||{}),
@@ -1254,7 +1262,7 @@ Deno.serve(async req=>{
    ...common,
    preview:false,
    committed:true,
-   parser_stage:"store-card-monthly-committed-v16",
+   parser_stage:"store-card-monthly-committed-v17",
    observations_attempted:obs.length,
    observations_inserted:obsWritten,
    store_metrics_attempted:storeRows.length,
