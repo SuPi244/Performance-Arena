@@ -854,7 +854,12 @@ document.addEventListener('click',async e=>{
       '<div class="ok"><b>Pravidla z tohoto PDF:</b> '+esc(topText)+'</div>'+
       '<div class="muted" style="margin-top:4px">'+teamText+'</div>'+
       (teamBonusExists?'<div class="muted" style="margin:4px 0 4px">Team effort '+esc(team.team_effort_pct==null?'—':team.team_effort_pct+' %')+' → použitý tier <b>'+esc(team.selected_tier||'—')+'</b> · 40h '+esc(team.selected_40h_czk==null?'—':Number(team.selected_40h_czk).toLocaleString('cs-CZ')+' Kč')+' · 30h '+esc(team.selected_30h_czk==null?'—':Number(team.selected_30h_czk).toLocaleString('cs-CZ')+' Kč')+'</div>':'<div class="muted" style="margin:4px 0 4px">Team effort '+esc(team.team_effort_pct==null?'—':team.team_effort_pct+' %')+' · bez Team Bonusu v tomto měsíci</div>')+
-      '<div class="coverage-meta">Parser bonusů: '+esc(x.preview.reward_parse_source||'layout')+(x.preview.reward_text_diagnostics?' · text match '+esc(x.preview.reward_text_diagnostics.matched_payouts||0)+' lidí':'')+'</div>'+
+      '<div class="coverage-meta">Parser bonusů: '+esc(x.preview.reward_parse_source||'layout')+
+        (x.preview.historical_top_only&&x.preview.reward_text_diagnostics
+          ?' · TOP ranking match '+esc(x.preview.reward_text_diagnostics.historical_ranking_matches||0)+' lidí'+
+            ((x.preview.reward_text_diagnostics.ignored_historical_top_names||[]).length?' · ignorováno bývalých/neznámých '+esc(x.preview.reward_text_diagnostics.ignored_historical_top_names.length):'')
+          :(x.preview.reward_text_diagnostics?' · text match '+esc(x.preview.reward_text_diagnostics.matched_payouts||0)+' lidí':''))+
+      '</div>'+
       (payouts.length?payouts.map(function(p){
         const d=p.payout_decomposition||null;
         const explain=d?(teamBonusExists
@@ -863,7 +868,7 @@ document.addEventListener('click',async e=>{
         return '<div><span class="ok">'+esc(p.display_name||p.source_name||'—')+'</span> · <b>'+esc(Number(p.confirmed_bonus_czk||0).toLocaleString('cs-CZ'))+' Kč</b>'+explain+'</div>'
       }).join(''):(teamBonusExists
         ?'<div class="err">Payout tabulka obsahuje nulový počet napárovaných známých lidí — u měsíce s Team Bonusem je to blokující.</div>'
-        :'<div class="ok">Historický měsíc bez Team Bonusu: neznámé/staré zaměstnance ignoruji. Lidé, které máme v people tabulce a nemají TOP payout, dostanou potvrzených 0 Kč.</div>'))+
+        :'<div class="ok">Historický měsíc bez peněžního Team Bonusu: payout se bere přímo z pořadí TOP 1–5. Neznámé/staré zaměstnance ignoruji, ale jejich pozice v TOP 5 se zachová.</div>'))+
       '</div></details>';
    }
    if(x.report_type==='quinyx'&&x.preview){
@@ -921,7 +926,7 @@ document.addEventListener('click',async e=>{
   const [stagedRes,legacyRes]=await Promise.all([
    sb.from('imports').select('id,file_hash,filename,report_type,storage_path,status,parser_version,metadata,created_at').eq('status','staged').order('created_at',{ascending:true}).limit(100),
    sb.from('imports').select('id,file_hash,filename,report_type,storage_path,status,parser_version,metadata,created_at')
-    .eq('status','imported').eq('report_type','store_card_monthly').neq('parser_version','store-card-monthly-v17').order('created_at',{ascending:true}).limit(50)
+    .eq('status','imported').eq('report_type','store_card_monthly').neq('parser_version','store-card-monthly-v19').order('created_at',{ascending:true}).limit(50)
   ]);
   if(stagedRes.error)throw stagedRes.error;if(legacyRes.error)throw legacyRes.error;
   const rows=[...(stagedRes.data||[]),...(legacyRes.data||[])];
@@ -934,7 +939,7 @@ document.addEventListener('click',async e=>{
    let report_type=PARSERS[x.report_type]?x.report_type:(detected||'universal_metrics');
    if(x.parser_version==='universal-fallback-v1'&&detected&&detected!=='universal_metrics')report_type=detected;
    if(x.status==='imported'&&x.parser_version==='store-card-monthly-v2')report_type='store_card_monthly';
-   const payoutReparse=x.status==='imported'&&x.report_type==='store_card_monthly'&&x.parser_version!=='store-card-monthly-v17';
+   const payoutReparse=x.status==='imported'&&x.report_type==='store_card_monthly'&&x.parser_version!=='store-card-monthly-v19';
    loaded.push({
     file:file,hash:x.file_hash,report_type:report_type,import_id:x.id,storage_path:x.storage_path,
     existing:true,skipCommit:x.status==='imported'&&!payoutReparse,legacyReparse:payoutReparse,forceCommit:payoutReparse,state:'staged'
@@ -1110,14 +1115,14 @@ document.addEventListener('click',async e=>{
  }
  function setupCoverage(){
   const card=coverageCard();if(!card)return;
-  card.innerHTML='<div class="coverage-top"><div><h2 style="margin-bottom:4px">Data Coverage <span class="v152-badge">V169</span></h2><p class="muted" style="margin-bottom:0">% = skutečně zapsané časové pokrytí ve zvoleném měsíci. Pod každým zdrojem vidíš i pokrytí typů metrik, historii a staged soubory, které se ještě nepočítají.</p></div><div class="field"><label>Měsíc · detail</label><input id="coverageMonth" type="month" value="'+localMonth()+'"></div></div>'+
+  card.innerHTML='<div class="coverage-top"><div><h2 style="margin-bottom:4px">Data Coverage <span class="v152-badge">V170</span></h2><p class="muted" style="margin-bottom:0">% = skutečně zapsané časové pokrytí ve zvoleném měsíci. Pod každým zdrojem vidíš i pokrytí typů metrik, historii a staged soubory, které se ještě nepočítají.</p></div><div class="field"><label>Měsíc · detail</label><input id="coverageMonth" type="month" value="'+localMonth()+'"></div></div>'+
    '<div style="display:flex;align-items:baseline;gap:10px;margin:14px 0"><span id="coverageOverall" class="coverage-overall">—</span><span id="coverageThrough" class="muted"></span></div><div id="coverageSources"></div>';
   $('#coverageMonth').onchange=loadCoverage;
  }
  function setup(){
   if(window.__datahubV152)return;window.__datahubV152=true;
-  document.title='Performance Arena — Data Hub V169';
-  const small=document.querySelector('.brand small');if(small&&!/V1(?:5[2-9]|6[01])/.test(small.textContent))small.innerHTML+= ' <span class="v152-badge">V169</span>';
+  document.title='Performance Arena — Data Hub V170';
+  const small=document.querySelector('.brand small');if(small&&!/V1(?:5[2-9]|6[01])/.test(small.textContent))small.innerHTML+= ' <span class="v152-badge">V170</span>';
   setupUpload();setupCoverage();renderBatch();
   ensureIdentityPeople().then(renderBatch).catch(function(){});
   sb.auth.onAuthStateChange(function(_event,s){if(s)setTimeout(loadCoverage,50)});
