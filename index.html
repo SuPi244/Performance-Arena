@@ -2307,6 +2307,14 @@ function currentSeasonWeeks(){
   const hs=state.history,weeks=hs?.weeks||[];if(!weeks.length)return[];
   return currentSeasonIndexes(weeks.map(function(w){return w.week?.label||''}),hs.weekMeta||null).map(function(i){return weeks[i]}).filter(Boolean);
 }
+function currentSeasonHistory(){
+  const hs=state.history;if(!hs?.weeks?.length)return hs;
+  const idx=currentSeasonIndexes(hs.weeks.map(function(w){return w.week?.label||''}),hs.weekMeta||null);
+  return {...hs,weeks:idx.map(function(i){return hs.weeks[i]}),weekMeta:Array.isArray(hs.weekMeta)?idx.map(function(i){return hs.weekMeta[i]}):hs.weekMeta};
+}
+function previousSeasonFrame(){
+  const f=getSeasonFrame();return f?seasonFrameFromDate(addDays(f.start,-1)):null;
+}
 function seasonScopedTeam(team){
   if(!team?.people||!team?.labels?.length)return team;
   const idx=currentSeasonIndexes(team.labels,team.weekMeta||null);
@@ -3204,16 +3212,39 @@ function homeMomentumSeries(key){
  if(!series)return null;
  return {...series,team_values:homeTeamAverageSeries(spec,series.labels||[]),home_key:key};
 }
-function homeTrendMovement(diff,lower,unit){
- if(diff==null||!Number.isFinite(Number(diff)))return{cls:'neutral',label:'—',detail:'Zatím jen jeden dostupný bod.'};
- if(Math.abs(diff)<0.0001)return{cls:'neutral',label:'→ BEZE ZMĚNY',detail:'Beze změny proti minulému týdnu.'};
+function seriesIndexesForFrame(series,frame){
+ const labels=series?.labels||[];if(!frame)return labels.map(function(_,i){return i});
+ return labels.map(function(label,i){
+   const d=dateOnly(label);if(!d)return null;
+   const end=series.granularity==='day'?d:addDays(d,6);
+   return(end>=frame.start&&d<=frame.end)?i:null;
+ }).filter(function(i){return i!=null});
+}
+function homeSeasonSeries(series){
+ if(!series)return null;
+ const frame=getSeasonFrame();if(!frame)return series;
+ const idx=seriesIndexesForFrame(series,frame),prevFrame=previousSeasonFrame(),prevIdx=seriesIndexesForFrame(series,prevFrame);
+ const prevVals=prevIdx.map(function(i){return Number(series.values?.[i])}).filter(Number.isFinite);
+ return{
+   ...series,
+   labels:idx.map(function(i){return series.labels?.[i]}),
+   display_labels:Array.isArray(series.display_labels)?idx.map(function(i){return series.display_labels?.[i]}):series.display_labels,
+   values:idx.map(function(i){return series.values?.[i]??null}),
+   previous_season_value:prevVals.length?prevVals.at(-1):null,
+   season_frame:frame
+ };
+}
+function homeTrendMovement(diff,lower,unit,context='week'){
+ const against=context==='season'?'minulé sezóně':'minulému týdnu';
+ if(diff==null||!Number.isFinite(Number(diff)))return{cls:'neutral',label:'—',detail:'Zatím jen jeden dostupný bod v aktuální sezóně.'};
+ if(Math.abs(diff)<0.0001)return{cls:'neutral',label:'→ BEZE ZMĚNY',detail:'Beze změny proti '+against+'.'};
  const good=lower?diff<0:diff>0;
  const abs=Math.abs(Number(diff));
  const amount=unit==='minutes'?(fmt(abs,2)+' min'):enhancedFmt(abs,unit);
  return{
    cls:good?'good':'bad',
    label:(good?'↑ ZLEPŠENÍ':'↓ ZHORŠENÍ')+' · '+amount,
-   detail:(good?'Lepší':'Horší')+' než minulý týden o '+amount
+   detail:(good?'Lepší':'Horší')+' než '+against+' o '+amount
  };
 }
 function renderHomeMomentum(preset){
@@ -3235,8 +3266,10 @@ function renderHomeMomentum(preset){
    :(srs.granularity==='day'?rawLabels.map(function(x){const m=String(x).match(/^\d{4}-(\d{2})-(\d{2})$/);return m?(Number(m[2])+'. '+Number(m[1])+'.'):x}):rawLabels);
  const validIdx=values.map(function(v,i){return v!=null&&Number.isFinite(v)?i:-1}).filter(function(i){return i>=0});
  const latestIdx=validIdx.at(-1),prevIdx=validIdx.length>1?validIdx.at(-2):null;
- const latest=latestIdx!=null?values[latestIdx]:null,prev=prevIdx!=null?values[prevIdx]:null,diff=latest!=null&&prev!=null?latest-prev:null;
- const move=homeTrendMovement(diff,!!srs.lower_is_better,srs.unit);
+ const latest=latestIdx!=null?values[latestIdx]:null,prev=prevIdx!=null?values[prevIdx]:null;
+ const baseline=prev!=null?prev:srs.previous_season_value,context=prev!=null?'week':baseline!=null?'season':'none';
+ const diff=latest!=null&&baseline!=null?latest-baseline:null;
+ const move=homeTrendMovement(diff,!!srs.lower_is_better,srs.unit,context);
  const pointRadius=values.map(function(v,i){return i===latestIdx?6:(v!=null?2.5:0)});
  const pointBg=values.map(function(v,i){return i===latestIdx?(move.cls==='good'?'#22c55e':move.cls==='bad'?'#ef4444':'#94a3b8'):'#35E78A'});
  charts.homeMomentumChart=new Chart(canvas,{type:'line',data:{labels:labels,datasets:[
@@ -3252,7 +3285,7 @@ function renderHomeMomentum(preset){
    dailyHost.style.display=dailyHost.innerHTML?'flex':'none';
  }
  const freshText=dailyMode&&impact?.hasPersonal?(' · Daily do '+shortDataDate(impact.date)):'';
- setText('homeMomentumMeta',srs.label+' · týdně · '+(srs.source_mode||'Data Hub')+freshText);
+ setText('homeMomentumMeta',srs.label+' · aktuální sezóna · '+(srs.source_mode||'Data Hub')+freshText);
  setText('homeMomentumExplain',move.detail+(dailyMode&&impact?.hasPersonal?' · poslední den je v LIVE stripu':''));
 
  const badge=document.getElementById('homeMomentumMovement');if(badge){badge.className='home-trend-move '+move.cls;badge.textContent=move.label}
@@ -3275,7 +3308,7 @@ function homeKpiSeries(spec){
    const hub=personalHubSeriesForMetric(legacyDef.name);
    const valid=merged.arr.filter(function(v){return v!=null&&Number.isFinite(Number(v))});
    if(valid.length){
-     return {
+     return homeSeasonSeries({
        metric_id:hub?.metric_id||spec.ids?.[0]||norm(legacyDef.name).replace(/\s+/g,'_'),
        label:cleanMetricName(legacyDef.name),
        labels:merged.keys,
@@ -3285,7 +3318,7 @@ function homeKpiSeries(spec){
        granularity:'week',
        lower_is_better:spec.lower,
        source_mode:merged.hasDataHub?'Sheets + Data Hub':'Google Sheets'
-     };
+     });
    }
  }
 
@@ -3293,7 +3326,7 @@ function homeKpiSeries(spec){
  const hit=all.find(function(x){return (spec.ids||[]).includes(x.metric_id)})
    || all.find(function(x){return tests.some(function(t){return norm(x.label||'').includes(t)})})
    || null;
- return hit?{...hit,source_mode:'Data Hub'}:null;
+ return hit?homeSeasonSeries({...hit,source_mode:'Data Hub'}):null;
 }
 function renderHomeKpiTrend(spec){
  const series=homeKpiSeries(spec),canvas=document.getElementById(spec.canvasId),valueEl=document.getElementById(spec.valueId),statusEl=document.getElementById(spec.statusId),metaEl=document.getElementById(spec.metaId),moveEl=document.getElementById(spec.moveId);
@@ -3308,16 +3341,17 @@ function renderHomeKpiTrend(spec){
  const values=(series.values||[]).map(function(v){return v==null?null:Number(v)});
  const valid=values.filter(function(v){return v!=null&&Number.isFinite(v)});
  const latest=valid.at(-1),prev=valid.length>1?valid.at(-2):null;
+ const baseline=prev!=null?prev:series.previous_season_value,baselineContext=prev!=null?'week':baseline!=null?'season':'none';
  const good=latest!=null?(spec.lower?latest<=spec.target:latest>=spec.target):null;
  valueEl.textContent=enhancedFmt(latest,series.unit);
  statusEl.textContent=good===null?'—':good?'NA CÍLI':'MIMO CÍL';
  statusEl.className='home-kpi-status '+(good===null?'neutral':good?'good':'bad');
- const diff=latest!=null&&prev!=null?latest-prev:null;
- const movement=homeTrendMovement(diff,spec.lower,series.unit);
+ const diff=latest!=null&&baseline!=null?latest-baseline:null;
+ const movement=homeTrendMovement(diff,spec.lower,series.unit,baselineContext);
  if(moveEl){moveEl.textContent=movement.label;moveEl.className='home-trend-move '+movement.cls}
  if(metaEl){
    const fresh=spec.dailyIds?.length?dailySeriesPoint(spec.dailyIds):null;
-   metaEl.textContent=spec.targetCopy+' · '+(series.source_mode||'Data Hub')+(fresh?' · daily do '+shortDataDate(fresh.date):' · týdenní zdroj')+' · vs minulý týden';
+   metaEl.textContent=spec.targetCopy+' · aktuální sezóna · '+(series.source_mode||'Data Hub')+(fresh?' · daily do '+shortDataDate(fresh.date):' · týdenní zdroj')+(baselineContext==='season'?' · vs minulá sezóna':' · vs minulý týden');
  }
  const card=canvas.closest('.home-kpi-trend-card');if(card){card.classList.remove('trend-good','trend-bad','trend-neutral');card.classList.add('trend-'+movement.cls)}
  const rawLabels=series.labels||[];
@@ -3385,12 +3419,13 @@ function renderEmployeeTeamPulse(){
 function renderHomeSeasonCharts(){
  const eloCanvas=document.getElementById('homeSeasonEloChart'),perfCanvas=document.getElementById('homeSeasonPerfChart');
  if(!eloCanvas||!perfCanvas||!state.history||!state.team)return;
- const series=buildGeneratedSeries();if(!series)return;
- const renderOne=function(canvasId,personal,team,valueId,moveId,metaId,kind){
+ const frame=getSeasonFrame(),series=buildGeneratedSeries({frame:frame}),previous=buildGeneratedSeries({frame:previousSeasonFrame()});if(!series)return;
+ const renderOne=function(canvasId,personal,team,previousPersonal,valueId,moveId,metaId,kind){
    destroyChart(canvasId);
    const arr=personal.arr||[],validIdx=arr.map(function(v,i){return n(v)!=null?i:-1}).filter(function(i){return i>=0});
    const latestIdx=validIdx.at(-1),prevIdx=validIdx.length>1?validIdx.at(-2):null;
-   const latest=latestIdx!=null?arr[latestIdx]:null,prev=prevIdx!=null?arr[prevIdx]:null,diff=latest!=null&&prev!=null?latest-prev:null;
+   const latest=latestIdx!=null?arr[latestIdx]:null,prev=prevIdx!=null?arr[prevIdx]:null,prevSeason=(previousPersonal?.arr||[]).filter(function(v){return n(v)!=null}).at(-1)??null;
+   const baseline=prev!=null?prev:prevSeason,diff=latest!=null&&baseline!=null?latest-baseline:null;
    const format=kind==='elo'?function(v){return fmt(v,0)+' ELO'}:function(v){return fmt(v,1)};
    setText(valueId,latest==null?'—':format(latest));
    const move=diff==null?{cls:'neutral',label:'—'}:Math.abs(diff)<.05?{cls:'neutral',label:'→ BEZE ZMĚNY'}:{cls:diff>0?'good':'bad',label:(diff>0?'↑ ZLEPŠENÍ':'↓ ZHORŠENÍ')+' · '+format(Math.abs(diff))};
@@ -3402,12 +3437,12 @@ function renderHomeSeasonCharts(){
      {label:'Týmový průměr',data:team.arr,borderColor:'#94A3B8',borderDash:[2,4],borderWidth:1.5,fill:false,tension:.3,pointRadius:0,spanGaps:true},
      {label:'Trend',data:trendLine,borderColor:'#7C5CFF',borderDash:[6,4],borderWidth:1.7,fill:false,tension:0,pointRadius:0,spanGaps:true}
    ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{label:function(ctx){return ctx.dataset.label+': '+format(ctx.parsed.y)}}}},scales:{x:{ticks:{color:'#91a79b',maxTicksLimit:7,font:{size:8}},grid:{display:false}},y:{ticks:{color:'#91a79b',maxTicksLimit:5,font:{size:8}},grid:{color:'rgba(145,167,155,.07)'}}}}});
-   const first=arr.filter(function(v){return n(v)!=null}).at(0),seasonDelta=latest!=null&&first!=null?latest-first:null;
-   setText(metaId,(seasonDelta==null?'Sezónní vývoj':((seasonDelta>=0?'+':'')+format(seasonDelta)+' od začátku'))+' · týmový průměr + trend · týdenní season model');
+   const first=arr.filter(function(v){return n(v)!=null}).at(0),seasonDelta=latest!=null&&first!=null?latest-first:null,vsPrev=latest!=null&&prevSeason!=null?latest-prevSeason:null;
+   setText(metaId,(seasonDelta==null?'Sezónní vývoj':((seasonDelta>=0?'+':'')+format(seasonDelta)+' od začátku'))+(vsPrev==null?'':(' · vs minulá sezóna '+(vsPrev>=0?'+':'')+format(vsPrev)))+' · týmový průměr + trend');
    const card=document.getElementById(canvasId)?.closest('.home-season-card');if(card){card.classList.remove('trend-good','trend-bad','trend-neutral');card.classList.add('trend-'+move.cls)}
  };
- renderOne('homeSeasonEloChart',series.elo,series.eloTeam,'homeSeasonEloValue','homeSeasonEloMove','homeSeasonEloMeta','elo');
- renderOne('homeSeasonPerfChart',series.perf,series.perfTeam,'homeSeasonPerfValue','homeSeasonPerfMove','homeSeasonPerfMeta','perf');
+ renderOne('homeSeasonEloChart',series.elo,series.eloTeam,previous?.elo,'homeSeasonEloValue','homeSeasonEloMove','homeSeasonEloMeta','elo');
+ renderOne('homeSeasonPerfChart',series.perf,series.perfTeam,previous?.perf,'homeSeasonPerfValue','homeSeasonPerfMove','homeSeasonPerfMeta','perf');
 }
 function renderHomePriority(){
  const d=state.storeCard||{},eff=d.efficiency||{},lp=d.live_personal||{},pr=d.projection||{};
@@ -3458,11 +3493,11 @@ function renderHomePriority(){
  renderEmployeeTeamPulse();
 }
 
-function renderHome(){if(!state.player)return;renderSeasonCountdown();const p=state.player,lb=playerSeasonData(state.worker),sc=performanceScoreFromLatest(p),st=streak(state.history),life=lifetimeProgressFor(state.worker),xp=life.xp,lvl=life.level,within=xp%1000,t=tier(lb.elo);document.body.dataset.tier=t[0];setText('homeName',p.worker);setText('homeTier',t[0]);setText('homeRank','#'+lb.rank);const rankIcon=t[0]==='MASTER'?'💎':t[0]==='GOLD'?'🥇':t[0]==='SILVER'?'🛡️':'🔰';setText('rankCrest',rankIcon);setText('rankHeadline',t[0]==='UNRANKED'?'UNRANKED':t[0]);setText('sElo',lb.elo+' b.');setText('sRank',t[0]==='UNRANKED'?'—':`${t[0]}${lb.status&&lb.status!=='FULL'?' · '+lb.status:''} · #${lb.rank}`);setText('sRankIcon',rankIcon);setText('sPerf',sc==null?'—':fmt(sc,1));setText('sStreak',st);setText('homeLevel','LVL '+lvl);setText('homeXp',within+' / 1000 XP');document.getElementById('xpBar').style.width=(within/10)+'%';setText('seasonMeta',state.team?.labels?.length?('Rank: sezónní ELO · Level: celoživotní XP · '+state.team.labels.length+' týdnů dostupných'):'Aktuální rank · sezónní detail se dopočítá při otevření žebříčku');const rankBar=document.getElementById('rankBar');const rankMin=900,rankMax=1200;const rankPct=Math.min(100,Math.max(0,((lb.elo-rankMin)/(rankMax-rankMin))*100));rankBar.style.width=rankPct+'%';setText('rankProgressText',t[0]==='UNRANKED'?'—':t[0]);setText('rankFrom','');setText('rankTo','');document.querySelectorAll('.rank-rail .rank-stop').forEach((el,i)=>{const min=Number(el.dataset.rankMin||0);el.classList.toggle('active',lb.elo>=min);el.classList.toggle('current',(i===0&&lb.elo<1000)||(i===1&&lb.elo>=1000&&lb.elo<1100)||(i===2&&lb.elo>=1100&&lb.elo<1200)||(i===3&&lb.elo>=1200));});const b=badges(state.worker);document.getElementById('badgeList').innerHTML=b.map(x=>`<span class="badge" data-emoji="${esc(x[0])}" data-title="${esc(x[1])}" title="${esc(x[1])}">${x[0]} ${esc(x[1])}</span>`).join('')||'<span class="empty-badges">Zatím žádné sezónní odznaky</span>';renderQuests();renderHomeScanStrip();renderHomeBreakdown();renderAchievements();renderStoreCardLive();renderStoreQuests().catch(e=>{console.warn('store quests',e);const b=document.getElementById('homeStoreQuestList');if(b)b.innerHTML='<div class=\"notice error\">Store Challenges se nepodařilo načíst.</div>';});animateWidth('xpBar',within/10,850);const rankPct2=Math.min(100,Math.max(0,((lb.elo-900)/(1200-900))*100));animateWidth('rankBar',rankPct2,1000);animateCards('badgeList');animateCards('homeQuestList');animateCards('homeStoreQuestList');renderHomePriority()}
+function renderHome(){if(!state.player)return;renderSeasonCountdown();const p=state.player,lb=playerSeasonData(state.worker),sc=performanceScoreFromLatest(p),st=streak(currentSeasonHistory()||state.history),life=lifetimeProgressFor(state.worker),xp=life.xp,lvl=life.level,within=xp%1000,t=tier(lb.elo);document.body.dataset.tier=t[0];setText('homeName',p.worker);setText('homeTier',t[0]);setText('homeRank','#'+lb.rank);const rankIcon=t[0]==='MASTER'?'💎':t[0]==='GOLD'?'🥇':t[0]==='SILVER'?'🛡️':'🔰';setText('rankCrest',rankIcon);setText('rankHeadline',t[0]==='UNRANKED'?'UNRANKED':t[0]);setText('sElo',lb.elo+' b.');setText('sRank',t[0]==='UNRANKED'?'—':`${t[0]}${lb.status&&lb.status!=='FULL'?' · '+lb.status:''} · #${lb.rank}`);setText('sRankIcon',rankIcon);setText('sPerf',sc==null?'—':fmt(sc,1));setText('sStreak',st);setText('homeLevel','LVL '+lvl);setText('homeXp',within+' / 1000 XP');document.getElementById('xpBar').style.width=(within/10)+'%';const seasonWeeksCount=seasonScopedTeam(state.team)?.labels?.length||currentSeasonWeeks().length;setText('seasonMeta',seasonWeeksCount?('Rank: aktuální sezóna · Level: celoživotní XP · '+seasonWeeksCount+' týdnů v sezóně'):'Aktuální rank · sezónní detail se dopočítá při otevření žebříčku');const rankBar=document.getElementById('rankBar');const rankMin=900,rankMax=1200;const rankPct=Math.min(100,Math.max(0,((lb.elo-rankMin)/(rankMax-rankMin))*100));rankBar.style.width=rankPct+'%';setText('rankProgressText',t[0]==='UNRANKED'?'—':t[0]);setText('rankFrom','');setText('rankTo','');document.querySelectorAll('.rank-rail .rank-stop').forEach((el,i)=>{const min=Number(el.dataset.rankMin||0);el.classList.toggle('active',lb.elo>=min);el.classList.toggle('current',(i===0&&lb.elo<1000)||(i===1&&lb.elo>=1000&&lb.elo<1100)||(i===2&&lb.elo>=1100&&lb.elo<1200)||(i===3&&lb.elo>=1200));});const b=badges(state.worker);document.getElementById('badgeList').innerHTML=b.map(x=>`<span class="badge" data-emoji="${esc(x[0])}" data-title="${esc(x[1])}" title="${esc(x[1])}">${x[0]} ${esc(x[1])}</span>`).join('')||'<span class="empty-badges">Zatím žádné sezónní odznaky</span>';renderQuests();renderHomeScanStrip();renderHomeBreakdown();renderAchievements();renderStoreCardLive();renderStoreQuests().catch(e=>{console.warn('store quests',e);const b=document.getElementById('homeStoreQuestList');if(b)b.innerHTML='<div class=\"notice error\">Store Challenges se nepodařilo načíst.</div>';});animateWidth('xpBar',within/10,850);const rankPct2=Math.min(100,Math.max(0,((lb.elo-900)/(1200-900))*100));animateWidth('rankBar',rankPct2,1000);animateCards('badgeList');animateCards('homeQuestList');animateCards('homeStoreQuestList');renderHomePriority()}
 function seasonMetricPoints(name,mine,teamValues){ return seasonMetricContribution(name,mine,teamValues); }
 function getMetricValFromWeek(week,aliases){const defs=state.history?.metricDefinitions||[];for(const a of aliases.map(norm)){const d=defs.find(x=>norm(x.name)===a||norm(x.name).includes(a));if(d&&week?.metrics?.[d.key]?.value!=null)return {value:normalizeMetricValue(week.metrics[d.key].value,d.name),name:d.name};}return null}
 function questDefsForWeek(week){
-  const weeks=state.history?.weeks||[];
+  const weeks=currentSeasonWeeks();
   const idx=Math.max(0,weeks.indexOf(week));
   const prev=idx>0?weeks[idx-1]:null;
   const pick=getMetricValFromWeek(week,['Avg Picking Time','Picking Time']);
@@ -3792,7 +3827,7 @@ let homeQuestMode='active';
 let homeStoreQuestMode='active';
 function renderHomeQuests(){
   const box=document.getElementById('homeQuestList'); if(!box)return;
-  const weeks=state.history?.weeks||[]; if(!weeks.length){box.innerHTML='<div class="notice">Čeká se na historii.</div>';return;}
+  const weeks=currentSeasonWeeks(); if(!weeks.length){box.innerHTML='<div class="notice">Čeká se na historii.</div>';return;}
   const current=questDefsForWeek(weeks.at(-1));
   let items=current;
   if(homeQuestMode==='history'){
@@ -3832,16 +3867,17 @@ function renderSeasonHistory(){
 function renderHomeBreakdown(){
  const tb=document.getElementById('homeBreakdown');if(!tb)return;
  if(!state.team?.people?.[state.worker]){tb.innerHTML='<tr><td colspan="4" style="color:var(--muted)">Detail se načte po otevření Žebříčku.</td></tr>';return;}
- const p=state.team.people[state.worker],defs=state.team.headers||[];
+ const scoped=seasonScopedTeam(state.team),p=scoped?.people?.[state.worker],defs=scoped?.headers||[];
+ if(!p){tb.innerHTML='<tr><td colspan="4" style="color:var(--muted)">V aktuální sezóně zatím nejsou data.</td></tr>';return;}
  const metricDefs=defs.map((name,index)=>({name,index})).filter(d=>!isIgnored(d.name));
  const rows=[];
  let totalWeight=0;
  const scored=[];
  metricDefs.forEach(d=>{
-   const vals=(p.history[d.index]||[]).slice(-13).map(v=>normalizeMetricValue(v,d.name)).filter(v=>n(v)!=null);
+   const vals=(p.history[d.index]||[]).map(v=>normalizeMetricValue(v,d.name)).filter(v=>n(v)!=null);
    if(!vals.length)return;
    const avg=vals.reduce((a,b)=>a+b,0)/vals.length;
-   const teamVals=Object.values(state.team.people||{}).map(pp=>(pp.history[d.index]||[]).slice(-13).map(v=>normalizeMetricValue(v,d.name)).filter(v=>n(v)!=null)).flat();
+   const teamVals=Object.values(scoped.people||{}).map(pp=>(pp.history[d.index]||[]).map(v=>normalizeMetricValue(v,d.name)).filter(v=>n(v)!=null)).flat();
    const teamAvg=teamVals.length?teamVals.reduce((a,b)=>a+b,0)/teamVals.length:null;
    const weight=eloMetricWeight(d.name),pts=seasonMetricWeightedPoints(d.name,avg,teamVals);
    scored.push({d,avg,teamAvg,weight,pts});
@@ -3857,8 +3893,9 @@ function renderHomeBreakdown(){
  renderSeasonHistory();
 }
 function renderQuests(){
- const pick=metricBy(state.player,['Avg Picking Time']),scan=metricBy(state.player,['Items Picked Via Scanner Ratio']),mi=metricBy(state.player,['Missing Incorrect Items Rate']);
- const pickVal=pick?normalizeMetricValue(pick.value,pick.name):null,scanVal=scan?normalizeMetricValue(scan.value,scan.name):null,miVal=mi?normalizeMetricValue(mi.value,mi.name):null;
+ const seasonWeeks=currentSeasonWeeks(),week=seasonWeeks.at(-1)||null;
+ const pick=week?getMetricValFromWeek(week,['Avg Picking Time','Picking Time']):null,scan=week?getMetricValFromWeek(week,['Items Picked Via Scanner Ratio','Scanner Ratio']):null,mi=week?getMetricValFromWeek(week,['Missing Incorrect Items Rate','Missing Incorrect']):null;
+ const pickVal=pick?.value??null,scanVal=scan?.value??null,miVal=mi?.value??null;
  const weekly=[
   {icon:'⚡',title:'Speedrun',reward:'EPIC · +250 XP',display:pick?formatNormVal(pick.value,pick.name):'—',target:'Cíl: ≤ 2,57 min',pct:Number.isFinite(pickVal)?Math.min(100,Math.max(0,2.57/Math.max(pickVal,.000001)*100)):0,done:Number.isFinite(pickVal)&&pickVal<=2.57,status:Number.isFinite(pickVal)?(pickVal<=2.57?'Splněno ✓':('Nad cílem o '+fmt(pickVal-2.57,2)+' min')):'Čeká na data',tone:Number.isFinite(pickVal)?(pickVal<=2.57?'good':pickVal<=3?'warn':'bad'):'neutral'},
   {icon:'📱',title:'Perfect Scan',reward:'RARE · +180 XP',display:scan?formatNormVal(scan.value,scan.name):'—',target:'Cíl: ≥ 98 %',pct:Number.isFinite(scanVal)?Math.min(100,Math.max(0,scanVal/98*100)):0,done:Number.isFinite(scanVal)&&scanVal>=98,status:Number.isFinite(scanVal)?(scanVal>=98?'Splněno ✓':('Chybí '+fmt(98-scanVal,1)+' p. b.')):'Čeká na data',tone:Number.isFinite(scanVal)?(scanVal>=98?'good':scanVal>=95?'warn':'bad'):'neutral'},
@@ -3913,26 +3950,38 @@ function teamPerformanceScoreAt(team,defs,weekIndex){
   });
   return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;
 }
-function buildGeneratedSeries(){
-  const hs=state.history, team=state.team;
+function buildGeneratedSeries(opts={}){
+  const hs=state.history,team=state.team;
   if(!hs?.weeks?.length)return null;
-  const labels=hs.weeks.map(w=>w.week.label);
-  const spans=historyWeekSpans(hs);
-  const personalPerf=hs.weeks.map(w=>performanceScoreFromWeek(w,hs.metricDefinitions||[]));
-  const teamPerf=hs.weeks.map((_,i)=>teamPerformanceScoreAt(team,hs.metricDefinitions||[],i));
-  let eloPersonal=[],eloTeam=[];
+  const labels=hs.weeks.map(function(w){return w.week.label}),spans=historyWeekSpans(hs),frame=opts.frame||null;
+  const frameIdx=frame?indicesForDateWindow(labels,hs.weekMeta||null,frame.start,frame.end):null;
+  const firstIdx=frameIdx?.length?frameIdx[0]:0;
+  const personalPerf=hs.weeks.map(function(w){return performanceScoreFromWeek(w,hs.metricDefinitions||[])});
+  const teamPerf=hs.weeks.map(function(_,i){return teamPerformanceScoreAt(team,hs.metricDefinitions||[],i)});
+  const eloPersonal=Array(labels.length).fill(null),eloTeam=Array(labels.length).fill(null);
   if(team?.people){
-    for(let end=1;end<=labels.length;end++){
-      const prefix={labels:labels.slice(0,end),people:{},headers:team.headers||[]};
-      Object.entries(team.people||{}).forEach(([name,person])=>{prefix.people[name]={history:(person.history||[]).map(h=>(h||[]).slice(0,end))};});
+    const ends=frameIdx||labels.map(function(_,i){return i});
+    ends.forEach(function(absIdx){
+      const from=frame?firstIdx:0,to=absIdx+1;
+      const prefix={labels:labels.slice(from,to),people:{},headers:team.headers||[]};
+      Object.entries(team.people||{}).forEach(function(entry){
+        const name=entry[0],person=entry[1];
+        prefix.people[name]={history:(person.history||[]).map(function(h){return(h||[]).slice(from,to)})};
+      });
       const elo=seasonEloFor(prefix);
-      eloPersonal.push(elo[state.worker]??null);
-      const all=Object.values(elo).filter(v=>n(v)!=null);
-      eloTeam.push(all.length?all.reduce((a,b)=>a+b,0)/all.length:null);
-    }
+      eloPersonal[absIdx]=elo[state.worker]??null;
+      const all=Object.values(elo).filter(function(v){return n(v)!=null});
+      eloTeam[absIdx]=all.length?all.reduce(function(a,b){return a+b},0)/all.length:null;
+    });
   }
-  const slice=(arr)=>sliceHistory(arr,labels,'week',spans);
-  return {elo:slice(eloPersonal),eloTeam:slice(eloTeam),perf:slice(personalPerf),perfTeam:slice(teamPerf)};
+  const slice=function(arr){
+    if(frame){
+      const idx=frameIdx||[];
+      return{arr:idx.map(function(i){return arr[i]}),labels:idx.map(function(i){return labels[i]})};
+    }
+    return sliceHistory(arr,labels,'week',spans);
+  };
+  return{elo:slice(eloPersonal),eloTeam:slice(eloTeam),perf:slice(personalPerf),perfTeam:slice(teamPerf)};
 }
 function renderGeneratedTrendCharts(){
   const eloCanvas=document.getElementById('personalEloChart'),perfCanvas=document.getElementById('personalPerfChart');
