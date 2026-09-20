@@ -74,7 +74,7 @@ Deno.serve(async req=>{
     if(!p.period_start||!p.rows.length) return J({error:"No Stock Count rows parsed"},422);
 
     const compact=(s:any)=>norm(String(s||"")).replace(/[^a-z0-9]+/g,"");
-    const isTechnicalIdentity=(s:any)=>{const x=compact(s);return x==="woltmark"||x.startsWith("woltmarketholesovice")};
+    const isTechnicalIdentity=(s:any)=>{const x=compact(s);return x==="woltmark"||x.startsWith("woltmarketholesovice")||x==="nicksch"};
     const technicalRows=p.rows.filter((r:any)=>isTechnicalIdentity(r.alias));
     const candidateRows=p.rows.filter((r:any)=>!isTechnicalIdentity(r.alias));
     const {data:persistentIgnored,error:ignoreErr}=await db.from("ignored_identities").select("normalized_value").eq("source_type","stock_count");
