@@ -843,18 +843,23 @@ document.addEventListener('click',async e=>{
     const total=Number(x.preview.confirmed_bonus_total_czk||0);
     const rules=x.preview.bonus_rules||{},top=rules.top_bonus_czk||[],team=rules.team_bonus||{};
     const cols=team.columns||[],forty=team.forty_h_czk||[],thirty=team.thirty_h_czk||[];
+    const teamBonusExists=team.exists!==false&&x.preview.team_bonus_exists!==false;
     const topText=top.length?top.map(function(v,i){return 'TOP '+(i+1)+' '+Number(v||0).toLocaleString('cs-CZ')+' Kč'}).join(' · '):'TOP pravidla nepřečtena';
-    const teamText=cols.length?cols.map(function(col,i){
-      return esc(col.label||col.key)+' → 40h '+Number(forty[i]||0).toLocaleString('cs-CZ')+' Kč / 30h '+Number(thirty[i]||0).toLocaleString('cs-CZ')+' Kč';
-    }).join('<br>'):'Team Bonus pravidla nepřečtena';
+    const teamText=!teamBonusExists
+      ?'<span class="ok">Team Bonus v tomto měsíci nebyl součástí Store Cardu.</span>'
+      :cols.length?cols.map(function(col,i){
+        return esc(col.label||col.key)+' → 40h '+Number(forty[i]||0).toLocaleString('cs-CZ')+' Kč / 30h '+Number(thirty[i]||0).toLocaleString('cs-CZ')+' Kč';
+      }).join('<br>'):'Team Bonus tabulka existuje, ale pravidla nebyla kompletně přečtena';
     details+='<details class="bulk-details" open><summary>💰 Store Card payouty · '+esc(payouts.length)+' lidí · '+esc(total.toLocaleString('cs-CZ'))+' Kč</summary><div style="margin-top:8px;font-size:12px">'+
       '<div class="ok"><b>Pravidla z tohoto PDF:</b> '+esc(topText)+'</div>'+
       '<div class="muted" style="margin-top:4px">'+teamText+'</div>'+
-      '<div class="muted" style="margin:4px 0 4px">Team effort '+esc(team.team_effort_pct==null?'—':team.team_effort_pct+' %')+' → použitý tier <b>'+esc(team.selected_tier||'—')+'</b> · 40h '+esc(team.selected_40h_czk==null?'—':Number(team.selected_40h_czk).toLocaleString('cs-CZ')+' Kč')+' · 30h '+esc(team.selected_30h_czk==null?'—':Number(team.selected_30h_czk).toLocaleString('cs-CZ')+' Kč')+'</div>'+
+      (teamBonusExists?'<div class="muted" style="margin:4px 0 4px">Team effort '+esc(team.team_effort_pct==null?'—':team.team_effort_pct+' %')+' → použitý tier <b>'+esc(team.selected_tier||'—')+'</b> · 40h '+esc(team.selected_40h_czk==null?'—':Number(team.selected_40h_czk).toLocaleString('cs-CZ')+' Kč')+' · 30h '+esc(team.selected_30h_czk==null?'—':Number(team.selected_30h_czk).toLocaleString('cs-CZ')+' Kč')+'</div>':'<div class="muted" style="margin:4px 0 4px">Team effort '+esc(team.team_effort_pct==null?'—':team.team_effort_pct+' %')+' · bez Team Bonusu v tomto měsíci</div>')+
       '<div class="coverage-meta">Parser bonusů: '+esc(x.preview.reward_parse_source||'layout')+(x.preview.reward_text_diagnostics?' · text match '+esc(x.preview.reward_text_diagnostics.matched_payouts||0)+' lidí':'')+'</div>'+
       (payouts.length?payouts.map(function(p){
         const d=p.payout_decomposition||null;
-        const explain=d?' · TOP '+(d.top_rank||'—')+' '+Number(d.top_bonus_czk||0).toLocaleString('cs-CZ')+' + team '+Number(d.team_bonus_czk||0).toLocaleString('cs-CZ')+' ('+esc(d.hours_band||'')+')':'';
+        const explain=d?(teamBonusExists
+          ?' · TOP '+(d.top_rank||'—')+' '+Number(d.top_bonus_czk||0).toLocaleString('cs-CZ')+' + team '+Number(d.team_bonus_czk||0).toLocaleString('cs-CZ')+' ('+esc(d.hours_band||'')+')'
+          :' · TOP '+(d.top_rank||'—')+' '+Number(d.top_bonus_czk||0).toLocaleString('cs-CZ')):'';
         return '<div><span class="ok">'+esc(p.display_name||p.source_name||'—')+'</span> · <b>'+esc(Number(p.confirmed_bonus_czk||0).toLocaleString('cs-CZ'))+' Kč</b>'+explain+'</div>'
       }).join(''):'<div class="err">Payout tabulka zatím nemá žádné napárované lidi. V12 používá širší jmenný region a kanonické identity; spusť novou analýzu před importem.</div>')+
       '</div></details>';
@@ -914,7 +919,7 @@ document.addEventListener('click',async e=>{
   const [stagedRes,legacyRes]=await Promise.all([
    sb.from('imports').select('id,file_hash,filename,report_type,storage_path,status,parser_version,metadata,created_at').eq('status','staged').order('created_at',{ascending:true}).limit(100),
    sb.from('imports').select('id,file_hash,filename,report_type,storage_path,status,parser_version,metadata,created_at')
-    .eq('status','imported').eq('report_type','store_card_monthly').neq('parser_version','store-card-monthly-v15').order('created_at',{ascending:true}).limit(50)
+    .eq('status','imported').eq('report_type','store_card_monthly').neq('parser_version','store-card-monthly-v16').order('created_at',{ascending:true}).limit(50)
   ]);
   if(stagedRes.error)throw stagedRes.error;if(legacyRes.error)throw legacyRes.error;
   const rows=[...(stagedRes.data||[]),...(legacyRes.data||[])];
@@ -927,7 +932,7 @@ document.addEventListener('click',async e=>{
    let report_type=PARSERS[x.report_type]?x.report_type:(detected||'universal_metrics');
    if(x.parser_version==='universal-fallback-v1'&&detected&&detected!=='universal_metrics')report_type=detected;
    if(x.status==='imported'&&x.parser_version==='store-card-monthly-v2')report_type='store_card_monthly';
-   const payoutReparse=x.status==='imported'&&x.report_type==='store_card_monthly'&&x.parser_version!=='store-card-monthly-v15';
+   const payoutReparse=x.status==='imported'&&x.report_type==='store_card_monthly'&&x.parser_version!=='store-card-monthly-v16';
    loaded.push({
     file:file,hash:x.file_hash,report_type:report_type,import_id:x.id,storage_path:x.storage_path,
     existing:true,skipCommit:x.status==='imported'&&!payoutReparse,legacyReparse:payoutReparse,forceCommit:payoutReparse,state:'staged'
@@ -1103,14 +1108,14 @@ document.addEventListener('click',async e=>{
  }
  function setupCoverage(){
   const card=coverageCard();if(!card)return;
-  card.innerHTML='<div class="coverage-top"><div><h2 style="margin-bottom:4px">Data Coverage <span class="v152-badge">V167</span></h2><p class="muted" style="margin-bottom:0">% = skutečně zapsané časové pokrytí ve zvoleném měsíci. Pod každým zdrojem vidíš i pokrytí typů metrik, historii a staged soubory, které se ještě nepočítají.</p></div><div class="field"><label>Měsíc · detail</label><input id="coverageMonth" type="month" value="'+localMonth()+'"></div></div>'+
+  card.innerHTML='<div class="coverage-top"><div><h2 style="margin-bottom:4px">Data Coverage <span class="v152-badge">V168</span></h2><p class="muted" style="margin-bottom:0">% = skutečně zapsané časové pokrytí ve zvoleném měsíci. Pod každým zdrojem vidíš i pokrytí typů metrik, historii a staged soubory, které se ještě nepočítají.</p></div><div class="field"><label>Měsíc · detail</label><input id="coverageMonth" type="month" value="'+localMonth()+'"></div></div>'+
    '<div style="display:flex;align-items:baseline;gap:10px;margin:14px 0"><span id="coverageOverall" class="coverage-overall">—</span><span id="coverageThrough" class="muted"></span></div><div id="coverageSources"></div>';
   $('#coverageMonth').onchange=loadCoverage;
  }
  function setup(){
   if(window.__datahubV152)return;window.__datahubV152=true;
-  document.title='Performance Arena — Data Hub V167';
-  const small=document.querySelector('.brand small');if(small&&!/V1(?:5[2-9]|6[01])/.test(small.textContent))small.innerHTML+= ' <span class="v152-badge">V167</span>';
+  document.title='Performance Arena — Data Hub V168';
+  const small=document.querySelector('.brand small');if(small&&!/V1(?:5[2-9]|6[01])/.test(small.textContent))small.innerHTML+= ' <span class="v152-badge">V168</span>';
   setupUpload();setupCoverage();renderBatch();
   ensureIdentityPeople().then(renderBatch).catch(function(){});
   sb.auth.onAuthStateChange(function(_event,s){if(s)setTimeout(loadCoverage,50)});
