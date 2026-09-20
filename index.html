@@ -1635,6 +1635,18 @@ html[data-theme="light"] .home-season-card{background:radial-gradient(circle at 
 @media(min-width:1800px){.home-best-metric{padding:9px 10px}.home-best-copy b{font-size:9px}.home-best-copy small{font-size:7.5px}.home-best-metric>strong{font-size:12px}}
 </style>
 
+
+<style id="live-data-impact-v192">
+.home-live-data-impact{display:none;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px;padding:8px 9px;border:1px solid rgba(56,189,248,.19);border-radius:10px;background:linear-gradient(90deg,rgba(56,189,248,.075),rgba(124,92,255,.035));font-size:7.5px;color:#d7e5de}
+.home-live-data-impact.compact{margin-top:7px;padding:6px 8px}
+.home-live-data-impact>span{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}.home-live-data-impact b{font-weight:950;color:#f0fdf4}
+.home-live-data-impact .live-impact-date{color:#7dd3fc;font-weight:1000;letter-spacing:.045em}.home-live-data-impact .live-impact-result{margin-left:auto;color:#c4b5fd;font-weight:900}
+html[data-theme="light"] .home-live-data-impact{color:#334155;background:linear-gradient(90deg,rgba(56,189,248,.08),rgba(124,92,255,.035))}
+html[data-theme="light"] .home-live-data-impact b{color:#0f172a}
+@media(max-width:700px){.home-live-data-impact .live-impact-result{margin-left:0;width:100%}}
+@media(min-width:1800px){.home-live-data-impact{font-size:9px;padding:9px 11px}}
+</style>
+
 </head>
 <body><div class="ambient-particles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
 <div id="loginOverlay">
@@ -1650,7 +1662,7 @@ html[data-theme="light"] .home-season-card{background:radial-gradient(circle at 
 <div class="hidden" id="seasonRecapOverlay"><div class="season-recap-card"><div class="rundown-head"><div><div class="rundown-kicker">NOVÁ SEZÓNA</div><div class="rundown-title" id="seasonRecapTitle">Season Recap</div><div class="rundown-sub" id="seasonRecapSub">Tvoje poslední sezóna</div></div><button aria-label="Zavřít" class="rundown-close" id="seasonRecapClose">×</button></div><div class="season-recap-grid" id="seasonRecapStats"></div><div class="season-recap-section"><h4>🏆 Nejdůležitější výsledky</h4><div class="rundown-list" id="seasonRecapWins"></div></div><div class="season-recap-section"><h4>📈 Posun</h4><div class="rundown-list" id="seasonRecapProgress"></div></div><div class="rundown-actions"><button class="rundown-btn" id="seasonRecapContinue">Jdeme na novou sezónu</button></div></div></div>
 <div class="hidden" id="rundownOverlay"><div class="rundown-card"><div class="rundown-head"><div><div class="rundown-kicker">Tvoje poslední výsledky</div><div class="rundown-title" id="rundownTitle">Dobrá práce.</div><div class="rundown-sub" id="rundownSub">Rychlé shrnutí toho, co se ti povedlo.</div></div><button aria-label="Zavřít" class="rundown-close" id="rundownClose">×</button></div><div class="rundown-grid" id="rundownStats"></div><div class="rundown-section"><h4>🔥 Co se ti povedlo</h4><div class="rundown-list" id="rundownWins"></div></div><div class="rundown-section"><h4>🏆 Co jsi odemkl</h4><div class="rundown-achievements" id="rundownAchievements"></div></div><div class="rundown-section"><h4>🎯 Na čem můžeš ještě zabrat</h4><div class="rundown-list" id="rundownFocus"></div></div><div class="rundown-actions"><button class="rundown-btn" id="rundownContinue">Pokračovat do profilu</button></div></div></div>
 <div class="shell">
-<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V191</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
+<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V192</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
 <div class="layout">
 <aside class="sidebar">
 <div class="label" id="profileLabel">Profil</div><select class="select" id="workerSelect"></select>
@@ -1739,6 +1751,7 @@ html[data-theme="light"] .home-season-card{background:radial-gradient(circle at 
         <span><small>Team effort</small><b id="homeScoreTeamEffort">—</b></span>
         <span><small>Coverage</small><b id="homeScoreCoverage">—</b></span>
       </div>
+      <div class="home-live-data-impact" id="homeLatestDataImpact"></div>
       <div class="home-score-progress"><div class="home-score-progress-track"><span id="homeScoreProgressBar" style="width:0%"></span><i id="homeScoreThresholdMark" style="left:64.7%"></i></div><div class="home-score-progress-copy"><span>0</span><strong id="homeScoreThresholdText">threshold 11 b.</strong><span>17</span></div></div>
       <div class="home-score-next"><span>NEJBLIŽŠÍ POSUN</span><strong id="homeScoreNextStep">Čekám na live data…</strong></div>
       <div class="home-score-actions"><button class="tool home-primary-action" onclick="openPage('bonuses')">Otevřít Score Card</button><button class="tool" onclick="openPage('leaderboard')">Žebříček</button></div>
@@ -1778,6 +1791,7 @@ html[data-theme="light"] .home-season-card{background:radial-gradient(circle at 
       <button class="home-momentum-preset" data-home-momentum="inbound" onclick="renderHomeMomentum('inbound')">Inbound</button>
     </div>
     <div class="home-momentum-value-row"><strong id="homeMomentumValue">—</strong><span class="home-trend-move neutral" id="homeMomentumMovement">—</span><span id="homeMomentumExplain">Načítám trend…</span></div>
+    <div class="home-live-data-impact compact" id="homeMomentumDailyImpact"></div>
     <div class="home-momentum-chart"><canvas id="homeMomentumChart"></canvas></div>
   </section>
   <section class="panel home-leaderboard-panel">
@@ -2322,6 +2336,7 @@ function checkSeasonTransition(){
 }
 
 const storeCardCache=new Map();
+let liveArenaRefreshAt=0;
 function czk(v){if(v===null||v===undefined||v==='')return'—';const n=Number(v);return Number.isFinite(n)?new Intl.NumberFormat('cs-CZ',{style:'currency',currency:'CZK',maximumFractionDigits:0}).format(n):'—'}
 function liveFmt(v,kind='number'){if(v===null||v===undefined||v==='')return'—';const n=Number(v);if(!Number.isFinite(n))return'—';if(kind==='percent')return n.toLocaleString('cs-CZ',{maximumFractionDigits:2})+' %';if(kind==='int'||kind==='count')return Math.round(n).toLocaleString('cs-CZ');if(kind==='points')return n.toLocaleString('cs-CZ',{maximumFractionDigits:2})+' b.';return n.toLocaleString('cs-CZ',{maximumFractionDigits:2})}
 async function loadStoreCardLive(worker,opts={}){
@@ -2410,6 +2425,23 @@ async function unifiedTeamMetric(metricId,requested='auto'){
  const labels=[...keys].sort(),people={};for(const [name,m] of merged)people[name]={history:labels.map(k=>m.has(k)?m.get(k):null)};
  return {metric:def.label,metric_id:metricId,granularity:'week',labels,people,def};
 }
+
+async function refreshLiveArenaIfStale(force=false){
+ const now=Date.now();
+ if(!state.worker)return null;
+ if(!force&&now-liveArenaRefreshAt<60000)return state.storeCard;
+ liveArenaRefreshAt=now;
+ const jobs=[
+   loadStoreCardLive(state.worker,{force:true}),
+   loadUnifiedArenaData(true).catch(function(e){console.warn('Unified live refresh',e);return null})
+ ];
+ const out=await Promise.all(jobs);
+ if(out[0])state.storeCard=out[0];
+ renderStoreCardLive();
+ renderHome();
+ if(loginRole==='admin')renderAdminDashboard();
+ return state.storeCard;
+}
 function enhancedFmt(v,unit){
  if(v===null||v===undefined||v==='')return'—';
  if(unit==='percent')return liveFmt(v,'percent');
@@ -2423,6 +2455,73 @@ function enhancedKpi(label,value,unit='number',sub=''){
  return '<div class="metric-card unified-static-card"><div class="metric-top"><div class="metric-title">'+esc(label)+'</div></div><div class="metric-main">'+esc(enhancedFmt(value,unit))+'</div>'+(sub?'<div class="metric-sub">'+esc(sub)+'</div>':'<div class="metric-sub">aktuální období</div>')+'</div>';
 }
 
+
+function shortDataDate(iso){
+ const m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+ return m?(Number(m[3])+'. '+Number(m[2])+'.'):String(iso||'—');
+}
+function dailySeriesPoint(ids,date){
+ const all=state.storeCard?.daily_metric_series||[];
+ for(const id of ids||[]){
+   const series=all.find(function(x){return String(x.metric_id||'')===id});
+   if(!series)continue;
+   if(date){
+     const i=(series.labels||[]).indexOf(date),v=i>=0?Number(series.values?.[i]):NaN;
+     if(Number.isFinite(v))return{value:v,series:series,date:date};
+   }else{
+     for(let i=(series.labels||[]).length-1;i>=0;i--){
+       const v=Number(series.values?.[i]);
+       if(Number.isFinite(v))return{value:v,series:series,date:String(series.labels[i])};
+     }
+   }
+ }
+ return null;
+}
+function latestDailyPickingImpact(){
+ const d=state.storeCard||{},lp=d.live_personal||{},pr=d.projection||{};
+ const importDate=pr.latest_import?.report_type==='daily_picking'?(pr.latest_import.period_end||pr.latest_import.period_start):null;
+ const date=lp.daily_picking_through||importDate||dailySeriesPoint(['outbound_orders','daily_picking_app_task_count'])?.date||null;
+ if(!date)return null;
+ const get=function(ids){return dailySeriesPoint(ids,date)?.value??null};
+ const x={
+   date,
+   orders:get(['outbound_orders','daily_picking_app_task_count']),
+   units:get(['outbound_units_picked','daily_items_picked_count','daily_item_count_total']),
+   scanner:get(['daily_items_picked_via_scanner_ratio']),
+   undelivered:get(['daily_undelivered_items_ratio']),
+   accepted:get(['daily_avg_accepted_time']),
+   collection:get(['daily_avg_collection_time']),
+   startCollection:get(['daily_avg_start_collection_time'])
+ };
+ x.hasPersonal=[x.orders,x.units,x.scanner,x.undelivered,x.accepted,x.collection,x.startCollection].some(function(v){return v!=null&&Number.isFinite(Number(v))});
+ return x;
+}
+function storeCardMovementPlain(pr){
+ if(!pr?.movement_available)return'';
+ const rd=Number(pr.rank_delta),pd=Number(pr.points_delta);
+ if(!Number.isFinite(rd))return'';
+ const pts=Number.isFinite(pd)?((pd>0?'+':'')+fmt(pd,1)+' b.'):'body —';
+ if(rd===0&&(!Number.isFinite(pd)||Math.abs(pd)<.001))return'body i pořadí beze změny';
+ if(rd===0)return'pořadí beze změny · '+pts;
+ return(rd>0?'pořadí +'+rd:'pořadí '+rd)+' · '+pts;
+}
+function dailyImpactHtml(impact,mode){
+ if(!impact||!impact.hasPersonal)return'';
+ const chips=['<span class="live-impact-date">● DATA '+esc(shortDataDate(impact.date))+'</span>'];
+ const add=function(label,value,kind){
+   if(value==null||!Number.isFinite(Number(value)))return;
+   let txt='';
+   if(kind==='count')txt='+'+Math.round(Number(value)).toLocaleString('cs-CZ');
+   else if(kind==='percent')txt=fmt(Number(value),2)+' %';
+   else if(kind==='minutes')txt=fmt(Number(value),2)+' min';
+   else txt=fmt(Number(value),2);
+   chips.push('<span><b>'+esc(label)+'</b> '+esc(txt)+'</span>');
+ };
+ if(mode==='output'||mode==='full'){add('Orders',impact.orders,'count');add('Units',impact.units,'count')}
+ if(mode==='quality'||mode==='full'){add('Scanner',impact.scanner,'percent');add('Undelivered',impact.undelivered,'percent')}
+ if(mode==='efficiency'||mode==='full'){add('Accepted',impact.accepted,'minutes');add('Collection',impact.collection,'minutes')}
+ return chips.join('');
+}
 function projectionBonusText(p){
  if(!p)return'—';
  if(p.projected_bonus_czk!=null)return czk(p.projected_bonus_czk);
@@ -2464,7 +2563,8 @@ function storeCardImportLabel(pr){
  if(!imp)return'';
  const type=String(imp.report_type||'').replaceAll('_',' ');
  const base=pr?.movement_available?'Pohyb proti předchozímu snapshotu':'Baseline uložená · šipky se objeví po dalším relevantním uploadu';
- return'<div class="sc-import-note"><strong>'+esc(base)+'</strong> · poslední vstup: '+esc(type)+(imp.filename?' · '+esc(imp.filename):'')+'</div>';
+ const period=imp.period_end||imp.period_start;
+ return'<div class="sc-import-note"><strong>'+esc(base)+'</strong> · poslední vstup: '+esc(type)+(period?' · '+esc(shortDataDate(period)):'')+(imp.filename?' · '+esc(imp.filename):'')+'</div>';
 }
 const STORE_CARD_COMPONENT_META={
  orders:{label:'Orders',unit:'count'},units:{label:'Total Units',unit:'count'},
@@ -2721,7 +2821,8 @@ function renderStoreCardLive(){
  const pr=d.projection||{};setText('storeCardCoverage',pr.projected_points!=null?(liveFmt(pr.projected_points,'points')+' · #'+(pr.projected_rank||'—')):(lp.coverage_total?((lp.coverage_count||0)+' / '+lp.coverage_total):'—'));
  setText('storeCardOfficialPoints',d.latest_official_points?.value!=null?(liveFmt(d.latest_official_points.value,'points')):'—');
  setText('storeCardOfficialPeriod',d.latest_official_points?.period_start||'uzavřený měsíc');
- if(meta)meta.textContent=(lp.month||'Aktuální měsíc')+' · data do '+(lp.through||'—')+' · '+(lp.coverage_percent??0)+' % Store Card vstupů';
+ const actualThrough=lp.daily_picking_through||lp.data_through||lp.through||'—';
+ if(meta)meta.textContent=(lp.month||'Aktuální měsíc')+' · data do '+shortDataDate(actualThrough)+' · '+(lp.coverage_percent??0)+' % Store Card vstupů';
 
  const personal=[
   ['Orders',lp.orders_picked,'int'],['Units',lp.total_units_picked,'int'],['Missing',lp.missing_items_ratio,'percent'],
@@ -2731,7 +2832,8 @@ function renderStoreCardLive(){
  const pg=document.getElementById('storeCardPersonalLive');
  if(pg)pg.innerHTML=personal.map(([k,v,t])=>'<div class="storecard-live-kpi"><span>'+esc(k)+'</span><strong>'+esc(liveFmt(v,t))+'</strong></div>').join('');
  const note=document.getElementById('storeCardProjectionNote');
- if(note)note.textContent=pr.projected_points!=null?('Odhad: '+liveFmt(pr.projected_points,'points')+' · #'+(pr.projected_rank||'—')+' · '+projectionBonusText(pr)+' · confidence '+(pr.confidence_percent??0)+' %. Finální je až měsíční Store Card.'):'Projection zatím čeká na dostatek dat.';
+ const latestImpact=latestDailyPickingImpact(),movementPlain=storeCardMovementPlain(pr);
+ if(note)note.textContent=pr.projected_points!=null?('Odhad: '+liveFmt(pr.projected_points,'points')+' · #'+(pr.projected_rank||'—')+' · '+projectionBonusText(pr)+' · confidence '+(pr.confidence_percent??0)+' %.'+(latestImpact?.hasPersonal?' Daily Picking '+shortDataDate(latestImpact.date)+' započítán'+(movementPlain?' · '+movementPlain:'')+'.':'')+' Finální je až měsíční Store Card.'):'Projection zatím čeká na dostatek dat.';
 
  // Store live MTD.
  const sg=document.getElementById('storeCardStoreLive');
@@ -2775,7 +2877,7 @@ function renderStoreCardLive(){
   bl.innerHTML=items.map(x=>enhancedKpi(x[0],x[1],x[2])).join('');
  }
  const bp=document.getElementById('bonusProjectionText');
- if(bp)bp.textContent=pr.projected_points!=null?('Průběžně '+liveFmt(pr.projected_points,'points')+' · #'+(pr.projected_rank||'—')+' · bonus '+projectionBonusText(pr)+'. Odhad používá live Data Hub; finální částku potvrzuje uzávěrka.'):'Na projekci zatím není dost dat.';
+ if(bp)bp.textContent=pr.projected_points!=null?('Průběžně '+liveFmt(pr.projected_points,'points')+' · #'+(pr.projected_rank||'—')+' · bonus '+projectionBonusText(pr)+'.'+(latestImpact?.hasPersonal?' Poslední Daily Picking '+shortDataDate(latestImpact.date)+' je započítaný'+(movementPlain?' · '+movementPlain:'')+'.':'')+' Finální částku potvrzuje uzávěrka.'):'Na projekci zatím není dost dat.';
  setText('bonusProjectedPoints',pr.projected_points!=null?liveFmt(pr.projected_points,'points'):'—');
  setText('bonusProjectedRank',pr.projected_rank?(storeCardRankLabel(pr.projected_rank)):'—');
  const moveText=storeCardMovementText(pr);
@@ -3071,7 +3173,7 @@ function homeMomentumSeries(key){
  };
  const spec=specs[key]||specs.efficiency,series=homeKpiSeries(spec);
  if(!series)return null;
- return {...series,team_values:homeTeamAverageSeries(spec,series.labels||[])};
+ return {...series,team_values:homeTeamAverageSeries(spec,series.labels||[]),home_key:key};
 }
 function homeTrendMovement(diff,lower,unit){
  if(diff==null||!Number.isFinite(Number(diff)))return{cls:'neutral',label:'—',detail:'Zatím jen jeden dostupný bod.'};
@@ -3093,6 +3195,7 @@ function renderHomeMomentum(preset){
  if(!srs){
    setText('homeMomentumValue','—');setText('homeMomentumExplain','Pro tento pohled zatím nejsou data.');
    const badge=document.getElementById('homeMomentumMovement');if(badge){badge.className='home-trend-move neutral';badge.textContent='—'}
+   const dailyHost=document.getElementById('homeMomentumDailyImpact');if(dailyHost){dailyHost.innerHTML='';dailyHost.style.display='none'}
    destroyChart('homeMomentumChart');return;
  }
  destroyChart('homeMomentumChart');
@@ -3113,8 +3216,16 @@ function renderHomeMomentum(preset){
   {label:'Trend',data:regressionLine(values),borderColor:'#7C5CFF',borderDash:[6,4],borderWidth:1.8,fill:false,tension:0,pointRadius:0,spanGaps:true}
  ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#91a79b',maxTicksLimit:8}},y:{ticks:{color:'#91a79b'}}}}});
  setText('homeMomentumValue',enhancedFmt(latest,srs.unit));
- setText('homeMomentumMeta',srs.label+' · týdně · '+(srs.source_mode||'Data Hub'));
- setText('homeMomentumExplain',move.detail);
+ const impact=latestDailyPickingImpact(),dailyHost=document.getElementById('homeMomentumDailyImpact');
+ const dailyMode=srs.home_key==='output'?'output':srs.home_key==='quality'?'quality':srs.home_key==='efficiency'?'efficiency':null;
+ if(dailyHost){
+   dailyHost.innerHTML=dailyMode&&impact?.hasPersonal?dailyImpactHtml(impact,dailyMode):'';
+   dailyHost.style.display=dailyHost.innerHTML?'flex':'none';
+ }
+ const freshText=dailyMode&&impact?.hasPersonal?(' · Daily do '+shortDataDate(impact.date)):'';
+ setText('homeMomentumMeta',srs.label+' · týdně · '+(srs.source_mode||'Data Hub')+freshText);
+ setText('homeMomentumExplain',move.detail+(dailyMode&&impact?.hasPersonal?' · poslední den je v LIVE stripu':''));
+
  const badge=document.getElementById('homeMomentumMovement');if(badge){badge.className='home-trend-move '+move.cls;badge.textContent=move.label}
  const panel=canvas.closest('.home-momentum-panel');if(panel){panel.classList.remove('trend-good','trend-bad','trend-neutral');panel.classList.add('trend-'+move.cls)}
 }
@@ -3175,7 +3286,10 @@ function renderHomeKpiTrend(spec){
  const diff=latest!=null&&prev!=null?latest-prev:null;
  const movement=homeTrendMovement(diff,spec.lower,series.unit);
  if(moveEl){moveEl.textContent=movement.label;moveEl.className='home-trend-move '+movement.cls}
- if(metaEl)metaEl.textContent=spec.targetCopy+' · '+(series.source_mode||'Data Hub')+' · vs minulý týden';
+ if(metaEl){
+   const fresh=spec.dailyIds?.length?dailySeriesPoint(spec.dailyIds):null;
+   metaEl.textContent=spec.targetCopy+' · '+(series.source_mode||'Data Hub')+(fresh?' · daily do '+shortDataDate(fresh.date):' · týdenní zdroj')+' · vs minulý týden';
+ }
  const card=canvas.closest('.home-kpi-trend-card');if(card){card.classList.remove('trend-good','trend-bad','trend-neutral');card.classList.add('trend-'+movement.cls)}
  const rawLabels=series.labels||[];
  const labels=Array.isArray(series.display_labels)&&series.display_labels.length===rawLabels.length
@@ -3195,7 +3309,7 @@ function renderHomeKpiTrends(){
  const specs=[
   {canvasId:'homeKpiPofrChart',valueId:'homeKpiPofrValue',statusId:'homeKpiPofrStatus',metaId:'homeKpiPofrMeta',moveId:'homeKpiPofrMove',ids:['perfect_order_fulfilment_ratio','pofr'],tests:['perfect order fulfilment','perfect order fulfillment','pofr'],target:98,lower:false,unit:'percent',targetCopy:'Cíl ≥ 98 %'},
   {canvasId:'homeKpiMissingChart',valueId:'homeKpiMissingValue',statusId:'homeKpiMissingStatus',metaId:'homeKpiMissingMeta',moveId:'homeKpiMissingMove',ids:['missing_incorrect_items_rate','missing_items_ratio'],tests:['missing incorrect','missing items'],target:.34,lower:true,unit:'percent',targetCopy:'Cíl ≤ 0,34 %'},
-  {canvasId:'homeKpiScannerChart',valueId:'homeKpiScannerValue',statusId:'homeKpiScannerStatus',metaId:'homeKpiScannerMeta',moveId:'homeKpiScannerMove',ids:['items_picked_via_scanner_ratio','daily_items_picked_via_scanner_ratio','scan_to_pick_ratio'],tests:['scanner ratio','scan to pick','picked via scanner'],target:98,lower:false,unit:'percent',targetCopy:'Cíl ≥ 98 %'},
+  {canvasId:'homeKpiScannerChart',valueId:'homeKpiScannerValue',statusId:'homeKpiScannerStatus',metaId:'homeKpiScannerMeta',moveId:'homeKpiScannerMove',ids:['daily_items_picked_via_scanner_ratio','items_picked_via_scanner_ratio','scan_to_pick_ratio'],dailyIds:['daily_items_picked_via_scanner_ratio'],tests:['scanner ratio','scan to pick','picked via scanner'],target:98,lower:false,unit:'percent',targetCopy:'Cíl ≥ 98 %'},
   {canvasId:'homeKpiPickingChart',valueId:'homeKpiPickingValue',statusId:'homeKpiPickingStatus',metaId:'homeKpiPickingMeta',moveId:'homeKpiPickingMove',ids:['picking_time_per_item','avg_picking_time','daily_avg_picking_time'],tests:['picking time per item','avg picking time','picking time'],target:2.57,lower:true,unit:'minutes',targetCopy:'Cíl ≤ 2,57 min'}
  ];
  specs.forEach(renderHomeKpiTrend);
@@ -3260,7 +3374,7 @@ function renderHomeSeasonCharts(){
      {label:'Trend',data:trendLine,borderColor:'#7C5CFF',borderDash:[6,4],borderWidth:1.7,fill:false,tension:0,pointRadius:0,spanGaps:true}
    ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{label:function(ctx){return ctx.dataset.label+': '+format(ctx.parsed.y)}}}},scales:{x:{ticks:{color:'#91a79b',maxTicksLimit:7,font:{size:8}},grid:{display:false}},y:{ticks:{color:'#91a79b',maxTicksLimit:5,font:{size:8}},grid:{color:'rgba(145,167,155,.07)'}}}}});
    const first=arr.filter(function(v){return n(v)!=null}).at(0),seasonDelta=latest!=null&&first!=null?latest-first:null;
-   setText(metaId,(seasonDelta==null?'Sezónní vývoj':((seasonDelta>=0?'+':'')+format(seasonDelta)+' od začátku'))+' · týmový průměr + trend');
+   setText(metaId,(seasonDelta==null?'Sezónní vývoj':((seasonDelta>=0?'+':'')+format(seasonDelta)+' od začátku'))+' · týmový průměr + trend · týdenní season model');
    const card=document.getElementById(canvasId)?.closest('.home-season-card');if(card){card.classList.remove('trend-good','trend-bad','trend-neutral');card.classList.add('trend-'+move.cls)}
  };
  renderOne('homeSeasonEloChart',series.elo,series.eloTeam,'homeSeasonEloValue','homeSeasonEloMove','homeSeasonEloMeta','elo');
@@ -3282,6 +3396,12 @@ function renderHomePriority(){
  if(Array.isArray(pr.components)&&pr.components.length)next=scBestNextStep(pr.components);
  else if(Number.isFinite(points))next=points>=threshold?'Threshold splněn · teď jde o co nejlepší pořadí.':'K threshold chybí '+fmt(threshold-points,1)+' b.';
  setText('homeScoreNextStep',next);
+ const latestImpactHome=latestDailyPickingImpact(),impactHost=document.getElementById('homeLatestDataImpact');
+ if(impactHost){
+   const movement=storeCardMovementPlain(pr);
+   impactHost.innerHTML=latestImpactHome?.hasPersonal?(dailyImpactHtml(latestImpactHome,'full')+(movement?'<span class="live-impact-result">'+esc(movement)+'</span>':'')):'';
+   impactHost.style.display=impactHost.innerHTML?'flex':'none';
+ }
 
  const orders=Number(eff.orders??lp.orders_picked),units=Number(eff.total_units??lp.total_units_picked);
  setText('homeOutputValue',Number.isFinite(orders)?Math.round(orders).toLocaleString('cs-CZ')+' orders':'—');
@@ -3847,7 +3967,7 @@ function personalHubSeriesForMetric(metricName){
     {tests:['item count total','total units picked'],ids:['outbound_units_picked','item_count_total','daily_item_count_total']},
     {tests:['picking app task count','orders picked','order count'],ids:['outbound_orders','picking_app_task_count','daily_picking_app_task_count']},
     {tests:['inbound total','inbound units','inbound'],ids:['inbound_total_units_live','inbound_normal_units','inbound_units']},
-    {tests:['items picked via scanner ratio','scanner ratio','scan to pick'],ids:['items_picked_via_scanner_ratio','daily_items_picked_via_scanner_ratio']},
+    {tests:['items picked via scanner ratio','scanner ratio','scan to pick'],ids:['daily_items_picked_via_scanner_ratio','items_picked_via_scanner_ratio']},
     {tests:['missing incorrect items rate','missing items rate'],ids:['missing_incorrect_items_rate']},
     {tests:['undelivered items'],ids:['daily_undelivered_items_ratio']},
     {tests:['substitution'],ids:['daily_substitutions_ratio']},
@@ -4500,6 +4620,7 @@ async function loadPlayer(name){
     state.player=data;
     state.worker=data.worker;
     loadStoreCardLive(data.worker).then(sc=>{if(state.worker===data.worker){state.storeCard=sc;renderStoreCardLive();renderHome();renderAchievements();renderQuests();if(loginRole==='admin')renderAdminDashboard();if(document.getElementById('page-personal')?.classList.contains('active')){renderPersonalFriendlySummary();if(state.history)buildMetricCards();}}}).catch(()=>{});
+    loadUnifiedArenaData().then(function(){if(state.worker===data.worker)renderHome()}).catch(function(e){console.warn('Unified Home preload',e)});
     const sel=document.getElementById('workerSelect');
     if(sel)sel.value=data.worker;
     populateCompare();
@@ -4895,7 +5016,7 @@ function renderAdminDashboard(){
  const tb=document.getElementById('adminTeamRows');if(tb)tb.innerHTML=visible.map(function(x){const sc=x.storeCard,scText=sc?(liveFmt(sc.points,'points')+' · #'+sc.rank):'—',statusText=x.status==='attention'?x.misses+' KPI mimo':x.status==='watch'?'1 KPI mimo':'Na cíli';return'<tr class="'+x.status+'" data-admin-person="'+esc(x.name)+'"><td>#'+esc(x.lb.rank)+'</td><td class="admin-person-name"><strong>'+esc(x.name)+'</strong><span>'+esc(x.lb.tier||tier(Number(x.lb.elo)||0)[0])+'</span></td><td><strong>'+esc(x.lb.elo)+' ELO</strong></td><td>'+adminKpiCell(x.metrics.picking)+'</td><td>'+adminKpiCell(x.metrics.scanner)+'</td><td>'+adminKpiCell(x.metrics.missing)+'</td><td>'+adminKpiCell(x.metrics.pofr)+'</td><td>'+esc(scText)+'</td><td><span class="admin-status '+x.status+'">'+statusText+'</span></td></tr>'}).join('')||'<tr><td colspan="9" class="muted">Tomuto filtru neodpovídá žádný zaměstnanec.</td></tr>';
  document.querySelectorAll('#page-admin [data-admin-person]').forEach(function(el){el.onclick=function(){openDetail(el.getAttribute('data-admin-person')).catch(function(e){console.warn(e)})}});
 }
-async function openPage(page){if(loginRole!=='admin'&&(page==='correlation'||page==='admin'))return;document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-'+page).classList.add('active');document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));if(page==='personal'){if(!state.history)state.history=await api('player_history',{worker:state.worker});if(!state.team){try{state.team=await api('team_history')}catch(e){console.warn('team_history for personal average',e)}}buildMetricCards();renderPersonalFriendlySummary();}if(page==='admin'){await ensureTeam();renderAdminDashboard()}if(page==='home'){renderHome(); if(!state.team) ensureTeam().catch(()=>{}); if(!state.storeHistory) ensureStores().catch(()=>{})}if(page==='efficiency'){renderStoreCardLive()}if(page==='bonuses'){try{state.storeCard=await loadStoreCardLive(state.worker,{force:true})}catch(e){console.warn('fresh bonus wallet reload',e)}renderStoreCardLive()}if(page==='achievements'){renderAchievements(); if(!state.team) ensureTeam().catch(()=>{}); if(!state.storeHistory) ensureStores().catch(()=>{})} if(page==='team'){await ensureTeam();await loadUnifiedArenaData();await renderTeam()}if(page==='correlation'){await loadUnifiedArenaData();await renderCorrelation()}if(page==='bottlenecks'){await loadUnifiedArenaData();await renderBottlenecks()}if(page==='leaderboard'){if(state.lbMode==='people'){await ensureTeam();if(state.worker){try{state.storeCard=await loadStoreCardLive(state.worker,{force:true})}catch(e){console.warn('live leaderboard refresh',e)}}}else{await loadUnifiedArenaData();await ensureStores()}state.leaderMetric=null;renderLeaderboard()}if(page==='store'){await loadUnifiedArenaData();await ensureStores();renderStoreCardLive();drawStore();renderStoreQuests().catch(()=>{})}}
+async function openPage(page){if(loginRole!=='admin'&&(page==='correlation'||page==='admin'))return;document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-'+page).classList.add('active');document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));if(page==='personal'){if(!state.history)state.history=await api('player_history',{worker:state.worker});if(!state.team){try{state.team=await api('team_history')}catch(e){console.warn('team_history for personal average',e)}}buildMetricCards();renderPersonalFriendlySummary();}if(page==='admin'){await ensureTeam();renderAdminDashboard()}if(page==='home'){renderHome(); if(!state.team) ensureTeam().catch(()=>{}); if(!state.storeHistory) ensureStores().catch(()=>{}); refreshLiveArenaIfStale(false).catch(function(e){console.warn('Home live refresh',e)})}if(page==='efficiency'){renderStoreCardLive()}if(page==='bonuses'){try{state.storeCard=await loadStoreCardLive(state.worker,{force:true})}catch(e){console.warn('fresh bonus wallet reload',e)}renderStoreCardLive()}if(page==='achievements'){renderAchievements(); if(!state.team) ensureTeam().catch(()=>{}); if(!state.storeHistory) ensureStores().catch(()=>{})} if(page==='team'){await ensureTeam();await loadUnifiedArenaData();await renderTeam()}if(page==='correlation'){await loadUnifiedArenaData();await renderCorrelation()}if(page==='bottlenecks'){await loadUnifiedArenaData();await renderBottlenecks()}if(page==='leaderboard'){if(state.lbMode==='people'){await ensureTeam();if(state.worker){try{state.storeCard=await loadStoreCardLive(state.worker,{force:true})}catch(e){console.warn('live leaderboard refresh',e)}}}else{await loadUnifiedArenaData();await ensureStores()}state.leaderMetric=null;renderLeaderboard()}if(page==='store'){await loadUnifiedArenaData();await ensureStores();renderStoreCardLive();drawStore();renderStoreQuests().catch(()=>{})}}
 
 function syncDateBounds(){const startInput=document.getElementById('personalDateStart'),endInput=document.getElementById('personalDateEnd');if(startInput&&endInput&&state.history?.weeks?.length){const spans=historyWeekSpans(state.history),first=spans[0]?.start,last=spans.at(-1)?.end;if(first){const v=first.toISOString().slice(0,10);startInput.min=v;endInput.min=v}if(last){const v=last.toISOString().slice(0,10);startInput.max=v;endInput.max=v}}}
 function setLoading(stage,progress,tip){const el=document.getElementById('loadingStage'),bar=document.getElementById('loadingProgress'),t=document.getElementById('loadingTip');if(el)el.textContent=stage||'';if(bar)bar.style.width=Math.max(4,Math.min(100,progress||0))+'%';if(t&&tip)t.textContent=tip;}
