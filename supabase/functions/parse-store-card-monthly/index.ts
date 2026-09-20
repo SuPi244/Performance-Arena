@@ -449,7 +449,7 @@ Deno.serve(async req=>{
   };
 
   if(mode==="preview"){
-   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v5",
+   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v6",
     note:"Preview only. Existing identities are resolved by email/picker login. New historical people are shown before commit."});
   }
 
@@ -484,7 +484,7 @@ Deno.serve(async req=>{
      granularity:"month",
      source_type:"store_card_monthly",
      import_id,
-     source_record_key:`store_card:${period.period_start}:${normAlias(p.email)}:${metric_id}`,
+     source_record_key:`mo|store_card_monthly|${p.person_id}|${metric_id}|${period.period_start}|${period.period_end}|month`,
      metadata:{source_email:p.email,picker_login:p.picker_login,display_name:p.display_name,official:true}
     });
    }
@@ -538,7 +538,7 @@ Deno.serve(async req=>{
    team_bonus_30h_czk:rewards.team_bonus_30h,
    source_import_id:import_id,
    status:"official",
-   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v5",filename:imp.filename},
+   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v6",filename:imp.filename},
    updated_at:new Date().toISOString()
   };
   const {error:sce}=await db.from("store_card_months").upsert(monthRow,{onConflict:"month"});
@@ -608,7 +608,7 @@ Deno.serve(async req=>{
    status:"imported",
    period_start:period.period_start,
    period_end:period.period_end,
-   parser_version:"store-card-monthly-v5",
+   parser_version:"store-card-monthly-v6",
    record_count:totalRecords,
    metadata:{
     ...(imp.metadata||{}),
@@ -626,7 +626,7 @@ Deno.serve(async req=>{
    ...common,
    preview:false,
    committed:true,
-   parser_stage:"store-card-monthly-committed-v5",
+   parser_stage:"store-card-monthly-committed-v6",
    observations_attempted:obs.length,
    observations_inserted:obsWritten,
    store_metrics_attempted:storeRows.length,
