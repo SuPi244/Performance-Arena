@@ -220,8 +220,9 @@ async function preflight(db:any,reportType:string,p:any){
     if(!Array.isArray(br.top_bonus_czk)||br.top_bonus_czk.length<5)conflicts.push({
       key:"store-card:top-bonus-rules",label:"TOP 1–5",reason:"Z PDF se nepodařilo spolehlivě přečíst všech 5 TOP bonusů"
     });
-    if(thr.high_min_pct==null||thr.mid_min_pct==null||(tb.forty_h_czk||[]).length<3||(tb.thirty_h_czk||[]).length<3)conflicts.push({
-      key:"store-card:team-bonus-rules",label:"Team Bonus",reason:"Chybí hranice nebo částky 40h/30h z bonusové tabulky"
+    const teamBonusExists=tb.exists!==false&&p.team_bonus_exists!==false;
+    if(teamBonusExists&&(thr.high_min_pct==null||thr.mid_min_pct==null||(tb.forty_h_czk||[]).length<3||(tb.thirty_h_czk||[]).length<3))conflicts.push({
+      key:"store-card:team-bonus-rules",label:"Team Bonus",reason:"Team Bonus tabulka v PDF existuje, ale chybí hranice nebo částky 40h/30h"
     });
     if(!(p.payouts||[]).length)conflicts.push({
       key:"store-card:payout-table",label:"Payout tabulka",reason:"Nebyl spolehlivě napárován ani jeden oficiální payout — commit je blokovaný"
