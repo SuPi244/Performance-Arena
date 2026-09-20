@@ -80,13 +80,14 @@ function txt(row:any,min=-Infinity,max=Infinity){
 function val(row:any,min:number,max:number){
   const s=txt(row,min,max); const m=s.match(/-?\d+(?:[.,]\d+)?%?/); return m?n(m[0]):null;
 }
-function canonicalVenue(raw:string){
-  const c=compact(raw);
+function canonicalVenue(raw:any){
+  const safe=String(raw??"").trim();
+  const c=compact(safe);
   if(c.includes("holesovice"))return {venue:"Wolt Market Holešovice",venue_key:"wolt_market_holesovice"};
   if(c.includes("zizkov"))return {venue:"Wolt Market Žižkov",venue_key:"wolt_market_zizkov"};
   if(c.includes("michle"))return {venue:"Wolt Market Michle",venue_key:"wolt_market_michle"};
   if(c.includes("brnostred"))return {venue:"Wolt Market Brno-střed",venue_key:"wolt_market_brno_stred"};
-  return {venue:raw.replace(/\s+/g," ").trim(),venue_key:norm(raw).replace(/\s+/g,"_")};
+  return {venue:safe.replace(/\s+/g," ").trim(),venue_key:norm(safe).replace(/\s+/g,"_")};
 }
 
 function parsePeople(layout:any[]){
@@ -352,7 +353,7 @@ async function resolvePeople(db:any,people:any[]){
 
 async function ensureHistoricalPeople(db:any,resolved:any[]){
  for(const p of resolved.filter((x:any)=>x.identity_state==="new_historical")){
-  const base="historical-"+slug((p.email||p.picker_login||p.display_name||"person").replace("@","-"));
+  const base="historical-"+slug(String(p.email||p.picker_login||p.display_name||"person").replace("@","-"));
   let key=base||("historical-"+crypto.randomUUID());
   const {data:existing}=await db.from("people").select("id").eq("person_key",key).maybeSingle();
   if(existing?.id)key=key+"-"+crypto.randomUUID().slice(0,8);
@@ -448,7 +449,7 @@ Deno.serve(async req=>{
   };
 
   if(mode==="preview"){
-   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v3",
+   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v4",
     note:"Preview only. Existing identities are resolved by email/picker login. New historical people are shown before commit."});
   }
 
@@ -537,7 +538,7 @@ Deno.serve(async req=>{
    team_bonus_30h_czk:rewards.team_bonus_30h,
    source_import_id:import_id,
    status:"official",
-   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v3",filename:imp.filename},
+   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v4",filename:imp.filename},
    updated_at:new Date().toISOString()
   };
   const {error:sce}=await db.from("store_card_months").upsert(monthRow,{onConflict:"month"});
@@ -581,7 +582,7 @@ Deno.serve(async req=>{
    status:"imported",
    period_start:period.period_start,
    period_end:period.period_end,
-   parser_version:"store-card-monthly-v3",
+   parser_version:"store-card-monthly-v4",
    record_count:totalRecords,
    metadata:{
     ...(imp.metadata||{}),
@@ -599,7 +600,7 @@ Deno.serve(async req=>{
    ...common,
    preview:false,
    committed:true,
-   parser_stage:"store-card-monthly-committed-v3",
+   parser_stage:"store-card-monthly-committed-v4",
    observations_attempted:obs.length,
    observations_inserted:obsWritten,
    store_metrics_attempted:storeRows.length,
