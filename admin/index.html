@@ -852,8 +852,8 @@ document.addEventListener('click',async e=>{
    if(seen.has(x.id))continue;seen.add(x.id);
    if(ext(x.filename)!=='pdf')continue;
    const file={name:x.filename,size:Number(x.metadata&&x.metadata.size||0),type:String(x.metadata&&x.metadata.mime||'application/pdf')};
-   let report_type;
-   try{report_type=supportedReport(file)}catch(_){report_type=PARSERS[x.report_type]?x.report_type:'universal_metrics'}
+   let report_type=PARSERS[x.report_type]?x.report_type:null;
+   if(!report_type){try{report_type=supportedReport(file)}catch(_){report_type='universal_metrics'}}
    if(x.status==='imported'&&x.parser_version==='store-card-monthly-v2')report_type='store_card_monthly';
    loaded.push({
     file:file,hash:x.file_hash,report_type:report_type,import_id:x.id,storage_path:x.storage_path,
