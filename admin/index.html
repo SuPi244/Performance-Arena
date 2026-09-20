@@ -560,6 +560,12 @@ document.addEventListener('click',async e=>{
 .bulk-name{font-weight:800;word-break:break-word}.bulk-type{color:var(--muted);font-size:12px;margin-top:3px}
 .bulk-counts{display:flex;gap:6px;flex-wrap:wrap}.bulk-counts .pill{white-space:nowrap}
 .bulk-details{grid-column:1/-1;margin-top:2px}.bulk-details summary{cursor:pointer;color:var(--muted)}
+.identity-fix{display:grid;grid-template-columns:minmax(140px,.8fr) minmax(180px,1fr) auto;gap:8px;align-items:center;margin:7px 0;padding:8px;border:1px solid #5f4030;border-radius:10px;background:#21150f}
+.identity-fix .identity-alias{font-weight:900;color:#ffcf8d;word-break:break-word}
+.identity-fix select{width:100%;min-width:0}
+.identity-fix button{white-space:nowrap}
+.bulk-steps{display:flex;gap:7px;align-items:center;flex-wrap:wrap}.bulk-step{font-size:11px;font-weight:900;padding:4px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}.bulk-step.active{color:var(--green);border-color:#3f7c61}
+@media(max-width:650px){.identity-fix{grid-template-columns:1fr}.identity-fix button{width:100%}}
 .coverage-top{display:flex;gap:12px;align-items:end;justify-content:space-between;flex-wrap:wrap}
 .coverage-top .field{margin:0;min-width:160px}.coverage-overall{font-size:28px;font-weight:900;color:var(--green)}
 .coverage-source{padding:12px 0;border-bottom:1px solid #1c382d}.coverage-source:last-child{border-bottom:0}
@@ -579,6 +585,7 @@ document.addEventListener('click',async e=>{
  const LABELS={ga_metrics:'GA Metrics',daily_picking:'Daily Picking',inbound:'Inbound',quinyx:'Quinyx',stock_count:'Stock Count',store_metrics:'Store Metrics',team_rating:'Team Rating Form',universal_metrics:'Universal Metric Import'};
  let batch=[];
  let busy=false;
+ let identityPeople=[];
  let xlsxPromise=null;
 
  function localMonth(){
@@ -625,9 +632,10 @@ document.addEventListener('click',async e=>{
  async function sourcePayload(item){
   const e=ext(item.file.name);
   if(item.report_type==='quinyx'){
-   item.layout_json=await extractPdfLayoutClient(item.storage_path);
+   if(!item.layout_json)item.layout_json=await extractPdfLayoutClient(item.storage_path);
    return {layout_json:item.layout_json};
   }
+  if(item.extracted_text)return {extracted_text:item.extracted_text};
   if(e==='pdf'){
    item.extracted_text=await extractPdfClient(item.storage_path);
   }else if(e==='csv'||e==='txt'){
@@ -675,6 +683,45 @@ document.addEventListener('click',async e=>{
   item.state='ready';
   return item;
  }
+ async function ensureIdentityPeople(){
+  if(identityPeople.length)return identityPeople;
+  const out=await status('identity_candidates');
+  identityPeople=(out.people||[]);
+  return identityPeople;
+ }
+ function compactIdentity(v){return String(v||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'')}
+ function suggestedPersonId(alias){
+  const a=compactIdentity(alias),base=a.endsWith('1')?a.slice(0,-1):a;
+  const hit=identityPeople.find(function(p){return compactIdentity(p.display_name)===base||compactIdentity(p.person_key)===base});
+  return hit?hit.id:'';
+ }
+ function identityFixHtml(z,itemIndex){
+  const alias=String(z.label||String(z.key||'').replace(/^identity:/,''));
+  const suggested=suggestedPersonId(alias);
+  const opts=['<option value="">Vyber člověka…</option>'].concat(identityPeople.map(function(p){
+   return '<option value="'+esc(p.id)+'" '+(p.id===suggested?'selected':'')+'>'+esc(p.display_name)+(p.full_name?' — '+esc(p.full_name):'')+(p.active?'':' · inactive')+'</option>';
+  })).join('');
+  return '<div class="identity-fix"><div><div class="identity-alias">'+esc(alias)+'</div><div class="muted">Nerozpoznaná identita</div></div>'+
+    '<select class="identityPerson" data-item="'+itemIndex+'" data-alias="'+encodeURIComponent(alias)+'">'+opts+'</select>'+
+    '<button class="secondary identityConfirm" data-item="'+itemIndex+'" data-alias="'+encodeURIComponent(alias)+'">Potvrdit identitu</button></div>';
+ }
+ async function confirmIdentity(btn){
+  const itemIndex=Number(btn.dataset.item),item=batch[itemIndex],alias=decodeURIComponent(btn.dataset.alias||'');
+  const select=btn.parentElement&&btn.parentElement.querySelector('.identityPerson');
+  const person_id=select&&select.value;
+  if(!item||!alias||!person_id)return msg($('#uploadStatus'),'Vyber člověka, ke kterému identita patří.','err');
+  const old=btn.textContent;btn.disabled=true;btn.textContent='Ukládám…';
+  try{
+   await status('resolve_identity',{alias:alias,person_id:person_id,report_type:item.report_type});
+   item.error=null;item.state='staged';
+   await preview(item);
+   const s=item.preflight&&item.preflight.summary||{};
+   if(item.skipCommit&&Number(s.new||0)===0&&Number(s.changed||0)===0)item.state='duplicate';
+   else if(Number(s.new||0)>0||Number(s.changed||0)>0)item.skipCommit=false;
+   msg($('#uploadStatus'),'Identita potvrzena ✓ Preview souboru bylo přepočítáno.','ok');
+  }catch(e){msg($('#uploadStatus'),'Potvrzení identity selhalo: '+(e.message||e),'err')}
+  finally{btn.disabled=false;btn.textContent=old;renderBatch()}
+ }
  function batchSummary(){
   return batch.reduce(function(a,x){
    const s=x.preflight&&x.preflight.summary||{};
@@ -701,7 +748,7 @@ document.addEventListener('click',async e=>{
     if(changes.length||conf.length||warn.length){
      details='<details class="bulk-details"><summary>Detaily preview</summary><div style="margin-top:8px;font-size:12px">'+
       changes.slice(0,30).map(function(z){return '<div><span class="'+(z.action==='changed'?'warn':'ok')+'">'+esc(z.action)+'</span> · '+esc(z.label||z.key)+'</div>'}).join('')+
-      conf.slice(0,30).map(function(z){return '<div class="err">conflict · '+esc(z.label||z.key)+' · '+esc(z.reason||'')+'</div>'}).join('')+
+      conf.slice(0,30).map(function(z){return String(z.key||'').startsWith('identity:')?identityFixHtml(z,batch.indexOf(x)):'<div class="err">conflict · '+esc(z.label||z.key)+' · '+esc(z.reason||'')+'</div>'}).join('')+
       warn.slice(0,20).map(function(z){return '<div class="warn">warning · '+esc(z.reason||'')+'</div>'}).join('')+
       '</div></details>';
     }
@@ -728,30 +775,52 @@ document.addEventListener('click',async e=>{
     '<div class="'+cls+'">'+esc(state)+'</div><div class="bulk-counts">'+pill('nové',s.new||0,'ok')+pill('změněné',s.changed||0,'warn')+pill('stejné',s.unchanged||0,'')+pill('konflikty',s.conflicts||0,s.conflicts?'err':'')+'</div>'+details+'</div>';
   });
   host.innerHTML=html||'<div class="muted">Fronta je prázdná.</div>';
-  const commit=$('#bulkCommit');
+  const analyze=$('#bulkAnalyze'),commit=$('#bulkCommit');
+  if(analyze){
+   analyze.disabled=!batch.length||busy||batch.every(function(x){return x.state==='done'});
+   analyze.textContent=busy?'Pracuji…':'2 · Analyzovat celý bulk';
+  }
   if(commit){
    const blocked=!batch.length||busy||batch.some(function(x){return x.state!=='ready'&&x.state!=='done'&&x.state!=='duplicate'})||batch.some(function(x){return Number(x.preflight&&x.preflight.summary&&x.preflight.summary.conflicts||0)>0});
    commit.disabled=blocked;
-   commit.textContent=busy?'Pracuji…':'Potvrdit bezpečný balík';
+   commit.textContent=busy?'Pracuji…':'3 · Importovat celý bulk';
   }
  }
  async function processFiles(files){
-  if(busy)return;busy=true;renderBatch();msg($('#uploadStatus'),'Připravuji bulk preview. Do výkonových dat se zatím nic nezapisuje.','warn');
+  if(busy)return;busy=true;renderBatch();msg($('#uploadStatus'),'1/3 Nahrávám bulk do stagingu. Zatím se nic neanalyzuje ani nezapisuje.','warn');
   for(const file of files){
    const shell={file:file,state:'loading',report_type:'unknown'};batch.push(shell);renderBatch();
    try{
-    const staged=await stage(file);Object.assign(shell,staged);renderBatch();
-    await preview(shell);
-    if(shell.skipCommit&&Number(shell.preflight&&shell.preflight.summary&&shell.preflight.summary.changed||0)===0) shell.state='duplicate';
+    const staged=await stage(file);Object.assign(shell,staged);shell.state='staged';
    }catch(e){shell.state='error';shell.error=e.message||String(e)}
    renderBatch();
   }
   busy=false;renderBatch();
-  const total=batchSummary();
-  const hasErr=batch.some(function(x){return x.state==='error'});
-  if(hasErr||total.conflicts)msg($('#uploadStatus'),'Preview dokončen, ale balík má chyby nebo konflikty. Nic nebylo zapsáno do výkonových dat.','err');
-  else msg($('#uploadStatus'),'Preview dokončen ✓ Balík je bezpečný k potvrzení.','ok');
+  const errors=batch.filter(function(x){return x.state==='error'}).length;
+  if(errors)msg($('#uploadStatus'),'Bulk nahrán, ale '+errors+' souborů má staging chybu. Ostatní můžeš analyzovat.','err');
+  else msg($('#uploadStatus'),'1/3 Bulk nahrán ✓ Teď klikni „Analyzovat celý bulk“.','ok');
   await refresh();
+ }
+ async function analyzeBatch(){
+  if(busy||!batch.length)return;
+  busy=true;renderBatch();msg($('#uploadStatus'),'2/3 Analyzuji celý bulk. Nic se ještě nezapisuje do výkonových dat.','warn');
+  try{
+   await ensureIdentityPeople();
+   for(const item of batch){
+    if(item.state==='done')continue;
+    item.error=null;
+    try{
+     await preview(item);
+     const s=item.preflight&&item.preflight.summary||{};
+     if(item.skipCommit&&Number(s.new||0)===0&&Number(s.changed||0)===0)item.state='duplicate';
+     else if(Number(s.new||0)>0||Number(s.changed||0)>0)item.skipCommit=false;
+    }catch(e){item.state='error';item.error=e.message||String(e)}
+    renderBatch();
+   }
+   const total=batchSummary(),hasErr=batch.some(function(x){return x.state==='error'});
+   if(hasErr||total.conflicts)msg($('#uploadStatus'),'Analýza hotová, ale některé soubory mají chybu/konflikt. Identity můžeš potvrdit přímo níže; import zůstává zablokovaný.','err');
+   else msg($('#uploadStatus'),'2/3 Analýza hotová ✓ Celý bulk je připravený k importu.','ok');
+  }finally{busy=false;renderBatch();await refresh()}
  }
  async function commitBatch(){
   if(busy)return;
@@ -775,17 +844,19 @@ document.addEventListener('click',async e=>{
  function setupUpload(){
   const drop=$('#drop'),picker=$('#picker'),files=$('#files');if(!drop||!picker||!files)return;
   const card=drop.closest('.card'),h=card&&card.querySelector('h2'),p=card&&card.querySelector('p');
-  if(h)h.textContent='Bulk Import Queue';
-  if(p)p.textContent='PDF / CSV / XLS / XLSX. Známé reporty používají přesný parser; neznámé layouty Universal parser. Scope PERSON / STORE, období, metrika a jednotka se musí potvrdit v preview před zápisem.';
-  drop.innerHTML='<strong>Přetáhni exporty sem</strong><br><span class="muted">PDF / CSV / XLS / XLSX · známé reporty + 🧠 Universal fallback pro neznámé layouty</span><input id="picker" class="hidden" type="file" multiple accept=".pdf,.csv,.xlsx,.xls">';
+  if(h)h.textContent='Bulk Import · 3 kroky';
+  if(p)p.textContent='1) Nahraj soubory. 2) Jedním tlačítkem analyzuj celý bulk. 3) Pokud nejsou konflikty, jedním tlačítkem importuj celý bulk. Identity se potvrzují přímo v preview.';
+  drop.innerHTML='<strong>1 · Nahraj / přetáhni celý bulk</strong><br><span class="muted">PDF / CSV / XLS / XLSX · nic se nezapisuje, dokud nepotvrdíš krok 3</span><input id="picker" class="hidden" type="file" multiple accept=".pdf,.csv,.xlsx,.xls">';
   const newPicker=$('#picker');
-  const bar=document.createElement('div');bar.className='bulk-toolbar';bar.innerHTML='<button id="bulkCommit" disabled>Potvrdit bezpečný balík</button><span class="muted">Nejdřív se vždy spočítá nové / změněné / stejné / konflikty.</span>';
+  const bar=document.createElement('div');bar.className='bulk-toolbar';bar.innerHTML='<div class="bulk-steps"><span class="bulk-step active">1 Nahrát</span><span class="bulk-step">2 Analyzovat</span><span class="bulk-step">3 Importovat</span></div><button id="bulkAnalyze" class="secondary" disabled>2 · Analyzovat celý bulk</button><button id="bulkCommit" disabled>3 · Importovat celý bulk</button><span class="muted">Konflikty identit se opravují přímo u souboru a preview se samo přepočítá.</span>';
   drop.insertAdjacentElement('afterend',bar);
   files.innerHTML='<div class="muted">Fronta je prázdná.</div>';
   drop.onclick=function(){newPicker.click()};
   drop.ondrop=function(e){e.preventDefault();drop.classList.remove('over');processFiles([].slice.call(e.dataTransfer.files))};
   newPicker.onchange=function(e){processFiles([].slice.call(e.target.files));newPicker.value=''};
+  $('#bulkAnalyze').onclick=analyzeBatch;
   $('#bulkCommit').onclick=commitBatch;
+  files.addEventListener('click',function(e){const b=e.target.closest('.identityConfirm');if(b)confirmIdentity(b)});
  }
  function coverageCard(){
   return [].slice.call(document.querySelectorAll('.card')).find(function(x){const h=x.querySelector('h2');return h&&h.textContent.trim()==='Data Coverage'});
@@ -821,6 +892,7 @@ document.addEventListener('click',async e=>{
   document.title='Performance Arena — Data Hub V152';
   const small=document.querySelector('.brand small');if(small&&!small.textContent.includes('V152'))small.innerHTML+= ' <span class="v152-badge">V152</span>';
   setupUpload();setupCoverage();renderBatch();
+  ensureIdentityPeople().then(renderBatch).catch(function(){});
   sb.auth.onAuthStateChange(function(_event,s){if(s)setTimeout(loadCoverage,50)});
   sb.auth.getSession().then(function(r){if(r.data.session)setTimeout(loadCoverage,50)});
   window.loadCoverage=loadCoverage;
