@@ -32,6 +32,42 @@ function parse(text:string){
  }
  return {period,rows};
 }
+function finite(v:any){const n=Number(v);return Number.isFinite(n)?n:null}
+function weighted(rows:any[],metric:string,weightMetric:string){
+ let num=0,den=0;const vals:number[]=[];
+ for(const r of rows){
+  const v=finite(r.values?.[metric]);if(v===null)continue;
+  vals.push(v);
+  const w=finite(r.values?.[weightMetric]);
+  if(w!==null&&w>0){num+=v*w;den+=w}
+ }
+ if(den>0)return num/den;
+ return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;
+}
+function sumMetric(rows:any[],metric:string){
+ let total=0,any=false;
+ for(const r of rows){const v=finite(r.values?.[metric]);if(v!==null){total+=v;any=true}}
+ return any?total:null;
+}
+function mergePersonRows(rows:any[],person_id:string){
+ const source_identities=[...new Set(rows.map((r:any)=>r.alias).filter(Boolean))];
+ const values:any={};
+ const orderWeight="daily_picking_app_task_count",itemWeight="daily_item_count_total",pickedWeight="daily_items_picked_count";
+ for(const d of defs){
+  const id=d[0];
+  if(["daily_picking_app_task_count","daily_replacement_items_picked_count","daily_items_picked_count","daily_item_count_total"].includes(id)){
+   values[id]=sumMetric(rows,id);
+  }else if(["daily_items_picked_via_scanner_ratio"].includes(id)){
+   values[id]=weighted(rows,id,pickedWeight)??weighted(rows,id,itemWeight);
+  }else if(["daily_undelivered_items_ratio","daily_substitutions_ratio"].includes(id)){
+   values[id]=weighted(rows,id,itemWeight);
+  }else{
+   values[id]=weighted(rows,id,orderWeight);
+  }
+ }
+ return {person_id,source_identity:source_identities.join(" + "),source_identities,values,merged_alias_count:source_identities.length};
+}
+
 Deno.serve(async(req)=>{
  if(req.method==="OPTIONS")return new Response("ok",{headers:cors});
  try{
@@ -59,15 +95,35 @@ Deno.serve(async(req)=>{
   const aliasLookup=names.length?await db.from("person_aliases").select("person_id,normalized_value,confirmed").in("normalized_value",names):{data:[],error:null};
   const aliases=aliasLookup.data,ae=aliasLookup.error;if(ae)return J({error:ae.message},500);
   const amap=new Map((aliases||[]).filter((a:any)=>a.confirmed!==false).map((a:any)=>[a.normalized_value,a.person_id]));
-  const people=humanRows.map((r:any)=>({source_identity:r.alias,person_id:amap.get(norm(r.alias))||null,values:r.values}));
-  const unresolved=people.filter((x:any)=>!x.person_id).map((x:any)=>x.source_identity);
-  if(mode==="preview")return J({ok:true,preview:true,parser_stage:"daily_picking_parsed_v2",import_id,filename:imp.filename,period_start:p.period,period_end:p.period,parsed_row_count:p.rows.length,people_count:people.length,matched_count:people.length-unresolved.length,metric_count:defs.length,observation_count:people.length*defs.length,unresolved,ignored_identities:ignored.map((r:any)=>r.alias),people});
+  const mapped=humanRows.map((r:any)=>({alias:r.alias,person_id:amap.get(norm(r.alias))||null,values:r.values}));
+  const unresolved=[...new Set(mapped.filter((x:any)=>!x.person_id).map((x:any)=>x.alias))];
+  const grouped=new Map<string,any[]>();
+  for(const r of mapped.filter((x:any)=>x.person_id)){
+   if(!grouped.has(r.person_id))grouped.set(r.person_id,[]);
+   grouped.get(r.person_id)!.push(r);
+  }
+  const mergedPeople=[...grouped.entries()].map(([pid,rows])=>mergePersonRows(rows,pid));
+  const unresolvedPeople=mapped.filter((x:any)=>!x.person_id).map((r:any)=>({source_identity:r.alias,person_id:null,values:r.values,source_identities:[r.alias],merged_alias_count:1}));
+  const people=[...mergedPeople,...unresolvedPeople];
+  if(mode==="preview")return J({
+   ok:true,preview:true,parser_stage:"daily_picking_parsed_v3",
+   import_id,filename:imp.filename,period_start:p.period,period_end:p.period,
+   parsed_row_count:p.rows.length,people_count:people.length,matched_count:mergedPeople.length,
+   merged_identity_count:mergedPeople.filter((x:any)=>x.merged_alias_count>1).length,
+   merged_identities:mergedPeople.filter((x:any)=>x.merged_alias_count>1).map((x:any)=>x.source_identities),
+   metric_count:defs.length,observation_count:mergedPeople.length*defs.length,unresolved,
+   ignored_identities:ignored.map((r:any)=>r.alias),people
+  });
   if(unresolved.length)return J({error:"Unresolved identities",detail:unresolved.join(", "),unresolved},409);
   await db.from("metric_definitions").upsert(defs.map(d=>({metric_id:d[0],label:d[1],unit:d[2],category:d[3],lower_is_better:d[4],default_granularity:"day"})),{onConflict:"metric_id"});
   const obs:any[]=[];
-  for(const r of humanRows){const pid=amap.get(norm(r.alias));for(const d of defs){const v=r.values[d[0]];if(v===null)continue;obs.push({person_id:pid,metric_id:d[0],value:v,period_start:p.period,period_end:p.period,granularity:"day",source_type:"daily_picking",import_id,source_record_key:`mo|daily_picking|${pid}|${d[0]}|${p.period}|${p.period}|day`,metadata:{source_identity:r.alias,unit:d[2]}})}}
+  for(const r of mergedPeople){const pid=r.person_id;for(const d of defs){const v=r.values[d[0]];if(v===null||v===undefined)continue;obs.push({
+   person_id:pid,metric_id:d[0],value:v,period_start:p.period,period_end:p.period,granularity:"day",source_type:"daily_picking",import_id,
+   source_record_key:`mo|daily_picking|${pid}|${d[0]}|${p.period}|${p.period}|day`,
+   metadata:{source_identity:r.source_identity,source_identities:r.source_identities,merged_login_rows:r.merged_alias_count,unit:d[2]}
+  })}}
   const {data:w,error:we}=await db.from("metric_observations").upsert(obs,{onConflict:"source_record_key"}).select("id"); if(we)return J({error:we.message},500);
-  await db.from("imports").update({status:"imported",period_start:p.period,period_end:p.period,parser_version:"daily-picking-v4"}).eq("id",import_id);
-  return J({ok:true,preview:false,parser_stage:"daily_picking_committed_v2",attempted_count:obs.length,inserted_count:w?.length??0,merge_guard:"canonical-v152"});
+  await db.from("imports").update({status:"imported",period_start:p.period,period_end:p.period,parser_version:"daily-picking-v5"}).eq("id",import_id);
+  return J({ok:true,preview:false,parser_stage:"daily_picking_committed_v3",attempted_count:obs.length,inserted_count:w?.length??0,merge_guard:"canonical-v152"});
  }catch(e){return J({error:String(e?.message||e)},500)}
 });
