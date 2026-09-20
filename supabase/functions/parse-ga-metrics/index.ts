@@ -18,8 +18,14 @@ const p=parse(extracted_text);if(!p.rows.length)return J({error:"No GA rows dete
 const norm=(s:string)=>s.trim().toLowerCase();
 const compact=(s:string)=>norm(s).replace(/[^a-z0-9]+/g,"");
 const isTechnicalIdentity=(s:string)=>{const x=compact(s);return x==="woltmark"||x.startsWith("woltmarketholesovice")};
-const ignoredRows=p.rows.filter((r:any)=>isTechnicalIdentity(r.alias));
-const humanRows=p.rows.filter((r:any)=>!isTechnicalIdentity(r.alias));
+const technicalRows=p.rows.filter((r:any)=>isTechnicalIdentity(r.alias));
+const candidateRows=p.rows.filter((r:any)=>!isTechnicalIdentity(r.alias));
+const {data:persistentIgnored,error:ignoreErr}=await sb.from("ignored_identities").select("normalized_value").eq("source_type","ga_metrics");
+if(ignoreErr)return J({error:"Ignored identity lookup failed",detail:ignoreErr.message},500);
+const ignoredSet=new Set((persistentIgnored||[]).map((x:any)=>norm(x.normalized_value)));
+const burnerRows=candidateRows.filter((r:any)=>ignoredSet.has(norm(r.alias)));
+const ignoredRows=[...technicalRows,...burnerRows];
+const humanRows=candidateRows.filter((r:any)=>!ignoredSet.has(norm(r.alias)));
 const names=humanRows.map((r:any)=>r.alias);
 const aliasLookup=names.length
   ?await sb.from("person_aliases").select("person_id,alias_value,normalized_value,confirmed").in("normalized_value",names.map(norm))
@@ -29,7 +35,7 @@ if(ae)return J({error:"Identity lookup failed",detail:ae.message},500);
 const amap=new Map();for(const a of ars||[])if(a.confirmed!==false)amap.set(norm(a.normalized_value||a.alias_value),a.person_id);
 const unresolved=names.filter((x:string)=>!amap.has(norm(x)));
 if(mode==="preview")return J({
-  ok:true,preview:true,parser_stage:"ga_metrics_parsed_v4_identity",
+  ok:true,preview:true,parser_stage:"ga_metrics_parsed_v5_identity",
   import_id,filename:imp.filename,period_start:p.ps,period_end:p.pe,
   parsed_row_count:p.rows.length,
   people_count:humanRows.length,
@@ -47,6 +53,6 @@ const keys=defs.map(d=>d[0]);const {data:md,error:me}=await sb.from("metric_defi
 const have=new Set((md||[]).map((x:any)=>x.metric_id)),missing=keys.filter(k=>!have.has(k));if(missing.length)return J({error:"Missing metric definitions",detail:missing.join(", ")},409);
 const obs:any[]=[];for(const r of humanRows.filter((r:any)=>amap.has(norm(r.alias))))for(let i=0;i<defs.length;i++){const d=defs[i],person_id=amap.get(norm(r.alias));obs.push({person_id,metric_id:d[0],value:r.values[i],period_start:p.ps,period_end:p.pe,granularity:"week",source_type:"ga_metrics",import_id,source_record_key:`mo|ga_metrics|${person_id}|${d[0]}|${p.ps}|${p.pe}|week`,metadata:{source_identity:r.alias,unit:d[2]}})}
 const {data:w,error:we}=await sb.from("metric_observations").upsert(obs,{onConflict:"source_record_key"}).select("id");if(we)return J({error:"Observation write failed",detail:we.message},500);
-const {error:ue}=await sb.from("imports").update({status:"imported",period_start:p.ps,period_end:p.pe,parser_version:"ga-metrics-v9"}).eq("id",import_id);if(ue)return J({error:"Import status update failed",detail:ue.message},500);
-return J({ok:true,preview:false,parser_stage:"ga_metrics_committed_v4",import_id,period_start:p.ps,period_end:p.pe,attempted_count:obs.length,inserted_count:w?.length??0,merge_guard:"canonical-v152",ignored_identities:ignoredRows.map((r:any)=>r.alias)});
+const {error:ue}=await sb.from("imports").update({status:"imported",period_start:p.ps,period_end:p.pe,parser_version:"ga-metrics-v10"}).eq("id",import_id);if(ue)return J({error:"Import status update failed",detail:ue.message},500);
+return J({ok:true,preview:false,parser_stage:"ga_metrics_committed_v5",import_id,period_start:p.ps,period_end:p.pe,attempted_count:obs.length,inserted_count:w?.length??0,merge_guard:"canonical-v152",ignored_identities:ignoredRows.map((r:any)=>r.alias)});
 }catch(e){return J({error:"Function error",detail:e instanceof Error?e.message:String(e)},500)}});
