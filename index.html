@@ -1694,7 +1694,7 @@ tr.unknown .admin-status{color:var(--muted)!important;background:rgba(148,163,18
 <div class="hidden" id="seasonRecapOverlay"><div class="season-recap-card"><div class="rundown-head"><div><div class="rundown-kicker">NOVÁ SEZÓNA</div><div class="rundown-title" id="seasonRecapTitle">Season Recap</div><div class="rundown-sub" id="seasonRecapSub">Tvoje poslední sezóna</div></div><button aria-label="Zavřít" class="rundown-close" id="seasonRecapClose">×</button></div><div class="season-recap-grid" id="seasonRecapStats"></div><div class="season-recap-section"><h4>🏆 Nejdůležitější výsledky</h4><div class="rundown-list" id="seasonRecapWins"></div></div><div class="season-recap-section"><h4>📈 Posun</h4><div class="rundown-list" id="seasonRecapProgress"></div></div><div class="rundown-actions"><button class="rundown-btn" id="seasonRecapContinue">Jdeme na novou sezónu</button></div></div></div>
 <div class="hidden" id="rundownOverlay"><div class="rundown-card"><div class="rundown-head"><div><div class="rundown-kicker">Tvoje poslední výsledky</div><div class="rundown-title" id="rundownTitle">Dobrá práce.</div><div class="rundown-sub" id="rundownSub">Rychlé shrnutí toho, co se ti povedlo.</div></div><button aria-label="Zavřít" class="rundown-close" id="rundownClose">×</button></div><div class="rundown-grid" id="rundownStats"></div><div class="rundown-section"><h4>🔥 Co se ti povedlo</h4><div class="rundown-list" id="rundownWins"></div></div><div class="rundown-section"><h4>🏆 Co jsi odemkl</h4><div class="rundown-achievements" id="rundownAchievements"></div></div><div class="rundown-section"><h4>🎯 Na čem můžeš ještě zabrat</h4><div class="rundown-list" id="rundownFocus"></div></div><div class="rundown-actions"><button class="rundown-btn" id="rundownContinue">Pokračovat do profilu</button></div></div></div>
 <div class="shell">
-<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V203</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
+<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V204</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
 <div class="layout">
 <aside class="sidebar">
 <div class="label" id="profileLabel">Profil</div><select class="select" id="workerSelect"></select>
@@ -4569,168 +4569,161 @@ function buildMetricCards(){
   const mergedCount=cards.filter(x=>x.unified.hasDataHub).length;
   setText('personalMeta',shown+' týdnů · '+defs.length+' metrik · '+mergedCount+' napojených na Data Hub · '+rangeTxt);
 }
-async function renderInbound(){
-  const box=document.getElementById('personalInbound');
-  if(!box)return;
-
-  let d=state.storeCard;
-  if(!d && state.worker){
-    box.innerHTML='<div class="panel">Načítám inbound historii z Data Hubu…</div>';
-    try{
-      d=await loadStoreCardLive(state.worker);
-      if(d && state.worker){state.storeCard=d;renderStoreCardLive();}
-    }catch(e){
-      console.warn('inbound Data Hub',e);
-      box.innerHTML='<div class="panel">Inbound data se nepodařilo načíst.</div>';
-      setText('inboundMeta','Data Hub nedostupný');
-      return;
-    }
-  }
-
-  const weeklyAll=d?.metric_series||[];
-  const all=weeklyAll;
-  const inboundGranularity='week';
-  const order=['inbound_total_units_live','inbound_normal_units','inbound_icy_units','inbound_freez_units'];
-  const labels={inbound_total_units_live:'Inbound celkem',inbound_normal_units:'Normal',inbound_icy_units:'ICY',inbound_freez_units:'FREEZE'};
-  const rows=order.map(id=>all.find(s=>s.metric_id===id)).filter(Boolean);
-
-  if(!rows.length){
-    box.innerHTML='<div class="panel">Pro tento profil zatím nejsou v Data Hubu inbound data.</div>';
-    setText('inboundMeta','0 období · Data Hub');
-    setText('inboundTrendValue','—');setText('inboundTrendDelta','Bez dat');
-    destroyChart('personalInboundChart');
-    return;
-  }
-
-  const items=rows.map((s,i)=>{
-    const spans=inboundGranularity==='week'?weekSpans(s.labels||[],null):null;
-    const sliced=inboundGranularity==='week'
-      ?sliceHistory(s.values||[],s.labels||[],'week',spans)
-      :sliceHistory(s.values||[],s.labels||[],'day',null);
-    const vv=(sliced.arr||[]).map(v=>Number(v)).filter(v=>Number.isFinite(v));
-    const total=vv.length?vv.reduce((a,b)=>a+b,0):null;
-    const average=vv.length?total/vv.length:null;
-    const last=vv.length?vv.at(-1):null;
-    return {s,i,sliced,total,average,last};
-  });
-
-  box.innerHTML=items.map(x=>{
-    const lastBadge=x.last!=null
-      ? '<span class="trend neutral">poslední '+(inboundGranularity==='day'?'den':'týden')+' · '+esc(liveFmt(x.last,'int'))+'</span>'
-      : '';
-    const avgText=x.average!=null
-      ? 'Celkem ve vybraném období · průměr '+liveFmt(x.average,'number')+' / '+(inboundGranularity==='day'?'den':'týden')
-      : 'Zatím bez hodnot';
-    return '<div class="metric-card"><div class="metric-top"><div class="metric-title">'+esc(labels[x.s.metric_id]||x.s.label)+'</div>'+lastBadge+'</div><div class="metric-main">'+esc(liveFmt(x.total,'int'))+'</div><div class="metric-sub">'+esc(avgText)+'</div><div class="spark"><canvas id="inb_'+x.i+'"></canvas></div></div>';
-  }).join('');
-
-  items.forEach(x=>{
-    destroyChart('inb_'+x.i);
-    const canvas=document.getElementById('inb_'+x.i);if(!canvas)return;
-    charts['inb_'+x.i]=new Chart(canvas,{type:'line',data:{labels:x.sliced.labels,datasets:[{data:x.sliced.arr,borderColor:'#60A5FA',backgroundColor:'rgba(96,165,250,.08)',fill:true,tension:.3,pointRadius:0,spanGaps:true,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{display:false},y:{display:false}}}});
-  });
-
-  const union=[...new Set(items.flatMap(x=>x.sliced.labels||[]))].sort();
-  const datasetFor=(item,label,borderColor,dash=[])=>{
-    const map=new Map((item?.sliced.labels||[]).map((l,i)=>[l,item.sliced.arr[i]]));
-    return {label,data:union.map(l=>map.has(l)?map.get(l):null),borderColor,backgroundColor:'transparent',borderWidth:label==='Inbound celkem'?3:1.6,borderDash:dash,tension:.25,pointRadius:2,spanGaps:true};
-  };
-  const totalItem=items.find(x=>x.s.metric_id==='inbound_total_units_live');
-  const normalItem=items.find(x=>x.s.metric_id==='inbound_normal_units');
-  const icyItem=items.find(x=>x.s.metric_id==='inbound_icy_units');
-  const freezeItem=items.find(x=>x.s.metric_id==='inbound_freez_units');
-  const datasets=[];
-  if(totalItem)datasets.push(datasetFor(totalItem,'Inbound celkem','#35E78A'));
-  if(normalItem)datasets.push(datasetFor(normalItem,'Normal','#60A5FA',[5,3]));
-  if(icyItem)datasets.push(datasetFor(icyItem,'ICY','#22D3EE',[3,3]));
-  if(freezeItem)datasets.push(datasetFor(freezeItem,'FREEZE','#A78BFA',[2,4]));
-
-  destroyChart('personalInboundChart');
-  const main=document.getElementById('personalInboundChart');
-  if(main&&union.length){
-    charts.personalInboundChart=new Chart(main,{type:'line',data:{labels:union,datasets},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:true,labels:{color:'#91A79B',boxWidth:12,font:{size:10}}}},scales:{x:{ticks:{color:'#91A79B',maxRotation:0},grid:{display:false}},y:{beginAtZero:true,ticks:{color:'#91A79B'},grid:{color:'rgba(145,167,155,.10)'}}}}});
-  }
-
-  const totalVals=(totalItem?.sliced.arr||[]).map(v=>Number(v)).filter(v=>Number.isFinite(v));
-  const latest=totalVals.length?totalVals.at(-1):null,prev=totalVals.length>1?totalVals.at(-2):null;
-  setText('inboundTrendValue',latest==null?'—':liveFmt(latest,'int')+' units');
-  const dlt=latest!=null&&prev!=null&&prev!==0?(latest-prev)/Math.abs(prev)*100:null;
-  const de=document.getElementById('inboundTrendDelta');
-  if(de){de.className='generated-chart-trend '+(dlt==null?'neutral':dlt>0?'good':dlt<0?'bad':'neutral');de.textContent=dlt==null?'Nedostatek týdnů':((dlt>0?'+':'')+fmt(dlt,1)+' % vs předchozí týden');}
-
-  const shown=Math.max(0,...items.map(x=>x.sliced.labels?.length||0));
-  setText('inboundMeta',shown+' týdnů · Data Hub');
+function opsNumber(v){
+ const x=Number(v);return Number.isFinite(x)?x:null;
 }
+function personalOpsMonthlyRows(){
+ const d=state.storeCard||{},lp=d.live_personal||{},eff=d.efficiency||{};
+ const rows=(d.official_history||[]).map(function(r){
+   return {
+     key:String(r.period_start||'').slice(0,7),
+     period_start:String(r.period_start||'').slice(0,10),
+     period_end:String(r.period_end||r.period_start||'').slice(0,10),
+     display:csMonthLabel(r.period_start),
+     source:'official',
+     total:opsNumber(r.inbound_total_units),
+     normal:opsNumber(r.inbound_normal_units),
+     icy:opsNumber(r.inbound_icy_units),
+     freeze:opsNumber(r.inbound_freeze_units),
+     stock:opsNumber(r.stock_count)
+   };
+ }).filter(function(r){return !!r.key});
 
+ const liveMonth=String(lp.month||'').slice(0,7);
+ const periodStart=String(lp.period_start||((liveMonth&&liveMonth.length===7)?liveMonth+'-01':'')).slice(0,10);
+ const periodEnd=String(lp.data_through||lp.through||'').slice(0,10);
+ let normal=opsNumber(lp.inbound_normal_units),icy=opsNumber(lp.inbound_icy_units),freeze=opsNumber(lp.inbound_freeze_units);
+ const anyInbound=[normal,icy,freeze].some(function(v){return v!=null});
+ if(anyInbound){
+   if(normal==null)normal=0;
+   if(icy==null)icy=0;
+   if(freeze==null)freeze=0;
+ }
+ const liveTotal=opsNumber(eff.inbound_units)??opsNumber(lp.inbound_total_units)??(anyInbound?normal+icy+freeze:null);
+ const current={
+   key:liveMonth,
+   period_start:periodStart,
+   period_end:periodEnd||String(lp.through||periodStart).slice(0,10),
+   display:liveMonth?csMonthLabel(liveMonth+'-01')+' · MTD':'Aktuální měsíc · MTD',
+   source:'mtd',
+   total:liveTotal,
+   normal:normal,
+   icy:icy,
+   freeze:freeze,
+   stock:opsNumber(lp.stock_count)
+ };
+ if(current.key&&[current.total,current.normal,current.icy,current.freeze,current.stock].some(function(v){return v!=null})){
+   const idx=rows.findIndex(function(r){return r.key===current.key});
+   if(idx>=0)rows[idx]=current;else rows.push(current);
+ }
+ return rows.sort(function(a,b){return a.period_start.localeCompare(b.period_start)});
+}
+function filterPersonalOpsMonthlyRows(rows){
+ let out=[...(rows||[])];
+ if(state.rangeStart||state.rangeEnd){
+   const a=state.rangeStart||'1900-01-01',b=state.rangeEnd||'2999-12-31';
+   return out.filter(function(r){return rangeOverlapDays(r.period_start,r.period_end,a,b)>0});
+ }
+ if(state.range!=='all'&&out.length){
+   const weeks=Number(state.range);
+   const last=dateOnly(out.at(-1).period_end||out.at(-1).period_start);
+   if(Number.isFinite(weeks)&&weeks>0&&last){
+     const first=addDays(last,-(weeks*7-1));
+     out=out.filter(function(r){return rangeOverlapDays(r.period_start,r.period_end,first,last)>0});
+   }
+ }
+ return out;
+}
+function opsLatestValue(rows,key){
+ for(let i=(rows||[]).length-1;i>=0;i--){const v=opsNumber(rows[i]?.[key]);if(v!=null)return{value:v,row:rows[i]}}
+ return null;
+}
+async function renderInbound(){
+ const box=document.getElementById('personalInbound');if(!box)return;
+ let d=state.storeCard;
+ if(!d&&state.worker){
+   box.innerHTML='<div class="panel">Načítám měsíční Inbound progress…</div>';
+   try{d=await loadStoreCardLive(state.worker);if(d){state.storeCard=d;renderStoreCardLive()}}
+   catch(err){console.warn('Progress inbound',err);box.innerHTML='<div class="panel">Inbound data se nepodařilo načíst.</div>';return}
+ }
+ const rows=filterPersonalOpsMonthlyRows(personalOpsMonthlyRows());
+ const defs=[
+   {key:'total',label:'Inbound celkem'},
+   {key:'normal',label:'Normal'},
+   {key:'icy',label:'ICY'},
+   {key:'freeze',label:'FREEZE'}
+ ];
+ if(!rows.length){
+   box.innerHTML='<div class="panel">Pro tento profil zatím nejsou měsíční Inbound data.</div>';
+   setText('inboundMeta','0 měsíců');
+   destroyChart('personalInboundChart');return;
+ }
+ box.innerHTML=defs.map(function(def,i){
+   const hit=opsLatestValue(rows,def.key),v=hit?.value??null,src=hit?.row?.source==='mtd'?'aktuální měsíc · MTD':'poslední uzavřený měsíc';
+   return '<div class="metric-card"><div class="metric-top"><div class="metric-title">'+esc(def.label)+'</div><span class="trend neutral">'+esc(src)+'</span></div>'+
+     '<div class="metric-main">'+esc(v==null?'—':liveFmt(v,'int'))+'</div>'+
+     '<div class="metric-sub">Uzavřené měsíce = Store Card total · aktuální měsíc = Data Hub MTD</div>'+
+     '<div class="spark"><canvas id="inb_'+i+'"></canvas></div></div>';
+ }).join('');
+
+ defs.forEach(function(def,i){
+   destroyChart('inb_'+i);const canvas=document.getElementById('inb_'+i);if(!canvas)return;
+   charts['inb_'+i]=new Chart(canvas,{type:'line',data:{labels:rows.map(function(r){return r.display}),datasets:[{
+     data:rows.map(function(r){return r[def.key]}),borderColor:'#60A5FA',backgroundColor:'rgba(96,165,250,.08)',fill:true,tension:.3,pointRadius:2,spanGaps:true,borderWidth:2
+   }]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{display:false},y:{display:false}}}});
+ });
+
+ destroyChart('personalInboundChart');
+ const main=document.getElementById('personalInboundChart');
+ if(main){
+   const ds=function(key,label,color,dash){
+     return {label:label,data:rows.map(function(r){return r[key]}),borderColor:color,backgroundColor:'transparent',
+       borderWidth:key==='total'?3:1.7,borderDash:dash||[],tension:.25,pointRadius:3,spanGaps:true};
+   };
+   charts.personalInboundChart=new Chart(main,{type:'line',data:{labels:rows.map(function(r){return r.display}),datasets:[
+     ds('total','Inbound celkem','#35E78A'),ds('normal','Normal','#60A5FA',[5,3]),ds('icy','ICY','#22D3EE',[3,3]),ds('freeze','FREEZE','#A78BFA',[2,4])
+   ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:true,labels:{color:'#91A79B',boxWidth:12,font:{size:10}}},tooltip:{callbacks:{afterLabel:function(ctx){const r=rows[ctx.dataIndex];return r?.source==='mtd'?'Aktuální měsíc · MTD z Data Hubu':'Uzavřený měsíc · Store Card total'}}}},scales:{x:{ticks:{color:'#91A79B',maxRotation:0},grid:{display:false}},y:{beginAtZero:true,ticks:{color:'#91A79B'},grid:{color:'rgba(145,167,155,.10)'}}}}});
+ }
+ const current=rows.at(-1),currentTotal=opsNumber(current?.total);
+ setText('inboundTrendValue',currentTotal==null?'—':liveFmt(currentTotal,'int')+' units');
+ const de=document.getElementById('inboundTrendDelta');
+ if(de){de.className='generated-chart-trend neutral';de.textContent=current?.source==='mtd'?'MTD · stejná hodnota jako Inbound Contributor':'poslední uzavřený měsíc'}
+ setText('inboundMeta',rows.length+' měsíců · Store Card totals + aktuální Data Hub MTD');
+}
 
 async function renderInboundStockHistory(){
  try{
-   await loadUnifiedArenaData();
-   const person=unifiedPersonByName(state.worker);
-   if(!person){
-     setText('personalInboundHistoryValue','—');
-     setText('personalInboundHistoryMeta','Profil se nepodařilo napárovat na Data Hub.');
-     setText('personalStockHistoryValue','—');
-     setText('personalStockHistoryMeta','Profil se nepodařilo napárovat na Data Hub.');
-     return;
-   }
-   const inbound=sliceHybridRows(unifiedHybridTotalRows(person,['inbound_normal','inbound_icy','inbound_freeze']));
-   const inboundNormal=sliceHybridRows(unifiedHybridRowsForPerson(person,'inbound_normal'));
-   const inboundIcy=sliceHybridRows(unifiedHybridRowsForPerson(person,'inbound_icy'));
-   const inboundFreeze=sliceHybridRows(unifiedHybridRowsForPerson(person,'inbound_freeze'));
-   const stock=sliceHybridRows(unifiedHybridRowsForPerson(person,'stock_count'));
+   if(!state.storeCard&&state.worker)state.storeCard=await loadStoreCardLive(state.worker);
+   const rows=filterPersonalOpsMonthlyRows(personalOpsMonthlyRows());
+   const inboundRows=rows.filter(function(r){return [r.total,r.normal,r.icy,r.freeze].some(function(v){return v!=null})});
+   const stockRows=rows.filter(function(r){return r.stock!=null});
 
-   const draw=function(canvasId,valueId,metaId,rows,label){
-     destroyChart(canvasId);
-     const canvas=document.getElementById(canvasId);if(!canvas)return;
-     if(!rows.length){
-       setText(valueId,'—');setText(metaId,'Pro vybrané období zatím nejsou data.');
-       return;
-     }
-     const latest=rows.at(-1),hasMonthly=rows.some(function(r){return r.source==='store_card_monthly'}),hasWeekly=rows.some(function(r){return r.source==='data_hub_weekly'});
-     setText(valueId,Math.round(Number(latest.value)||0).toLocaleString('cs-CZ')+' / týd.');
-     setText(metaId,(hasMonthly&&hasWeekly?'Store Card fallback + týdenní Data Hub':hasMonthly?'Store Card monthly fallback':'Týdenní Data Hub')+' · srovnatelně přepočteno na 7 dní');
-     const labels=rows.map(function(r){return r.display});
-     const values=rows.map(function(r){return Number(r.value)});
-     charts[canvasId]=new Chart(canvas,{
-       type:'line',
-       data:{labels,datasets:[{
-         label:label+' / 7 dní',data:values,borderColor:'#35E78A',backgroundColor:'rgba(53,231,138,.08)',
-         borderWidth:2.3,fill:true,tension:.28,spanGaps:true,
-         pointRadius:rows.map(function(r){return r.source==='store_card_monthly'?5:3}),
-         pointStyle:rows.map(function(r){return r.source==='store_card_monthly'?'rectRot':'circle'})
-       }]},
-       options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
-         plugins:{legend:{display:false},tooltip:{callbacks:{
-           afterLabel:function(ctx){
-             const r=rows[ctx.dataIndex];if(!r)return'';
-             return r.source==='store_card_monthly'
-               ?('Store Card total: '+Math.round(Number(r.raw_value)||0).toLocaleString('cs-CZ')+' · '+shortDayLabel(r.period_start)+'–'+shortDayLabel(r.period_end))
-               :'Týdenní Data Hub';
-           }
-         }}},
-         scales:{x:{ticks:{color:'#91A79B',maxRotation:0,font:{size:8}},grid:{display:false}},y:{beginAtZero:true,ticks:{color:'#91A79B'},grid:{color:'rgba(145,167,155,.10)'}}}}
-     });
-   };
-   // Inbound history keeps all operational components visible.
    destroyChart('personalInboundHistoryChart');
    const ic=document.getElementById('personalInboundHistoryChart');
-   if(ic&&inbound.length){
-     const keyRows=inbound,labels=keyRows.map(function(r){return r.display}),key=function(r){return r.sort_date+'|'+r.granularity};
-     const toMap=function(rows){return new Map(rows.map(function(r){return[key(r),Number(r.value)]}))};
-     const normalMap=toMap(inboundNormal),icyMap=toMap(inboundIcy),freezeMap=toMap(inboundFreeze);
-     setText('personalInboundHistoryValue',Math.round(Number(inbound.at(-1).value)||0).toLocaleString('cs-CZ')+' / týd.');
-     setText('personalInboundHistoryMeta','Total + Normal + ICY + FREEZE · Store Card fallback přepočtený na 7 dní');
-     charts.personalInboundHistoryChart=new Chart(ic,{type:'line',data:{labels,datasets:[
-       {label:'Total',data:keyRows.map(function(r){return Number(r.value)}),borderColor:'#35E78A',borderWidth:2.6,tension:.28,pointRadius:3,spanGaps:true},
-       {label:'Normal',data:keyRows.map(function(r){return normalMap.get(key(r))??null}),borderColor:'#94A3B8',borderWidth:1.7,tension:.28,pointRadius:2,spanGaps:true},
-       {label:'ICY',data:keyRows.map(function(r){return icyMap.get(key(r))??null}),borderColor:'#60A5FA',borderWidth:1.7,tension:.28,pointRadius:2,spanGaps:true},
-       {label:'FREEZE',data:keyRows.map(function(r){return freezeMap.get(key(r))??null}),borderColor:'#A78BFA',borderWidth:1.7,tension:.28,pointRadius:2,spanGaps:true}
-     ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:true,labels:{boxWidth:8,font:{size:8}}}},scales:{x:{ticks:{color:'#91A79B',maxRotation:0,font:{size:8}},grid:{display:false}},y:{beginAtZero:true,ticks:{color:'#91A79B'},grid:{color:'rgba(145,167,155,.10)'}}}}});
+   if(ic&&inboundRows.length){
+     const latest=inboundRows.at(-1);
+     setText('personalInboundHistoryValue',latest.total==null?'—':Math.round(latest.total).toLocaleString('cs-CZ')+(latest.source==='mtd'?' MTD':''));
+     setText('personalInboundHistoryMeta','Skutečné měsíční totals · aktuální měsíc = MTD · stejný zdroj jako Inbound Contributor');
+     const ds=function(key,label,color,width,dash){return{label:label,data:inboundRows.map(function(r){return r[key]}),borderColor:color,borderWidth:width,tension:.28,pointRadius:3,spanGaps:true,borderDash:dash||[]}};
+     charts.personalInboundHistoryChart=new Chart(ic,{type:'line',data:{labels:inboundRows.map(function(r){return r.display}),datasets:[
+       ds('total','Total','#35E78A',2.6),ds('normal','Normal','#94A3B8',1.7),ds('icy','ICY','#60A5FA',1.7),ds('freeze','FREEZE','#A78BFA',1.7)
+     ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:true,labels:{boxWidth:8,font:{size:8}}},tooltip:{callbacks:{afterLabel:function(ctx){return inboundRows[ctx.dataIndex]?.source==='mtd'?'Data Hub MTD':'Oficiální Store Card total'}}}},scales:{x:{ticks:{color:'#91A79B',maxRotation:0,font:{size:8}},grid:{display:false}},y:{beginAtZero:true,ticks:{color:'#91A79B'},grid:{color:'rgba(145,167,155,.10)'}}}}});
    }else if(ic){setText('personalInboundHistoryValue','—');setText('personalInboundHistoryMeta','Pro vybrané období zatím nejsou data.')}
-   draw('personalStockHistoryChart','personalStockHistoryValue','personalStockHistoryMeta',stock,'Stock Count');
- }catch(e){
-   console.warn('hybrid inbound/stock history',e);
+
+   destroyChart('personalStockHistoryChart');
+   const sc=document.getElementById('personalStockHistoryChart');
+   if(sc&&stockRows.length){
+     const latest=stockRows.at(-1),currentMonth=rows.at(-1);
+     setText('personalStockHistoryValue',Math.round(latest.stock).toLocaleString('cs-CZ')+(latest.source==='mtd'?' MTD':''));
+     setText('personalStockHistoryMeta',currentMonth?.source==='mtd'&&currentMonth.stock==null
+       ?'Aktuální měsíc zatím bez Stock Count · poslední hodnota je uzavřená Store Card'
+       :'Skutečné měsíční Stock Count totals · aktuální měsíc = MTD');
+     charts.personalStockHistoryChart=new Chart(sc,{type:'line',data:{labels:stockRows.map(function(r){return r.display}),datasets:[{
+       label:'Stock Count',data:stockRows.map(function(r){return r.stock}),borderColor:'#35E78A',backgroundColor:'rgba(53,231,138,.08)',borderWidth:2.3,fill:true,tension:.28,pointRadius:3,spanGaps:true
+     }]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{afterLabel:function(ctx){return stockRows[ctx.dataIndex]?.source==='mtd'?'Data Hub MTD':'Oficiální Store Card total'}}}},scales:{x:{ticks:{color:'#91A79B',maxRotation:0,font:{size:8}},grid:{display:false}},y:{beginAtZero:true,ticks:{color:'#91A79B'},grid:{color:'rgba(145,167,155,.10)'}}}}});
+   }else if(sc){setText('personalStockHistoryValue','—');setText('personalStockHistoryMeta','Pro vybrané období zatím nejsou Stock Count data.')}
+ }catch(err){
+   console.warn('monthly inbound/stock history',err);
    setText('personalInboundHistoryMeta','Historie se nepodařila načíst.');
    setText('personalStockHistoryMeta','Historie se nepodařila načíst.');
  }
