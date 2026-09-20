@@ -499,7 +499,7 @@ document.addEventListener('click',async e=>{
    body:JSON.stringify({import_id:b.dataset.id,mode:'preview',filename:imp.filename,layout_json})
   });
   const out=await res.json().catch(()=>({}));if(!res.ok)throw new Error(out.detail||out.error||('HTTP '+res.status));
-  await sb.from('imports').update({report_type:'month_end_reconciliation',parser_version:'store-card-monthly-v1',metadata:{...(imp.metadata||{}),month_end:true,reconciliation_month:(out.period_start||'').slice(0,7),store_card_monthly:true}}).eq('id',b.dataset.id);
+  await sb.from('imports').update({report_type:'month_end_reconciliation',parser_version:'store-card-monthly-v3',metadata:{...(imp.metadata||{}),month_end:true,reconciliation_month:(out.period_start||'').slice(0,7),store_card_monthly:true}}).eq('id',b.dataset.id);
   currentPreview={id:b.dataset.id,out,storeCardMonthly:true,layout_json,filename:imp.filename};
   $('#previewCard').classList.remove('hidden');
   $('#previewCard h2').textContent='Monthly Store Card — Preview';
