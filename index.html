@@ -1667,6 +1667,18 @@ tr.unknown .admin-status{color:var(--muted)!important;background:rgba(148,163,18
 @media(min-width:1800px){.ops-history-card .chart-wrap{height:230px}.ops-history-meta{font-size:9px}}
 </style>
 
+
+<style id="ops-home-storecard-v198">
+.home-momentum-toolbar{flex-wrap:wrap}
+.home-momentum-preset.ops{font-size:7px;padding:6px 8px}
+.home-ops-snapshot{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;margin:9px 0 2px}
+.home-ops-chip{display:grid;gap:3px;text-align:left;padding:8px 9px;border-radius:10px;border:1px solid rgba(145,167,155,.14);background:rgba(255,255,255,.025);color:var(--text);cursor:pointer}
+.home-ops-chip span{font-size:7px;font-weight:900;letter-spacing:.05em;color:var(--muted);text-transform:uppercase}.home-ops-chip strong{font-size:13px}.home-ops-chip small{font-size:7px;color:var(--muted)}
+.home-ops-chip:hover{border-color:rgba(53,231,138,.35);background:rgba(53,231,138,.05)}
+@media(max-width:900px){.home-ops-snapshot{grid-template-columns:repeat(2,minmax(0,1fr))}.home-ops-chip:first-child{grid-column:1/-1}}
+@media(min-width:1800px){.home-ops-chip span,.home-ops-chip small{font-size:8px}.home-ops-chip strong{font-size:15px}}
+</style>
+
 </head>
 <body><div class="ambient-particles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
 <div id="loginOverlay">
@@ -1682,7 +1694,7 @@ tr.unknown .admin-status{color:var(--muted)!important;background:rgba(148,163,18
 <div class="hidden" id="seasonRecapOverlay"><div class="season-recap-card"><div class="rundown-head"><div><div class="rundown-kicker">NOVÁ SEZÓNA</div><div class="rundown-title" id="seasonRecapTitle">Season Recap</div><div class="rundown-sub" id="seasonRecapSub">Tvoje poslední sezóna</div></div><button aria-label="Zavřít" class="rundown-close" id="seasonRecapClose">×</button></div><div class="season-recap-grid" id="seasonRecapStats"></div><div class="season-recap-section"><h4>🏆 Nejdůležitější výsledky</h4><div class="rundown-list" id="seasonRecapWins"></div></div><div class="season-recap-section"><h4>📈 Posun</h4><div class="rundown-list" id="seasonRecapProgress"></div></div><div class="rundown-actions"><button class="rundown-btn" id="seasonRecapContinue">Jdeme na novou sezónu</button></div></div></div>
 <div class="hidden" id="rundownOverlay"><div class="rundown-card"><div class="rundown-head"><div><div class="rundown-kicker">Tvoje poslední výsledky</div><div class="rundown-title" id="rundownTitle">Dobrá práce.</div><div class="rundown-sub" id="rundownSub">Rychlé shrnutí toho, co se ti povedlo.</div></div><button aria-label="Zavřít" class="rundown-close" id="rundownClose">×</button></div><div class="rundown-grid" id="rundownStats"></div><div class="rundown-section"><h4>🔥 Co se ti povedlo</h4><div class="rundown-list" id="rundownWins"></div></div><div class="rundown-section"><h4>🏆 Co jsi odemkl</h4><div class="rundown-achievements" id="rundownAchievements"></div></div><div class="rundown-section"><h4>🎯 Na čem můžeš ještě zabrat</h4><div class="rundown-list" id="rundownFocus"></div></div><div class="rundown-actions"><button class="rundown-btn" id="rundownContinue">Pokračovat do profilu</button></div></div></div>
 <div class="shell">
-<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V197</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
+<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V198</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
 <div class="layout">
 <aside class="sidebar">
 <div class="label" id="profileLabel">Profil</div><select class="select" id="workerSelect"></select>
@@ -1824,8 +1836,13 @@ tr.unknown .admin-status{color:var(--muted)!important;background:rgba(148,163,18
       <button class="home-momentum-preset active" data-home-momentum="efficiency" onclick="renderHomeMomentum('efficiency')">Efficiency</button>
       <button class="home-momentum-preset" data-home-momentum="output" onclick="renderHomeMomentum('output')">Output</button>
       <button class="home-momentum-preset" data-home-momentum="quality" onclick="renderHomeMomentum('quality')">Quality</button>
-      <button class="home-momentum-preset" data-home-momentum="inbound" onclick="renderHomeMomentum('inbound')">Inbound</button>
+      <button class="home-momentum-preset" data-home-momentum="inbound" onclick="renderHomeMomentum('inbound')">Inbound Total</button>
+      <button class="home-momentum-preset ops" data-home-momentum="inbound_normal" onclick="renderHomeMomentum('inbound_normal')">Normal</button>
+      <button class="home-momentum-preset ops" data-home-momentum="inbound_icy" onclick="renderHomeMomentum('inbound_icy')">ICY</button>
+      <button class="home-momentum-preset ops" data-home-momentum="inbound_freeze" onclick="renderHomeMomentum('inbound_freeze')">FREEZE</button>
+      <button class="home-momentum-preset ops" data-home-momentum="stock" onclick="renderHomeMomentum('stock')">Stock Count</button>
     </div>
+    <div class="home-ops-snapshot" id="homeOpsSnapshot"><span class="muted">Načítám Inbound / Stock historii…</span></div>
     <div class="home-momentum-value-row"><strong id="homeMomentumValue">—</strong><span class="home-trend-move neutral" id="homeMomentumMovement">—</span><span id="homeMomentumExplain">Načítám trend…</span></div>
     <div class="home-live-data-impact compact" id="homeMomentumDailyImpact"></div>
     <div class="home-momentum-chart"><canvas id="homeMomentumChart"></canvas></div>
@@ -1999,6 +2016,10 @@ tr.unknown .admin-status{color:var(--muted)!important;background:rgba(148,163,18
 <section class="panel"><div class="section-head"><h3>🎯 LIVE MONTH</h3><span><span class="storecard-provisional">PROVISIONAL</span></span></div><div class="enhanced-kpi-grid" id="bonusLiveMonthGrid"></div><div class="notice" id="bonusProjectionText" style="margin-top:10px">Projected bonus zatím není počítán bez 1:1 scoring rules.</div></section>
 </div>
 <div class="section"><section class="panel"><div class="section-head"><h3>📋 POSLEDNÍ OFICIÁLNÍ STORE CARD</h3><span id="officialStoreCardPeriod">uzavřený měsíc</span></div><div class="enhanced-metric-grid" id="officialStoreCardMetrics"></div></section></div>
+<div class="section"><section class="panel">
+  <div class="section-head"><div><span class="home-priority-kicker">CLOSED MONTHS</span><h3>📦 INBOUND + STOCK HISTORY</h3></div><span id="officialOpsHistoryMeta">uzavřené Store Cards</span></div>
+  <div style="overflow:auto"><table class="table enhanced-table"><thead><tr><th>Měsíc</th><th>Inbound Total</th><th>Normal</th><th>ICY</th><th>FREEZE</th><th>Stock Count</th><th>IB + SC score</th></tr></thead><tbody id="officialOpsHistoryRows"><tr><td colspan="7" class="muted">Načítám historii…</td></tr></tbody></table></div>
+</section></div>
 </section>
 
 <section class="page" id="page-achievements"><div class="hero"><div class="eyebrow">Collection</div><h2>Achievements</h2><p>Odemykej odznaky za výkon, konzistenci, zlepšení, sezónní postup a výkon Holešovic proti síti.</p><div class="hero-tags"><span class="tag gold" id="achievementCount">0 / 0</span><span class="tag green">SEASON PROGRESS</span></div></div><div class="section subgrid"><div class="summary-card"><span class="summary-label">Odemčeno</span><span class="summary-value" id="achievementUnlocked">—</span></div><div class="summary-card"><span class="summary-label">Zbývá</span><span class="summary-value" id="achievementRemaining">—</span></div><div class="summary-card"><span class="summary-label">Completion</span><span class="summary-value" id="achievementPercent">—</span></div></div><div class="section"><div class="toolbar"><button class="tool achievement-filter active" data-amode="all">Vše</button><button class="tool achievement-filter" data-amode="done">✅ Splněné</button><button class="tool achievement-filter" data-amode="todo">🔒 Nesplněné</button></div></div><div class="section"><div class="achievement-grid" id="achievementGrid"></div></div></section>
@@ -2315,8 +2336,8 @@ function relativeBetterWeeks(p,aliases,window,needed){
  }
  return good>=needed;
 }
-function badges(name){const p=state.team?.people?.[name];const base=p?BADGE_DEFS.filter(b=>{try{return b.test(p,name)}catch(e){return false}}).map(b=>[b.icon,b.title]):[];if(name===state.worker&&state.storeCard)storeCardDynamicBadgeDefs().filter(b=>b.done).forEach(b=>base.push([b.icon,b.title]));return base}
-function badgeDefsWithState(name){const p=state.team?.people?.[name];const base=BADGE_DEFS.map(b=>{let done=false;try{done=!!p&&!!b.test(p,name)}catch(e){}return {...b,done}});if(name===state.worker&&state.storeCard)base.push(...storeCardDynamicBadgeDefs());return base}
+function badges(name){const p=state.team?.people?.[name];const base=p?BADGE_DEFS.filter(b=>{try{return b.test(p,name)}catch(e){return false}}).map(b=>[b.icon,b.title]):[];if(name===state.worker&&state.storeCard)[...storeCardDynamicBadgeDefs(),...storeCardHistoricalBadgeDefs()].filter(b=>b.done).forEach(b=>base.push([b.icon,b.title]));return base}
+function badgeDefsWithState(name){const p=state.team?.people?.[name];const base=BADGE_DEFS.map(b=>{let done=false;try{done=!!p&&!!b.test(p,name)}catch(e){}return {...b,done}});if(name===state.worker&&state.storeCard)base.push(...storeCardDynamicBadgeDefs(),...storeCardHistoricalBadgeDefs());return base}
 function renderBadgeLegend(name){const grid=document.getElementById('badgeLegendGrid');if(!grid)return;const rows=badgeDefsWithState(name);grid.innerHTML=rows.map(b=>`<div class="badge-legend-item ${b.done?'unlocked':'locked'}"><div class="badge-legend-icon">${b.icon}</div><div><div class="badge-legend-name">${esc(b.title)}</div><div class="badge-legend-desc">${esc(b.desc)}</div><div class="badge-legend-status">${b.done?'✓ ODEMČENO':'🔒 ZAMČENO'}</div></div></div>`).join('')}
 function openBadgeLegend(name){renderBadgeLegend(name||state.worker);document.getElementById('badgeLegendOverlay')?.classList.add('show')}
 function closeBadgeLegend(){document.getElementById('badgeLegendOverlay')?.classList.remove('show')}
@@ -2885,6 +2906,22 @@ function operationalQuestDefs(){
   {id:'op_card',icon:'🎯',title:'Store Card Threshold',reward:'MONTHLY · +300 XP',desc:'Průběžný Store Card odhad je alespoň na aktuálním threshold bodů. Potvrzuje se až uzávěrkou.',display:Number.isFinite(points)?fmt(points,1)+' bodů':'—',target:'Cíl: '+fmt(threshold,1)+' b.',status:Number.isFinite(points)?(points>=threshold?(Number(pr.confidence_percent||0)>=35?'Splněno ✓':'Body splněny · čeká se na coverage'):(fmt(points/threshold*100,0)+' % k cíli')):'Čeká na data',pct:Number.isFinite(points)&&threshold>0?pct(points,threshold):0,done:Number.isFinite(points)&&points>=threshold&&Number(pr.confidence_percent||0)>=35,tone:Number.isFinite(points)?(points>=threshold?'good':points>=threshold*.7?'warn':'bad'):'neutral'}
  ];
 }
+function storeCardHistoricalBadgeDefs(){
+ const hist=Array.isArray(state.storeCard?.official_history)?state.storeCard.official_history:[];
+ const max=function(key){const vals=hist.map(function(x){return Number(x?.[key])}).filter(Number.isFinite);return vals.length?Math.max(...vals):null};
+ const maxInbound=max('inbound_total_units'),maxStock=max('stock_count'),maxIbSc=max('score_inbound_stock');
+ const maxCold=hist.map(function(x){
+   const icy=Number(x?.inbound_icy_units),fr=Number(x?.inbound_freeze_units);
+   const a=Number.isFinite(icy)?icy:0,b=Number.isFinite(fr)?fr:0;
+   return a+b;
+ }).filter(Number.isFinite).reduce(function(a,b){return Math.max(a,b)},0);
+ return[
+  {id:'scinbound10k',icon:'📦',title:'Inbound 10K Club',desc:'V uzavřené Store Card dosáhni alespoň 10 000 Inbound units za měsíc.',done:Number(maxInbound)>=10000},
+  {id:'sccold1k',icon:'❄️',title:'Cold Chain 1K',desc:'V uzavřené Store Card dosáhni alespoň 1 000 ICY + FREEZE units za měsíc.',done:Number(maxCold)>=1000},
+  {id:'scstock1k',icon:'📋',title:'Stock Counter 1K',desc:'V uzavřené Store Card dosáhni alespoň 1 000 Stock Count za měsíc.',done:Number(maxStock)>=1000},
+  {id:'scibscore',icon:'🏭',title:'Inbound + Stock Specialist',desc:'V oficiální Store Card získej alespoň 1,5 bodu v kategorii IB + SC.',done:Number(maxIbSc)>=1.5}
+ ];
+}
 function storeCardDynamicBadgeDefs(){
  const d=state.storeCard||{},eff=d.efficiency||{},w=d.bonus_wallet||{},pr=d.projection||{};
  const op=operationalQuestDefs();
@@ -2898,7 +2935,9 @@ function storeCardDynamicBadgeDefs(){
  ];
 }
 function operationalAchievementDefs(){
- return storeCardDynamicBadgeDefs().map((b,i)=>({id:'opach_'+b.id,icon:b.icon,title:b.title,desc:b.desc,rarity:i>=3?'RARE':'UNCOMMON',done:b.done}));
+ const live=storeCardDynamicBadgeDefs().map((b,i)=>({id:'opach_'+b.id,icon:b.icon,title:b.title,desc:b.desc,rarity:i>=3?'RARE':'UNCOMMON',done:b.done}));
+ const historical=storeCardHistoricalBadgeDefs().map((b,i)=>({id:'opach_hist_'+b.id,icon:b.icon,title:b.title,desc:b.desc,rarity:i>=2?'EPIC':'RARE',done:b.done}));
+ return live.concat(historical);
 }
 function setSummaryState(id,cls){
  const e=document.getElementById(id);if(!e)return;
@@ -3030,7 +3069,8 @@ function renderStoreCardLive(){
  const personal=[
   ['Orders',lp.orders_picked,'int'],['Units',lp.total_units_picked,'int'],['Missing',lp.missing_items_ratio,'percent'],
   ['Undelivered',lp.undelivered_items_ratio,'percent'],['Scan',lp.scan_to_pick_ratio,'percent'],
-  ['Inbound',lp.inbound_all_units,'int'],['Stock Count',lp.stock_count,'int']
+  ['Inbound Total',lp.inbound_total_units??lp.inbound_all_units,'int'],['Inbound Normal',lp.inbound_normal_units,'int'],
+  ['Inbound ICY',lp.inbound_icy_units,'int'],['Inbound FREEZE',lp.inbound_freeze_units,'int'],['Stock Count',lp.stock_count,'int']
  ];
  const pg=document.getElementById('storeCardPersonalLive');
  if(pg)pg.innerHTML=personal.map(([k,v,t])=>'<div class="storecard-live-kpi"><span>'+esc(k)+'</span><strong>'+esc(liveFmt(v,t))+'</strong></div>').join('');
@@ -3073,7 +3113,8 @@ function renderStoreCardLive(){
  const bl=document.getElementById('bonusLiveMonthGrid');
  if(bl){
   const items=[
-   ['Orders',lp.orders_picked,'count'],['Units',lp.total_units_picked,'count'],['Inbound',lp.inbound_all_units,'count'],['Stock Count',lp.stock_count,'count'],
+   ['Orders',lp.orders_picked,'count'],['Units',lp.total_units_picked,'count'],['Inbound Total',lp.inbound_total_units??lp.inbound_all_units,'count'],
+   ['Inbound Normal',lp.inbound_normal_units,'count'],['Inbound ICY',lp.inbound_icy_units,'count'],['Inbound FREEZE',lp.inbound_freeze_units,'count'],['Stock Count',lp.stock_count,'count'],
    ['Scan',lp.scan_to_pick_ratio,'percent'],['Missing',lp.missing_items_ratio,'percent'],['Undelivered',lp.undelivered_items_ratio,'percent'],['POFR',lp.pofr,'percent'],
    ['Avg rating',lp.avg_goods_rating,'number'],['Bad goods',lp.bad_goods_rating_ratio,'percent'],['Refund',lp.refund_percent,'percent'],['Late prep',lp.venue_late_preparation_ratio,'percent']
   ];
@@ -3143,6 +3184,16 @@ function renderStoreCardLive(){
  if(om){
   const rows=d.official_metrics||[];
   om.innerHTML=rows.length?rows.map(x=>enhancedKpi(x.label,x.value,x.unit,x.metric_id)).join(''):'<div class="notice">Oficiální měsíční Store Card pro tento profil zatím není v databázi.</div>';
+ }
+ const oh=document.getElementById('officialOpsHistoryRows'),ohm=document.getElementById('officialOpsHistoryMeta');
+ if(oh){
+   const rows=[...(d.official_history||[])].sort(function(a,b){return String(b.period_start).localeCompare(String(a.period_start))});
+   if(ohm)ohm.textContent=rows.length+' uzavřených měsíců · Store Card';
+   oh.innerHTML=rows.length?rows.map(function(x){
+     const month=dateOnly(x.period_start)?.toLocaleDateString('cs-CZ',{month:'long',year:'numeric'})||x.period_start;
+     const c=function(v){return Number.isFinite(Number(v))?Math.round(Number(v)).toLocaleString('cs-CZ'):'—'};
+     return '<tr><td><strong>'+esc(month)+'</strong></td><td>'+c(x.inbound_total_units)+'</td><td>'+c(x.inbound_normal_units)+'</td><td>'+c(x.inbound_icy_units)+'</td><td>'+c(x.inbound_freeze_units)+'</td><td>'+c(x.stock_count)+'</td><td>'+esc(x.score_inbound_stock==null?'—':fmt(Number(x.score_inbound_stock),1)+' b.')+'</td></tr>';
+   }).join(''):'<tr><td colspan="7" class="muted">Zatím bez uzavřených Store Card dat.</td></tr>';
  }
 
  // Efficiency page headline.
@@ -3386,22 +3437,31 @@ function homeHybridTeamAverage(metricIds,referenceRows,frame){
  });
 }
 function homeMomentumSeries(key){
- if(key==='inbound'&&state.unifiedData){
+ const opsMap={
+   inbound:{ids:['inbound_normal','inbound_icy','inbound_freeze'],label:'Inbound Total',total:true},
+   inbound_normal:{ids:['inbound_normal'],label:'Inbound Normal',total:false},
+   inbound_icy:{ids:['inbound_icy'],label:'Inbound ICY',total:false},
+   inbound_freeze:{ids:['inbound_freeze'],label:'Inbound FREEZE',total:false},
+   stock:{ids:['stock_count'],label:'Stock Count',total:false}
+ };
+ const ops=opsMap[key];
+ if(ops&&state.unifiedData){
    const person=unifiedPersonByName(state.worker),frame=getSeasonFrame();
    if(person){
-     const rows=unifiedHybridTotalRows(person,['inbound_normal','inbound_icy','inbound_freeze'],frame);
+     const rows=ops.total?unifiedHybridTotalRows(person,ops.ids,frame):unifiedHybridRowsForPerson(person,ops.ids[0],frame);
      if(rows.length){
-       const prevRows=unifiedHybridTotalRows(person,['inbound_normal','inbound_icy','inbound_freeze'],previousSeasonFrame());
+       const prevRows=ops.total?unifiedHybridTotalRows(person,ops.ids,previousSeasonFrame()):unifiedHybridRowsForPerson(person,ops.ids[0],previousSeasonFrame());
        const prev=prevRows.length?Number(prevRows.at(-1).value):null;
        return {
-         metric_id:'inbound_total_hybrid',label:'Inbound',unit:'count',lower_is_better:false,granularity:'hybrid',
+         metric_id:key+'_hybrid',label:ops.label,unit:'count',lower_is_better:false,granularity:'hybrid',
          labels:rows.map(function(r){return r.sort_date}),
          display_labels:rows.map(function(r){return r.display}),
          values:rows.map(function(r){return r.value}),
          previous_season_value:Number.isFinite(prev)?prev:null,
-         team_values:homeHybridTeamAverage(['inbound_normal','inbound_icy','inbound_freeze'],rows,frame),
+         team_values:homeHybridTeamAverage(ops.ids,rows,frame),
          source_mode:'Store Card fallback + Data Hub',
-         home_key:key
+         home_key:key,
+         source_rows:rows
        };
      }
    }
@@ -3451,6 +3511,18 @@ function homeTrendMovement(diff,lower,unit,context='week'){
    label:(good?'↑ ZLEPŠENÍ':'↓ ZHORŠENÍ')+' · '+amount,
    detail:(good?'Lepší':'Horší')+' než '+against+' o '+amount
  };
+}
+function renderHomeOpsSnapshot(){
+ const host=document.getElementById('homeOpsSnapshot');if(!host)return;
+ if(!state.unifiedData){host.innerHTML='<span class="muted">Načítám Inbound / Stock historii…</span>';return}
+ const defs=[
+   ['inbound','Inbound Total','📦'],['inbound_normal','Normal','◻️'],['inbound_icy','ICY','❄️'],['inbound_freeze','FREEZE','🧊'],['stock','Stock Count','📋']
+ ];
+ host.innerHTML=defs.map(function(d){
+   const srs=homeMomentumSeries(d[0]),vals=(srs?.values||[]).map(Number).filter(Number.isFinite),latest=vals.at(-1);
+   const src=srs?.source_rows?.at(-1)?.source==='store_card_monthly'?'Store Card':'Data Hub';
+   return '<button class="home-ops-chip" onclick="renderHomeMomentum(\''+d[0]+'\')"><span>'+d[2]+' '+d[1]+'</span><strong>'+(Number.isFinite(latest)?Math.round(latest).toLocaleString('cs-CZ'):'—')+'</strong><small>'+esc(Number.isFinite(latest)?src:'bez dat')+'</small></button>';
+ }).join('');
 }
 function renderHomeMomentum(preset){
  const canvas=document.getElementById('homeMomentumChart');if(!canvas)return;
@@ -3699,7 +3771,7 @@ function renderHomePriority(){
  renderEmployeeTeamPulse();
 }
 
-function renderHome(){if(!state.player)return;renderSeasonCountdown();const p=state.player,lb=playerSeasonData(state.worker),sc=performanceScoreFromLatest(p),st=streak(currentSeasonHistory()||state.history),life=lifetimeProgressFor(state.worker),xp=life.xp,lvl=life.level,within=xp%1000,t=tier(lb.elo);document.body.dataset.tier=t[0];setText('homeName',p.worker);setText('homeTier',t[0]);setText('homeRank','#'+lb.rank);const rankIcon=t[0]==='MASTER'?'💎':t[0]==='GOLD'?'🥇':t[0]==='SILVER'?'🛡️':'🔰';setText('rankCrest',rankIcon);setText('rankHeadline',t[0]==='UNRANKED'?'UNRANKED':t[0]);setText('sElo',lb.elo+' b.');setText('sRank',t[0]==='UNRANKED'?'—':`${t[0]}${lb.status&&lb.status!=='FULL'?' · '+lb.status:''} · #${lb.rank}`);setText('sRankIcon',rankIcon);setText('sPerf',sc==null?'—':fmt(sc,1));setText('sStreak',st);setText('homeLevel','LVL '+lvl);setText('homeXp',within+' / 1000 XP');document.getElementById('xpBar').style.width=(within/10)+'%';const seasonWeeksCount=seasonScopedTeam(state.team)?.labels?.length||currentSeasonWeeks().length;setText('seasonMeta',seasonWeeksCount?('Rank: aktuální sezóna · Level: celoživotní XP · '+seasonWeeksCount+' týdnů v sezóně'):'Aktuální rank · sezónní detail se dopočítá při otevření žebříčku');const rankBar=document.getElementById('rankBar');const rankMin=900,rankMax=1200;const rankPct=Math.min(100,Math.max(0,((lb.elo-rankMin)/(rankMax-rankMin))*100));rankBar.style.width=rankPct+'%';setText('rankProgressText',t[0]==='UNRANKED'?'—':t[0]);setText('rankFrom','');setText('rankTo','');document.querySelectorAll('.rank-rail .rank-stop').forEach((el,i)=>{const min=Number(el.dataset.rankMin||0);el.classList.toggle('active',lb.elo>=min);el.classList.toggle('current',(i===0&&lb.elo<1000)||(i===1&&lb.elo>=1000&&lb.elo<1100)||(i===2&&lb.elo>=1100&&lb.elo<1200)||(i===3&&lb.elo>=1200));});const b=badges(state.worker);document.getElementById('badgeList').innerHTML=b.map(x=>`<span class="badge" data-emoji="${esc(x[0])}" data-title="${esc(x[1])}" title="${esc(x[1])}">${x[0]} ${esc(x[1])}</span>`).join('')||'<span class="empty-badges">Zatím žádné sezónní odznaky</span>';renderQuests();renderHomeScanStrip();renderHomeBreakdown();renderAchievements();renderStoreCardLive();renderStoreQuests().catch(e=>{console.warn('store quests',e);const b=document.getElementById('homeStoreQuestList');if(b)b.innerHTML='<div class=\"notice error\">Store Challenges se nepodařilo načíst.</div>';});animateWidth('xpBar',within/10,850);const rankPct2=Math.min(100,Math.max(0,((lb.elo-900)/(1200-900))*100));animateWidth('rankBar',rankPct2,1000);animateCards('badgeList');animateCards('homeQuestList');animateCards('homeStoreQuestList');renderHomePriority()}
+function renderHome(){if(!state.player)return;renderHomeOpsSnapshot();renderSeasonCountdown();const p=state.player,lb=playerSeasonData(state.worker),sc=performanceScoreFromLatest(p),st=streak(currentSeasonHistory()||state.history),life=lifetimeProgressFor(state.worker),xp=life.xp,lvl=life.level,within=xp%1000,t=tier(lb.elo);document.body.dataset.tier=t[0];setText('homeName',p.worker);setText('homeTier',t[0]);setText('homeRank','#'+lb.rank);const rankIcon=t[0]==='MASTER'?'💎':t[0]==='GOLD'?'🥇':t[0]==='SILVER'?'🛡️':'🔰';setText('rankCrest',rankIcon);setText('rankHeadline',t[0]==='UNRANKED'?'UNRANKED':t[0]);setText('sElo',lb.elo+' b.');setText('sRank',t[0]==='UNRANKED'?'—':`${t[0]}${lb.status&&lb.status!=='FULL'?' · '+lb.status:''} · #${lb.rank}`);setText('sRankIcon',rankIcon);setText('sPerf',sc==null?'—':fmt(sc,1));setText('sStreak',st);setText('homeLevel','LVL '+lvl);setText('homeXp',within+' / 1000 XP');document.getElementById('xpBar').style.width=(within/10)+'%';const seasonWeeksCount=seasonScopedTeam(state.team)?.labels?.length||currentSeasonWeeks().length;setText('seasonMeta',seasonWeeksCount?('Rank: aktuální sezóna · Level: celoživotní XP · '+seasonWeeksCount+' týdnů v sezóně'):'Aktuální rank · sezónní detail se dopočítá při otevření žebříčku');const rankBar=document.getElementById('rankBar');const rankMin=900,rankMax=1200;const rankPct=Math.min(100,Math.max(0,((lb.elo-rankMin)/(rankMax-rankMin))*100));rankBar.style.width=rankPct+'%';setText('rankProgressText',t[0]==='UNRANKED'?'—':t[0]);setText('rankFrom','');setText('rankTo','');document.querySelectorAll('.rank-rail .rank-stop').forEach((el,i)=>{const min=Number(el.dataset.rankMin||0);el.classList.toggle('active',lb.elo>=min);el.classList.toggle('current',(i===0&&lb.elo<1000)||(i===1&&lb.elo>=1000&&lb.elo<1100)||(i===2&&lb.elo>=1100&&lb.elo<1200)||(i===3&&lb.elo>=1200));});const b=badges(state.worker);document.getElementById('badgeList').innerHTML=b.map(x=>`<span class="badge" data-emoji="${esc(x[0])}" data-title="${esc(x[1])}" title="${esc(x[1])}">${x[0]} ${esc(x[1])}</span>`).join('')||'<span class="empty-badges">Zatím žádné sezónní odznaky</span>';renderQuests();renderHomeScanStrip();renderHomeBreakdown();renderAchievements();renderStoreCardLive();renderStoreQuests().catch(e=>{console.warn('store quests',e);const b=document.getElementById('homeStoreQuestList');if(b)b.innerHTML='<div class=\"notice error\">Store Challenges se nepodařilo načíst.</div>';});animateWidth('xpBar',within/10,850);const rankPct2=Math.min(100,Math.max(0,((lb.elo-900)/(1200-900))*100));animateWidth('rankBar',rankPct2,1000);animateCards('badgeList');animateCards('homeQuestList');animateCards('homeStoreQuestList');renderHomePriority()}
 function seasonMetricPoints(name,mine,teamValues){ return seasonMetricContribution(name,mine,teamValues); }
 function getMetricValFromWeek(week,aliases){const defs=state.history?.metricDefinitions||[];for(const a of aliases.map(norm)){const d=defs.find(x=>norm(x.name)===a||norm(x.name).includes(a));if(d&&week?.metrics?.[d.key]?.value!=null)return {value:normalizeMetricValue(week.metrics[d.key].value,d.name),name:d.name};}return null}
 function questDefsForWeek(week){
@@ -4531,6 +4603,9 @@ async function renderInboundStockHistory(){
    await loadUnifiedArenaData();
    const person=unifiedPersonByName(state.worker);if(!person)return;
    const inbound=sliceHybridRows(unifiedHybridTotalRows(person,['inbound_normal','inbound_icy','inbound_freeze']));
+   const inboundNormal=sliceHybridRows(unifiedHybridRowsForPerson(person,'inbound_normal'));
+   const inboundIcy=sliceHybridRows(unifiedHybridRowsForPerson(person,'inbound_icy'));
+   const inboundFreeze=sliceHybridRows(unifiedHybridRowsForPerson(person,'inbound_freeze'));
    const stock=sliceHybridRows(unifiedHybridRowsForPerson(person,'stock_count'));
 
    const draw=function(canvasId,valueId,metaId,rows,label){
@@ -4565,7 +4640,22 @@ async function renderInboundStockHistory(){
          scales:{x:{ticks:{color:'#91A79B',maxRotation:0,font:{size:8}},grid:{display:false}},y:{beginAtZero:true,ticks:{color:'#91A79B'},grid:{color:'rgba(145,167,155,.10)'}}}}
      });
    };
-   draw('personalInboundHistoryChart','personalInboundHistoryValue','personalInboundHistoryMeta',inbound,'Inbound');
+   // Inbound history keeps all operational components visible.
+   destroyChart('personalInboundHistoryChart');
+   const ic=document.getElementById('personalInboundHistoryChart');
+   if(ic&&inbound.length){
+     const keyRows=inbound,labels=keyRows.map(function(r){return r.display}),key=function(r){return r.sort_date+'|'+r.granularity};
+     const toMap=function(rows){return new Map(rows.map(function(r){return[key(r),Number(r.value)]}))};
+     const normalMap=toMap(inboundNormal),icyMap=toMap(inboundIcy),freezeMap=toMap(inboundFreeze);
+     setText('personalInboundHistoryValue',Math.round(Number(inbound.at(-1).value)||0).toLocaleString('cs-CZ')+' / týd.');
+     setText('personalInboundHistoryMeta','Total + Normal + ICY + FREEZE · Store Card fallback přepočtený na 7 dní');
+     charts.personalInboundHistoryChart=new Chart(ic,{type:'line',data:{labels,datasets:[
+       {label:'Total',data:keyRows.map(function(r){return Number(r.value)}),borderColor:'#35E78A',borderWidth:2.6,tension:.28,pointRadius:3,spanGaps:true},
+       {label:'Normal',data:keyRows.map(function(r){return normalMap.get(key(r))??null}),borderColor:'#94A3B8',borderWidth:1.7,tension:.28,pointRadius:2,spanGaps:true},
+       {label:'ICY',data:keyRows.map(function(r){return icyMap.get(key(r))??null}),borderColor:'#60A5FA',borderWidth:1.7,tension:.28,pointRadius:2,spanGaps:true},
+       {label:'FREEZE',data:keyRows.map(function(r){return freezeMap.get(key(r))??null}),borderColor:'#A78BFA',borderWidth:1.7,tension:.28,pointRadius:2,spanGaps:true}
+     ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:true,labels:{boxWidth:8,font:{size:8}}}},scales:{x:{ticks:{color:'#91A79B',maxRotation:0,font:{size:8}},grid:{display:false}},y:{beginAtZero:true,ticks:{color:'#91A79B'},grid:{color:'rgba(145,167,155,.10)'}}}}});
+   }else if(ic){setText('personalInboundHistoryValue','—');setText('personalInboundHistoryMeta','Pro vybrané období zatím nejsou data.')}
    draw('personalStockHistoryChart','personalStockHistoryValue','personalStockHistoryMeta',stock,'Stock Count');
  }catch(e){
    console.warn('hybrid inbound/stock history',e);
