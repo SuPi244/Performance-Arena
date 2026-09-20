@@ -411,13 +411,14 @@ Deno.serve(async req=>{
   if(ie||!imp)return J({error:"Import not found",detail:ie?.message},404);
 
   const period=inferMonth(filename||imp.filename||"",layout);
+  if(!period)return J({error:"Could not infer Store Card month/year",diagnostics:{filename:filename||imp.filename||"",pages:layout.length}},422);
+
   const people=parsePeople(layout);
+  if(!people.length)return J({error:"No Store Card people rows parsed",diagnostics:{pages:layout.length,period_start:period.period_start,period_end:period.period_end}},422);
+
   const rewards=parseRewards(layout,people,period);
   const maxima=parseMaxima(layout);
   const stores=parseStoreMetrics(layout);
-
-  if(!period)return J({error:"Could not infer Store Card month/year"},422);
-  if(!people.length)return J({error:"No Store Card people rows parsed",diagnostics:{pages:layout.length}},422);
 
   const resolved=await resolvePeople(db,people);
   const conflicts=resolved.filter((x:any)=>x.identity_conflict).map((x:any)=>({email:x.email,picker_login:x.picker_login,display_name:x.display_name}));
@@ -449,7 +450,7 @@ Deno.serve(async req=>{
   };
 
   if(mode==="preview"){
-   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v6",
+   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v7",
     note:"Preview only. Existing identities are resolved by email/picker login. New historical people are shown before commit."});
   }
 
@@ -538,7 +539,7 @@ Deno.serve(async req=>{
    team_bonus_30h_czk:rewards.team_bonus_30h,
    source_import_id:import_id,
    status:"official",
-   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v6",filename:imp.filename},
+   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v7",filename:imp.filename},
    updated_at:new Date().toISOString()
   };
   const {error:sce}=await db.from("store_card_months").upsert(monthRow,{onConflict:"month"});
@@ -608,7 +609,7 @@ Deno.serve(async req=>{
    status:"imported",
    period_start:period.period_start,
    period_end:period.period_end,
-   parser_version:"store-card-monthly-v6",
+   parser_version:"store-card-monthly-v7",
    record_count:totalRecords,
    metadata:{
     ...(imp.metadata||{}),
@@ -626,7 +627,7 @@ Deno.serve(async req=>{
    ...common,
    preview:false,
    committed:true,
-   parser_stage:"store-card-monthly-committed-v6",
+   parser_stage:"store-card-monthly-committed-v7",
    observations_attempted:obs.length,
    observations_inserted:obsWritten,
    store_metrics_attempted:storeRows.length,
