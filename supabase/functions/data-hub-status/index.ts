@@ -7,6 +7,8 @@ const cors={
 };
 const J=(x:any,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{...cors,"content-type":"application/json"}});
 const norm=(v:any)=>String(v??"").trim().toLowerCase();
+const compactIdentity=(v:any)=>norm(v).replace(/[^a-z0-9]+/g,"");
+const isTechnicalIdentity=(v:any)=>compactIdentity(v).startsWith("woltmarketholesovice");
 const day=(v:any)=>String(v??"").slice(0,10);
 const addDays=(iso:string,n:number)=>{const d=new Date(iso+"T12:00:00Z");d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)};
 const daysInMonth=(y:number,m:number)=>new Date(Date.UTC(y,m,0)).getUTCDate();
@@ -175,7 +177,7 @@ async function existingByKeys(db:any,table:string,keys:string[]){
 async function preflight(db:any,reportType:string,p:any){
   const raw=await previewRecords(db,reportType,p),byKey=new Map<string,any>(),conflicts:any[]=[];
   const warnings:any[]=[];let duplicateRows=0;
-  const unresolved=(p.unresolved||[]).filter(Boolean);
+  const unresolved=(p.unresolved||[]).filter((x:any)=>x&&!isTechnicalIdentity(x));
   if(["ga_metrics","daily_picking","inbound","team_rating"].includes(reportType)){
     for(const identity of unresolved)conflicts.push({key:`identity:${identity}`,label:String(identity),reason:"Nerozpoznaná identita blokuje potvrzení"});
   }else if(reportType==="stock_count"&&unresolved.length){
