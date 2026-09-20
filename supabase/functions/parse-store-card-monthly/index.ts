@@ -510,72 +510,106 @@ function parseRewardsText(rawText:string,people:any[],knownPeople:any[],base:any
   const raw=String(rawText||"");
   if(!raw.trim())return null;
   const page1=raw.split(/\n\s*--- PAGE ---\s*\n/i)[0]||raw;
-  const clean=(s:any)=>String(s||"").replace(/\|/g," ").replace(/\s+/g," ").trim();
-  const lines=page1.split(/\r?\n/).map(clean).filter(Boolean);
-  const flat=clean(lines.join(" "));
-  const folded=(s:any)=>String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
-  const flatFold=folded(flat);
-  const escRe=(s:string)=>s.replace(/[.*+?^$(){}|[\]\\]/g,"\\$&");
-  const money=(s:any)=>{
-    const raw=String(s||"").replace(/\s/g,"").replace(/\./g,"").replace(/,/g,".");
-    const v=Number(raw);return Number.isFinite(v)?v:null;
+  const rawLines=page1.split(/\r?\n/).map(x=>String(x||"").trim()).filter(Boolean);
+  const cellRows=rawLines.map(line=>line.split("|").map(x=>String(x||"").replace(/\s+/g," ").trim()).filter(Boolean));
+  const clean=(s:any)=>String(s||"").replace(/\s+/g," ").trim();
+  const folded=(s:any)=>clean(s).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+  const num=(s:any)=>{
+    const m=String(s||"").replace(/\u00a0/g," ").match(/-?\d+(?:[.,]\d+)?/);
+    if(!m)return null;
+    const v=Number(m[0].replace(",","."));
+    return Number.isFinite(v)?v:null;
+  };
+  const integerMoney=(s:any)=>{
+    const t=String(s||"").replace(/\u00a0/g," ").trim();
+    if(/[.,]\d/.test(t))return null;
+    const m=t.match(/(?:^|\s)(\d{1,5})(?:\s*(?:Kč|czk))?(?:\s|$)/i);
+    if(!m)return null;
+    const v=Number(m[1]);
+    return Number.isFinite(v)&&v>=0&&v<=20000?v:null;
   };
 
   let teamEffort:number|null=null,high:number|null=null,mid:number|null=null;
   let team40:number[]|null=null,team30:number[]|null=null;
 
-  const effortMatch=flat.match(/team\s+effort\s+avg[^\d-]{0,40}(-?\d+(?:[.,]\d+)?)\s*%/i);
-  if(effortMatch){const v=n(effortMatch[1]);if(v!=null)teamEffort=Number(v)}
+  // Parse the Team Bonus table from actual PDF cells first. This is much more stable
+  // than X coordinates because every monthly Store Card keeps the same visible table
+  // but older PDFs encode the text geometry differently.
+  for(const cells of cellRows){
+    const joined=cells.join(" ");
+    if(/Team effort AVG/i.test(joined)){
+      const m=joined.match(/(-?\d+(?:[.,]\d+)?)\s*%/);
+      if(m){const v=num(m[1]);if(v!=null)teamEffort=v}
+    }
 
-  const teamAt=flatFold.indexOf("team bonus");
-  const teamSegment=teamAt>=0?flat.slice(teamAt,teamAt+1400):flat;
+    const geVals:number[]=[];
+    let lowVal:number|null=null;
+    for(const cell of cells){
+      const ge=cell.match(/(?:≥|>=|>)\s*(\d+(?:[.,]\d+)?)\s*%/);
+      if(ge){const v=num(ge[1]);if(v!=null)geVals.push(v)}
+      const lt=cell.match(/<\s*(\d+(?:[.,]\d+)?)\s*%/);
+      if(lt){const v=num(lt[1]);if(v!=null)lowVal=v}
+    }
+    if(geVals.length>=2){
+      high=geVals[0];
+      mid=geVals[1];
+    }else if(geVals.length===1&&lowVal!=null){
+      high=geVals[0];
+      mid=lowVal;
+    }
 
-  const ge=[...teamSegment.matchAll(/(?:≥|>=|>)\s*(\d+(?:[.,]\d+)?)\s*%/g)]
-    .map(m=>n(m[1])).filter((x:any)=>x!=null) as number[];
-  const lt=teamSegment.match(/<\s*(\d+(?:[.,]\d+)?)\s*%/);
-  if(ge.length>=2){high=Number(ge[0]);mid=Number(ge[1])}
+    const parseHoursRow=(labelRe:RegExp)=>{
+      const idx=cells.findIndex(x=>labelRe.test(x));
+      if(idx<0)return null;
+      const vals:number[]=[];
+      // Include any amount in the same cell after the label, then following cells.
+      const same=cells[idx].replace(labelRe," ");
+      const sameMatches=same.match(/\b\d{1,5}\b/g)||[];
+      for(const x of sameMatches){const v=Number(x);if(v>=0&&v<=20000)vals.push(v)}
+      for(let j=idx+1;j<cells.length&&vals.length<3;j++){
+        const t=cells[j];
+        if(/czk|Kč/i.test(t)&&!/\d/.test(t))continue;
+        const ms=t.match(/\b\d{1,5}\b/g)||[];
+        for(const x of ms){
+          const v=Number(x);
+          if(v>=0&&v<=20000)vals.push(v);
+          if(vals.length>=3)break;
+        }
+      }
+      return vals.length>=3?vals.slice(0,3):null;
+    };
+    if(!team40&&/40h\s*\/\s*w/i.test(joined))team40=parseHoursRow(/40h\s*\/\s*w/i);
+    if(!team30&&/30h\s*\/\s*w/i.test(joined))team30=parseHoursRow(/30h\s*\/\s*w/i);
+  }
 
+  const flat=cellRows.map(r=>r.join(" ")).join(" ");
+  const flatFold=folded(flat);
+
+  // Fallback when comparator glyphs or cell boundaries were lost.
   if(high==null||mid==null){
-    const before40=teamSegment.split(/40h\s*\/\s*w/i)[0]||teamSegment;
-    const ps=(before40.match(/\d+(?:[.,]\d+)?\s*%/g)||[])
-      .map(x=>n(x)).filter((x:any)=>x!=null&&x>=0&&x<=100) as number[];
-    if(ps.length>=2){high=Number(ps[0]);mid=Number(ps[1])}
+    const at=flatFold.indexOf("team bonus");
+    const seg=at>=0?flat.slice(at,at+1600):flat;
+    const ge=[...seg.matchAll(/(?:≥|>=|>)\s*(\d+(?:[.,]\d+)?)\s*%/g)]
+      .map(m=>num(m[1])).filter((x:any)=>x!=null) as number[];
+    const lt=seg.match(/<\s*(\d+(?:[.,]\d+)?)\s*%/);
+    if(ge.length>=2){high=Number(ge[0]);mid=Number(ge[1])}
+    else if(ge.length===1&&lt){high=Number(ge[0]);mid=Number(num(lt[1]))}
   }
-  if((high==null||mid==null)&&lt){
-    const lv=n(lt[1]);
-    if(lv!=null&&mid==null)mid=Number(lv);
-  }
-
-  const parseTeamRow=(label:string)=>{
-    const re=new RegExp(label+"\\s*\\/\\s*w[^0-9]{0,35}([0-9][0-9 .]*)\\s+([0-9][0-9 .]*)\\s+([0-9][0-9 .]*)","i");
-    const m=teamSegment.match(re)||flat.match(re);
-    if(!m)return null;
-    const vals=[money(m[1]),money(m[2]),money(m[3])];
-    return vals.every(v=>v!=null&&v>=0&&v<=20000)?vals.map(Number):null;
+  const fallbackHours=(label:string)=>{
+    const re=new RegExp(label+"\\s*\\/\\s*w([\\s\\S]{0,120})","i");
+    const m=flat.match(re);if(!m)return null;
+    const vals=(m[1].match(/\b\d{1,5}\b/g)||[]).map(Number).filter(v=>v>=0&&v<=20000);
+    return vals.length>=3?vals.slice(0,3):null;
   };
-  team40=parseTeamRow("40h");
-  team30=parseTeamRow("30h");
-
-  if(!team40){
-    const m=teamSegment.match(/40h\s*\/\s*w([\s\S]{0,90})/i);
-    if(m){
-      const vals=(m[1].match(/\b\d{1,5}\b/g)||[]).map(Number).filter(v=>v>=0&&v<=20000);
-      if(vals.length>=3)team40=vals.slice(0,3);
-    }
-  }
-  if(!team30){
-    const m=teamSegment.match(/30h\s*\/\s*w([\s\S]{0,90})/i);
-    if(m){
-      const vals=(m[1].match(/\b\d{1,5}\b/g)||[]).map(Number).filter(v=>v>=0&&v<=20000);
-      if(vals.length>=3)team30=vals.slice(0,3);
-    }
-  }
+  if(!team40)team40=fallbackHours("40h");
+  if(!team30)team30=fallbackHours("30h");
 
   const top=Array.isArray(base?.top_bonus_czk)?base.top_bonus_czk.map(Number).filter(Number.isFinite):[];
   const tier=teamEffort!=null&&high!=null&&mid!=null?(teamEffort>=high?0:teamEffort>=mid?1:2):null;
   const selected40=tier!=null&&team40?team40[tier]??null:null;
   const selected30=tier!=null&&team30?team30[tier]??null:null;
 
+  // Canonical full names / aliases.
   const ids=new Map<string,any>();
   const addName=(pid:any,name:any,extra:any={})=>{
     const id=String(pid||""),nm=clean(name);if(!id||!nm)return;
@@ -591,7 +625,6 @@ function parseRewardsText(rawText:string,people:any[],knownPeople:any[],base:any
     const pid=pp.hint_person_id||pp.person_id||null;
     addName(pid,pp.display_name,{display_name:pp.display_name,email:pp.email,picker_login:pp.picker_login});
     addName(pid,pp.picker_login,{display_name:pp.display_name,email:pp.email,picker_login:pp.picker_login});
-    if(pp.email)addName(pid,String(pp.email).split("@")[0].replace(/[._-]+/g," "),{display_name:pp.display_name,email:pp.email,picker_login:pp.picker_login});
   }
 
   const allTeam=new Set<number>([0]);
@@ -606,18 +639,31 @@ function parseRewardsText(rawText:string,people:any[],knownPeople:any[],base:any
   const geomByPerson=new Map((base?.payouts||[]).filter((x:any)=>x.person_id).map((x:any)=>[String(x.person_id),x]));
   const payouts:any[]=[];
 
+  // Read official payout from the PDF cells: a known person's name and an integer CZK
+  // amount in the same cell or immediately following cells. Decimal score cells (e.g.
+  // "12,0") are deliberately rejected.
   for(const rec of ids.values()){
     let best:any=null;
-    for(const name of rec.names.sort((a:string,b:string)=>b.length-a.length)){
-      const fn=folded(name).replace(/\s+/g," ").trim();if(fn.length<5)continue;
-      const re=new RegExp(escRe(fn)+"\\s+([0-9]{1,5})(?![.,]\\d)","g");
-      let m:any;
-      while((m=re.exec(flatFold))){
-        const amount=Number(m[1]);
-        if(!possible.has(amount))continue;
-        const afterTeam=teamAt>=0&&m.index>=teamAt;
-        const score=(afterTeam?100000:0)-m.index;
-        if(!best||score>best.score)best={amount,score,source_name:name,position:m.index};
+    for(const cells of cellRows){
+      for(let ci=0;ci<cells.length;ci++){
+        const cell=cells[ci],fc=folded(cell);
+        for(const name of rec.names){
+          const fn=folded(name);if(fn.length<5||!fc.includes(fn))continue;
+          const tail=cell.slice(Math.max(0,folded(cell).indexOf(fn)+name.length));
+          const candidates:any[]=[];
+          const same=integerMoney(tail);if(same!=null)candidates.push({amount:same,distance:0,source:"same_cell"});
+          for(let j=ci+1;j<Math.min(cells.length,ci+4);j++){
+            const v=integerMoney(cells[j]);
+            if(v!=null)candidates.push({amount:v,distance:j-ci,source:"next_cell"});
+            // If another known full name starts before an amount, stop walking.
+            if([...ids.values()].some((other:any)=>other.person_id!==rec.person_id&&other.names.some((nm:string)=>folded(cells[j]).includes(folded(nm)))))break;
+          }
+          for(const q of candidates){
+            if(!possible.has(Number(q.amount)))continue;
+            const score=100-q.distance;
+            if(!best||score>best.score)best={...q,score,source_name:name};
+          }
+        }
       }
     }
     if(!best)continue;
@@ -648,12 +694,12 @@ function parseRewardsText(rawText:string,people:any[],knownPeople:any[],base:any
       source_name:best.source_name,
       confirmed_bonus_czk:amount,
       bonus_eligible:geom?.bonus_eligible??null,
-      eligibility_source:geom?.eligibility_source||"text_layer_match",
+      eligibility_source:geom?.eligibility_source||"text_cell_match",
       top_rank:decomp.length===1?decomp[0].top_rank:null,
       payout_decomposition:decomp.length===1?decomp[0]:null,
       payout_decomposition_candidates:decomp,
       payout_rule_match:decomp.length>0,
-      payout_match_source:"pdf_text_immediate_amount"
+      payout_match_source:"pdf_cell_name_amount"
     });
   }
 
@@ -662,8 +708,7 @@ function parseRewardsText(rawText:string,people:any[],knownPeople:any[],base:any
     threshold_high:high,threshold_mid:mid,
     team40,team30,tier,selected40,selected30,payouts,
     diagnostics:{
-      lines:lines.length,
-      team_segment_found:teamAt>=0,
+      row_count:cellRows.length,
       threshold_high:high,threshold_mid:mid,
       team40,team30,
       possible_amounts:[...possible].sort((a,b)=>a-b),
@@ -1006,7 +1051,7 @@ Deno.serve(async req=>{
   };
 
   if(mode==="preview"){
-   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v14",
+   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v15",
     note:"Preview only. Existing identities are resolved by email/picker login. New historical people are shown before commit."});
   }
 
@@ -1095,7 +1140,7 @@ Deno.serve(async req=>{
    team_bonus_30h_czk:rewards.team_bonus_30h,
    source_import_id:import_id,
    status:"official",
-   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v14",filename:imp.filename,bonus_rules:{top_bonus_czk:rewards.top_bonus_czk||[],team_bonus:rewards.team_bonus_rules||null}},
+   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v15",filename:imp.filename,bonus_rules:{top_bonus_czk:rewards.top_bonus_czk||[],team_bonus:rewards.team_bonus_rules||null}},
    updated_at:new Date().toISOString()
   };
   const {error:sce}=await db.from("store_card_months").upsert(monthRow,{onConflict:"month"});
@@ -1169,7 +1214,7 @@ Deno.serve(async req=>{
    status:"imported",
    period_start:period.period_start,
    period_end:period.period_end,
-   parser_version:"store-card-monthly-v14",
+   parser_version:"store-card-monthly-v15",
    record_count:totalRecords,
    metadata:{
     ...(imp.metadata||{}),
@@ -1187,7 +1232,7 @@ Deno.serve(async req=>{
    ...common,
    preview:false,
    committed:true,
-   parser_stage:"store-card-monthly-committed-v14",
+   parser_stage:"store-card-monthly-committed-v15",
    observations_attempted:obs.length,
    observations_inserted:obsWritten,
    store_metrics_attempted:storeRows.length,
