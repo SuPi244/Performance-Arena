@@ -7,6 +7,22 @@ const cors={
 };
 const J=(x:any,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{...cors,"content-type":"application/json"}});
 const norm=(v:any)=>String(v??"").trim().toLowerCase();
+const normIdentity=(v:any)=>norm(v);
+function aliasTypeFor(reportType:string,alias:string){
+  const a=String(alias||"").trim();
+  if(a.includes("@"))return "email";
+  if(reportType==="inbound")return /^[a-f0-9…]{8,}$/i.test(a.replace(/\s+/g,""))?"wolt_user_id":"picker_username";
+  if(reportType==="quinyx")return "quinyx_name";
+  if(reportType==="stock_count")return "other";
+  if(reportType==="team_rating")return "email";
+  return "picker_username";
+}
+async function ignoredSet(db:any,reportType:string){
+  const {data,error}=await db.from("ignored_identities").select("normalized_value").eq("source_type",reportType);
+  if(error)throw error;
+  return new Set((data||[]).map((x:any)=>normIdentity(x.normalized_value)));
+}
+
 const compactIdentity=(v:any)=>norm(v).replace(/[^a-z0-9]+/g,"");
 const isTechnicalIdentity=(v:any)=>{const x=compactIdentity(v);return x==="woltmark"||x.startsWith("woltmarketholesovice")};
 const day=(v:any)=>String(v??"").slice(0,10);
@@ -177,14 +193,29 @@ async function existingByKeys(db:any,table:string,keys:string[]){
 async function preflight(db:any,reportType:string,p:any){
   const raw=await previewRecords(db,reportType,p),byKey=new Map<string,any>(),conflicts:any[]=[];
   const warnings:any[]=[];let duplicateRows=0;
-  const unresolved=(p.unresolved||[]).filter((x:any)=>x&&!isTechnicalIdentity(x));
+  const ignored=await ignoredSet(db,reportType);
+  const unresolved=(p.unresolved||[]).filter((x:any)=>x&&!isTechnicalIdentity(x)&&!ignored.has(normIdentity(x)));
   if(["ga_metrics","daily_picking","inbound","team_rating"].includes(reportType)){
-    for(const identity of unresolved)conflicts.push({key:`identity:${identity}`,label:String(identity),reason:"Nerozpoznaná identita blokuje potvrzení"});
+    for(const identity of unresolved)conflicts.push({
+      key:`identity:${identity}`,label:String(identity),alias_value:String(identity),alias_type:aliasTypeFor(reportType,String(identity)),
+      reason:"Nerozpoznaná identita blokuje potvrzení"
+    });
+    if(reportType==="inbound"){
+      for(const uid of p.unresolved_unknown_user_ids||[]){
+        if(uid&&!ignored.has(normIdentity(uid)))conflicts.push({
+          key:`identity:${uid}`,label:String(uid),alias_value:String(uid),alias_type:"wolt_user_id",
+          reason:"Neznámý Wolt User ID — přiřaď člověka nebo označ jako burner"
+        });
+      }
+    }
   }else if(reportType==="stock_count"&&unresolved.length){
     warnings.push({reason:"Nerozpoznané Stock Count identity zůstanou v reconciliation queue",items:unresolved});
   }
   if(reportType==="store_card_monthly"){
-    for(const x of p.identity_conflicts||[])conflicts.push({key:`identity:${x.email||x.picker_login}`,label:x.display_name||x.email||x.picker_login,reason:"Konflikt identity blokuje potvrzení"});
+    for(const x of p.identity_conflicts||[])conflicts.push({
+      key:`identity:${x.email||x.picker_login}`,label:x.display_name||x.email||x.picker_login,
+      alias_value:x.email||x.picker_login,alias_type:x.email?"email":"picker_username",reason:"Konflikt identity blokuje potvrzení"
+    });
   }
   if(reportType==="team_rating"){
     for(const x of p.conflicts||[])conflicts.push({key:"team-rating:"+String(x),label:String(x),reason:"Konflikt Team Rating parseru"});
@@ -197,7 +228,7 @@ async function preflight(db:any,reportType:string,p:any){
   if(reportType==="quinyx"){
     const resolved=new Set(raw.map((x:any)=>x.record?.person_key).filter(Boolean));
     const missing=[...new Set((p.rows||[]).map((x:any)=>x.person_key).filter((x:any)=>x&&!resolved.has(x)))];
-    for(const identity of missing)conflicts.push({key:`identity:${identity}`,label:String(identity),reason:"Quinyx osoba není napojená na profil"});
+    for(const identity of missing)conflicts.push({key:`identity:${identity}`,label:String(identity),alias_value:String(identity),alias_type:"quinyx_name",reason:"Quinyx osoba není napojená na profil"});
   }
   for(const r of raw){
     const prev=byKey.get(r.key);
@@ -340,15 +371,35 @@ async function resolveIdentity(db:any,body:any){
   if(isTechnicalIdentity(alias))return {ignored:true,alias,reason:"technical_store_account"};
   const {data:person,error:pe}=await db.from("people").select("id,display_name,active").eq("id",personId).maybeSingle();
   if(pe)throw pe;if(!person)throw new Error("Person not found");
-  const aliasType=alias.includes("@")?"email":reportType==="quinyx"?"quinyx_name":"picker_username";
+  const aliasType=String(body.alias_type||aliasTypeFor(reportType,alias));
+  const normalizedValue=normIdentity(alias);
   const {error}=await db.from("person_aliases").upsert({
-    person_id:personId,alias_type:aliasType,alias_value:alias,source:"data_hub_manual_confirmation",confirmed:true
+    person_id:personId,alias_type:aliasType,alias_value:alias,normalized_value:normalizedValue,
+    source:"data_hub_manual_confirmation",confirmed:true
   },{onConflict:"alias_type,normalized_value"});
   if(error)throw error;
+  await db.from("ignored_identities").delete().eq("source_type",reportType).eq("normalized_value",normalizedValue);
   await db.from("unresolved_identities")
     .update({status:"resolved",resolved_person_id:personId,resolved_at:new Date().toISOString()})
-    .eq("status","unresolved").eq("alias_value",alias);
-  return {alias,alias_type:aliasType,person_id:personId,display_name:person.display_name,active:person.active};
+    .eq("status","unresolved").eq("source_type",reportType).eq("alias_value",alias);
+  return {alias,alias_type:aliasType,normalized_value:normalizedValue,person_id:personId,display_name:person.display_name,active:person.active};
+}
+
+async function ignoreIdentity(db:any,body:any){
+  const alias=String(body.alias||"").trim(),reportType=String(body.report_type||"").trim();
+  if(!alias||!reportType)throw new Error("Missing alias or report_type");
+  const aliasType=String(body.alias_type||aliasTypeFor(reportType,alias));
+  const normalizedValue=normIdentity(alias);
+  const {error}=await db.from("ignored_identities").upsert({
+    source_type:reportType,alias_type:aliasType,alias_value:alias,normalized_value:normalizedValue,
+    reason:String(body.reason||"burner_or_technical_account"),updated_at:new Date().toISOString()
+  },{onConflict:"source_type,alias_type,normalized_value"});
+  if(error)throw error;
+  await db.from("unresolved_identities")
+    .update({status:"ignored",resolved_person_id:null,resolved_at:new Date().toISOString(),
+      metadata:{ignored_reason:String(body.reason||"burner_or_technical_account"),ignored_via:"data_hub"}})
+    .eq("status","unresolved").eq("source_type",reportType).eq("alias_value",alias);
+  return {ignored:true,alias,alias_type:aliasType,normalized_value:normalizedValue,report_type:reportType};
 }
 
 async function importResult(db:any,importId:string){
@@ -372,6 +423,7 @@ Deno.serve(async req=>{
     if(action==="coverage")return J({ok:true,coverage:await coverage(db,body.month||"")});
     if(action==="identity_candidates")return J({ok:true,people:await identityCandidates(db)});
     if(action==="resolve_identity")return J({ok:true,resolution:await resolveIdentity(db,body)});
+    if(action==="ignore_identity")return J({ok:true,resolution:await ignoreIdentity(db,body)});
     if(action==="preflight")return J({ok:true,preflight:await preflight(db,body.report_type,body.preview||{})});
     if(action==="import_result"){
       if(!body.import_id)return J({error:"Missing import_id"},400);
