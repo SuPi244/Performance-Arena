@@ -95,12 +95,27 @@ function dateForDay(period:any,day:number){
  return hits.length===1?hits[0]:null;
 }
 function days(items:any[]){
- return items.filter((x:any)=>/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+\d{1,2}$/i.test(x.text))
-   .map((x:any)=>({day:+x.text.match(/(\d{1,2})$/)![1],x:x.x})).sort((a:any,b:any)=>a.x-b.x);
+ const direct=items.filter((x:any)=>/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+\d{1,2}$/i.test(String(x.text||"").trim()))
+   .map((x:any)=>({day:+String(x.text).match(/(\d{1,2})$/)![1],x:x.x,source:"combined"})).sort((a:any,b:any)=>a.x-b.x);
+ if(direct.length)return direct;
+
+ // Older Quinyx PDFs can split "Mon" and "1" into separate text items.
+ const out:any[]=[];
+ const dayOnly=items.filter((x:any)=>/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)$/i.test(String(x.text||"").trim()));
+ for(const d of dayOnly){
+   const nums=items.filter((z:any)=>{
+     const m=String(z.text||"").trim().match(/^\d{1,2}$/);
+     return !!m&&Number(m[0])>=1&&Number(m[0])<=31&&Math.abs(Number(z.y)-Number(d.y))<2.8&&Number(z.x)>=Number(d.x)-4&&Number(z.x)<=Number(d.x)+38;
+   }).sort((a:any,b:any)=>Math.abs(Number(a.x)-Number(d.x))-Math.abs(Number(b.x)-Number(d.x)));
+   if(nums.length)out.push({day:Number(nums[0].text),x:Number(d.x),source:"split"});
+ }
+ const uniq=new Map<string,any>();
+ for(const x of out)uniq.set(String(x.day)+"|"+Number(x.x).toFixed(1),x);
+ return [...uniq.values()].sort((a:any,b:any)=>a.x-b.x);
 }
 function findNameAnchor(items:any[], name:string){
  const nn=norm(name), parts=nn.split(" "), first=parts[0], last=parts[parts.length-1];
- const candidates=items.filter((a:any)=>a.x<110);
+ const candidates=items.filter((a:any)=>a.x<165);
  for(const a of candidates){ const na=norm(a.text); if(na===nn||na.includes(nn)) return a; }
  for(const a of candidates){
    const na=norm(a.text);
@@ -116,7 +131,7 @@ function personAnchors(items:any[]){
  // Non-roster workers must still terminate the previous roster person's vertical band.
  for(const name of boundaryNames){const hit=findNameAnchor(items,name);if(hit)out.push({name,key:null,y:hit.y,roster:false});}
  // Also use obvious contingent/new-worker labels as blockers when present.
- for(const a of items.filter((z:any)=>z.x<110)){
+ for(const a of items.filter((z:any)=>z.x<165)){
    if(/^(?:C\d\s*)?Contingent Worker|^New GA\b|^Quinix Bot\b/i.test(String(a.text||"")))
      out.push({name:String(a.text),key:null,y:a.y,roster:false});
  }
@@ -135,6 +150,35 @@ function colBounds(ds:any[],d:any){
    : d.x+(ds.length>1 ? (d.x-ds[i-1].x)/2 : 60);
  return [left,right];
 }
+function roleCandidates(items:any[]){
+ const out:any[]=[];
+ for(const z of items||[]){
+   const s=String(z.text||"").replace(/\s+/g," ").trim();
+   const m=s.match(/\b(GA|SL)\s+(Morning|Afternoon|Shift\s+Middle)\b/i);
+   if(m)out.push({...z,text:`${m[1].toUpperCase()} ${m[2].replace(/\s+/g," ")}`,raw_text:s});
+ }
+ // Split text fallback: GA | Morning, or GA | Shift | Middle on the same visual row.
+ const ys:any[]=[];
+ for(const z of items||[]){
+   let row=ys.find((r:any)=>Math.abs(Number(r.y)-Number(z.y))<1.8);
+   if(!row){row={y:Number(z.y),items:[]};ys.push(row)}
+   row.items.push(z);
+ }
+ for(const r of ys){
+   r.items.sort((a:any,b:any)=>Number(a.x)-Number(b.x));
+   const joined=r.items.map((z:any)=>String(z.text||"").trim()).join(" ").replace(/\s+/g," ");
+   const m=joined.match(/\b(GA|SL)\s+(Morning|Afternoon|Shift\s+Middle)\b/i);
+   if(!m)continue;
+   const ga=r.items.find((z:any)=>/^(GA|SL)$/i.test(String(z.text||"").trim()))||r.items[0];
+   out.push({x:Number(ga.x),y:Number(r.y),text:`${m[1].toUpperCase()} ${m[2].replace(/\s+/g," ")}`,raw_text:joined,synthetic:true});
+ }
+ const uniq=new Map<string,any>();
+ for(const z of out){
+   const k=Number(z.x).toFixed(1)+"|"+Number(z.y).toFixed(1)+"|"+String(z.text);
+   if(!uniq.has(k))uniq.set(k,z);
+ }
+ return [...uniq.values()];
+}
 function pairAtY(items:any[], y:number){
  const ts=items.filter((z:any)=>isTime(z.text)&&Math.abs(z.y-y)<1.1).sort((a:any,b:any)=>a.x-b.x);
  return ts.length>=2?[ts[0].text,ts[ts.length-1].text]:null;
@@ -149,9 +193,18 @@ function reportCutoff(items:any[]){
 function parse(pages:any[]){
  const rows:any[]=[],missingDatePages:number[]=[],pagePeriods:any[]=[],missingDateDebug:any[]=[],inferredDatePages:any[]=[];
  const contexts=(pages||[]).map((pg:any)=>{
-   const it=pg.items||[],baseDays=days(it),ps=personAnchors(it),cutoff=reportCutoff(it);
-   return {pg,it,baseDays,ps,cutoff,period:pagePeriod(it)};
+   const it=pg.items||[],baseDays=days(it),ps=personAnchors(it),cutoff=reportCutoff(it),roles=roleCandidates(it);
+   return {pg,it,baseDays,ps,roles,cutoff,period:pagePeriod(it)};
  });
+ const pageScan=contexts.map((x:any)=>({
+   page:Number(x.pg.page),
+   items:(x.it||[]).length,
+   day_anchors:(x.baseDays||[]).length,
+   person_anchors:(x.ps||[]).filter((p:any)=>p.roster).length,
+   boundary_anchors:(x.ps||[]).filter((p:any)=>!p.roster).length,
+   role_candidates:(x.roles||[]).length,
+   period:x.period?{start:x.period.start,end:x.period.end,source:x.period.source||"range"}:null
+ }));
  const signature=(ds:any[])=>ds.map((d:any)=>d.day).join(",");
  const periodBySignature=new Map<string,Map<string,any>>();
  for(const x of contexts){
@@ -180,13 +233,14 @@ function parse(pages:any[]){
   for(let pi=0;pi<ps.length;pi++){
    const p=ps[pi]; if(!p.roster)continue;
    const bottom=pi+1<ps.length?ps[pi+1].y:p.y-95,band=it.filter((z:any)=>z.y<=p.y+5&&z.y>bottom+1);
-   for(const role of band.filter((z:any)=>/^(GA|SL)\s+(Morning|Afternoon|Shift Middle)$/i.test(z.text))){
+   for(const role of roleCandidates(band)){
     const d=nearestDay(ds,role.x),[left,right]=colBounds(ds,d);
     const ownsDay=(z:any)=>nearestDay(ds,z.x)===d;
     const c=band.filter(ownsDay);
     const pageCol=it.filter(ownsDay);
-    // Quinyx may print the venue as a separate item beside the role.
-    if(pageCol.some((z:any)=>norm(z.text).includes("michle prague")&&Math.abs(z.y-role.y)<2.2))continue;
+    // Quinyx may print Michle either inside the same text item or as a neighbour.
+    if(norm(role.raw_text||"").includes("michle prague")||
+       pageCol.some((z:any)=>norm(z.text).includes("michle prague")&&Math.abs(z.y-role.y)<2.8))continue;
     const ys=[...new Set(c.filter((z:any)=>isTime(z.text)).map((z:any)=>z.y))].sort((x:any,y:any)=>y-x);
     const pairs=ys.map((y:any)=>({y,pair:pairAtY(c,y)})).filter((q:any)=>q.pair);
     const above=pairs.filter((q:any)=>q.y>role.y+2).sort((x:any,y:any)=>x.y-y.y);
@@ -282,7 +336,7 @@ function parse(pages:any[]){
    targetMonth,
    excluded_adjacent_month_rows:deduped.length-monthRows.length,
    missingDatePages:[...new Set(missingDatePages)].sort((a,b)=>a-b),
-   pagePeriods,missingDateDebug,inferredDatePages,
+   pagePeriods,missingDateDebug,inferredDatePages,pageScan,
    candidate_row_count:rows.length,deduped_row_count:deduped.length,month_row_count:monthRows.length
  };
 }
@@ -315,7 +369,16 @@ Deno.serve(async req=>{
   const db=createClient(url,service),{data:adm}=await db.from("admin_users").select("user_id").eq("user_id",user.id).maybeSingle();if(!adm)return J({error:"Forbidden"},403);
 
   const b=await req.json(),mode=b.mode||"preview",import_id=b.import_id||null,parsed=parse(b.layout_json||[]),rows=parsed.rows;
-  if(!rows.length)return J({error:"No Quinyx shifts parsed from layout",diagnostics:{pages:b.layout_json?.length||0,missing_date_pages:parsed.missingDatePages,page_periods:parsed.pagePeriods,date_debug:parsed.missingDateDebug}},422);
+  if(!rows.length){
+    const scan=parsed.pageScan||[];
+    const ds=scan.reduce((a:number,x:any)=>a+Number(x.day_anchors||0),0);
+    const ps=scan.reduce((a:number,x:any)=>a+Number(x.person_anchors||0),0);
+    const rs=scan.reduce((a:number,x:any)=>a+Number(x.role_candidates||0),0);
+    return J({
+      error:`No Quinyx shifts parsed · pages ${b.layout_json?.length||0} · day anchors ${ds} · people ${ps} · role candidates ${rs}`,
+      diagnostics:{pages:b.layout_json?.length||0,day_anchors:ds,person_anchors:ps,role_candidates:rs,page_scan:scan,missing_date_pages:parsed.missingDatePages,page_periods:parsed.pagePeriods,date_debug:parsed.missingDateDebug}
+    },422);
+  }
   const dates=rows.map((r:any)=>r.date).sort(),period_start=dates[0],period_end=dates[dates.length-1];
   const missingPlan=rows.filter((r:any)=>!r.scheduled_start||!r.scheduled_end);
   const dup=new Map<string,number>();
@@ -339,9 +402,9 @@ Deno.serve(async req=>{
     date_debug:parsed.missingDateDebug
   };
 
-  if(mode==="preview")return J({ok:true,preview:true,parser_stage:"quinyx-layout-v27",shift_count:rows.length,
+  if(mode==="preview")return J({ok:true,preview:true,parser_stage:"quinyx-layout-v28",shift_count:rows.length,
     people_count:validation.people_count,period_start,period_end,validation,rows,
-    note:"Preview only. V27 přiřazuje buňky nejbližšímu dni až k okraji stránky, zvládá zalomené/combined time ranges a měsíční export ořízne na skutečný cílový měsíc. Nic se ještě nezapisuje."});
+    note:"Preview only. V28 navíc zvládá rozdělené hlavičky dnů a rozdělené GA/SL role ve starších Quinyx exportech a vrací diagnostiku anchorů. Nic se ještě nezapisuje."});
 
   if(mode!=="commit")return J({error:"Unsupported mode"},400);
   if(!import_id)return J({error:"Missing import_id"},400);
@@ -372,7 +435,7 @@ Deno.serve(async req=>{
     import_id,
     source_record_key:`shift|${pmap.get(r.person_key)}|${r.date}|${norm(r.role).replace(/\s+/g," ")}|${norm(r.shift_type).replace(/\s+/g," ")}`,
     metadata:{
-      source_type:"quinyx",parser_version:"quinyx-v27",source_name:r.name,page:r.page,
+      source_type:"quinyx",parser_version:"quinyx-v28",source_name:r.name,page:r.page,
       page_period_start:r.page_period_start,page_period_end:r.page_period_end,
       confidence:r.confidence,venue:"Holešovice, Prague",export_cutoff:new Date().toISOString().slice(0,10)
     }
@@ -383,7 +446,7 @@ Deno.serve(async req=>{
   if(we)return J({error:we.message},500);
 
   await db.from("imports").update({
-    status:"imported",period_start,period_end,parser_version:"quinyx-v27"
+    status:"imported",period_start,period_end,parser_version:"quinyx-v28"
   }).eq("id",import_id);
 
   return J({ok:true,committed:true,inserted_count:w?.length??0,attempted_count:payload.length,
