@@ -325,6 +325,32 @@ async function coverage(db:any,requestedMonth:string){
   return {month,period_start:start,period_end:end,through:today,overall_percent:clamp(overall),sources};
 }
 
+async function identityCandidates(db:any){
+  const {data,error}=await db.from("people")
+    .select("id,person_key,display_name,full_name,active")
+    .order("active",{ascending:false})
+    .order("display_name",{ascending:true});
+  if(error)throw error;
+  return (data||[]).filter((p:any)=>p.person_key!=="nick-sch");
+}
+
+async function resolveIdentity(db:any,body:any){
+  const alias=String(body.alias||"").trim(),personId=String(body.person_id||"").trim(),reportType=String(body.report_type||"");
+  if(!alias||!personId)throw new Error("Missing alias or person_id");
+  if(isTechnicalIdentity(alias))return {ignored:true,alias,reason:"technical_store_account"};
+  const {data:person,error:pe}=await db.from("people").select("id,display_name,active").eq("id",personId).maybeSingle();
+  if(pe)throw pe;if(!person)throw new Error("Person not found");
+  const aliasType=alias.includes("@")?"email":reportType==="quinyx"?"quinyx_name":"picker_username";
+  const {error}=await db.from("person_aliases").upsert({
+    person_id:personId,alias_type:aliasType,alias_value:alias,source:"data_hub_manual_confirmation",confirmed:true
+  },{onConflict:"alias_type,normalized_value"});
+  if(error)throw error;
+  await db.from("unresolved_identities")
+    .update({status:"resolved",resolved_person_id:personId,resolved_at:new Date().toISOString()})
+    .eq("status","unresolved").eq("alias_value",alias);
+  return {alias,alias_type:aliasType,person_id:personId,display_name:person.display_name,active:person.active};
+}
+
 async function importResult(db:any,importId:string){
   const {data,error}=await db.from("import_change_log").select("action,table_name,canonical_key,changed_fields,old_row,new_row,created_at").eq("import_id",importId).order("created_at",{ascending:true}).limit(2000);
   if(error)throw error;
@@ -344,6 +370,8 @@ Deno.serve(async req=>{
     if(!admin)return J({error:"Forbidden"},403);
     const body=await req.json().catch(()=>({})),action=body.action||"coverage";
     if(action==="coverage")return J({ok:true,coverage:await coverage(db,body.month||"")});
+    if(action==="identity_candidates")return J({ok:true,people:await identityCandidates(db)});
+    if(action==="resolve_identity")return J({ok:true,resolution:await resolveIdentity(db,body)});
     if(action==="preflight")return J({ok:true,preflight:await preflight(db,body.report_type,body.preview||{})});
     if(action==="import_result"){
       if(!body.import_id)return J({error:"Missing import_id"},400);
