@@ -275,47 +275,95 @@ async function coverage(db:any,requestedMonth:string){
   const month=/^20\d{2}-\d{2}$/.test(requestedMonth||"")?requestedMonth:currentMonth;
   const [year,mon]=month.split("-").map(Number),start=`${month}-01`,end=`${month}-${String(daysInMonth(year,mon)).padStart(2,"0")}`;
   const queryStart=addDays(start,-7);
-  const [{data:imports,error:ie},{data:obs,error:oe},{data:shifts,error:se},{data:storeMetrics,error:sme},{data:storeCards,error:sce},{data:unresolved,error:ue},{data:teamRating,error:tre},{data:activePeople,error:ape}]=await Promise.all([
-    db.from("imports").select("id,report_type,period_start,period_end,status,metadata").lte("period_start",end).gte("period_end",queryStart).eq("status","imported"),
-    db.from("metric_observations").select("source_type,period_start,period_end").lte("period_start",end).gte("period_end",queryStart).limit(10000),
-    db.from("shifts").select("shift_date,scheduled_start,actual_start,shift_type").gte("shift_date",start).lte("shift_date",end).limit(10000),
-    db.from("store_metrics").select("venue_key,period_start,period_end,metric_id,metadata").lte("period_start",end).gte("period_end",start).limit(10000),
+  const metricSources=["ga_metrics","daily_picking","inbound","stock_count","store_card_monthly","team_rating"];
+  const [
+    {data:allImports,error:ie},
+    {data:obs,error:oe},
+    {data:metricHistory,error:mhe},
+    {data:shifts,error:se},
+    {data:storeMetrics,error:sme},
+    {data:storeCards,error:sce},
+    {data:unresolved,error:ue},
+    {data:teamRating,error:tre},
+    {data:activePeople,error:ape}
+  ]=await Promise.all([
+    db.from("imports").select("id,filename,report_type,period_start,period_end,status,metadata,parser_version,created_at").order("created_at",{ascending:false}).limit(500),
+    db.from("metric_observations").select("source_type,period_start,period_end,metric_id").lte("period_start",end).gte("period_end",queryStart).limit(20000),
+    db.from("metric_observations").select("source_type,period_start,period_end,metric_id").in("source_type",metricSources).limit(50000),
+    db.from("shifts").select("shift_date,scheduled_start,actual_start,shift_type").gte("shift_date",start).lte("shift_date",end).limit(20000),
+    db.from("store_metrics").select("venue_key,period_start,period_end,metric_id,metadata").lte("period_start",end).gte("period_end",start).limit(20000),
     db.from("store_card_months").select("month,status").eq("month",start),
-    db.from("unresolved_identities").select("source_type,status,metadata").eq("status","unresolved").limit(1000),
+    db.from("unresolved_identities").select("source_type,status,metadata").eq("status","unresolved").limit(2000),
     db.from("team_rating_responses").select("respondent_person_id,is_valid,disqualified_reason,submitted_at,metadata").eq("response_month",start),
     db.from("people").select("id,display_name,active,employment_type,team_effort_eligible").eq("active",true)
   ]);
-  const err=ie||oe||se||sme||sce||ue||tre||ape;if(err)throw err;
-  const imps=imports||[],observations=obs||[],shiftRows=shifts||[];
+  const err=ie||oe||mhe||se||sme||sce||ue||tre||ape;if(err)throw err;
+  const imports=allImports||[],observations=obs||[],allMetricRows=metricHistory||[],shiftRows=shifts||[];
+  const imps=imports.filter((x:any)=>x.status==="imported"&&day(x.period_start)<=end&&day(x.period_end)>=queryStart);
   const unresolvedCounts:any={};
   for(const x of unresolved||[]){const ps=day(x.metadata?.period_start),pe=day(x.metadata?.period_end||ps);if(ps<=end&&pe>=start)unresolvedCounts[x.source_type]=(unresolvedCounts[x.source_type]||0)+1}
 
+  const monthStart=(d:string)=>String(d||"").slice(0,7);
+  const nextMonth=(ym:string)=>{const [y,m]=ym.split("-").map(Number),d=new Date(Date.UTC(y,m,1));return d.toISOString().slice(0,7)};
+  const importHistory=(id:string)=>{
+    const rows=imports.filter((x:any)=>x.report_type===id);
+    const committed=rows.filter((x:any)=>x.status==="imported");
+    const staged=rows.filter((x:any)=>["staged","previewed","partial"].includes(String(x.status)));
+    const dated=committed.filter((x:any)=>day(x.period_start)&&day(x.period_end));
+    const first=dated.length?dated.map((x:any)=>day(x.period_start)).sort()[0]:null;
+    const last=dated.length?dated.map((x:any)=>day(x.period_end)).sort().at(-1):null;
+    const months=new Set<string>();
+    for(const x of dated){
+      let cur=monthStart(day(x.period_start)),to=monthStart(day(x.period_end));
+      let guard=0;
+      while(cur&&to&&cur<=to&&guard++<60){months.add(cur);cur=nextMonth(cur)}
+    }
+    return {imported_files:committed.length,staged_files:staged.length,first_date:first,last_date:last,month_count:months.size,months:[...months].sort()};
+  };
+  const metricCoverage=(id:string)=>{
+    const known=new Set(allMetricRows.filter((x:any)=>x.source_type===id).map((x:any)=>x.metric_id).filter(Boolean));
+    const present=new Set(observations.filter((x:any)=>x.source_type===id&&day(x.period_start)<=end&&day(x.period_end)>=start).map((x:any)=>x.metric_id).filter(Boolean));
+    return {metrics_covered:present.size,metrics_expected:known.size,metrics_percentage:known.size?pct(present.size,known.size):0};
+  };
+  const enrich=(base:any,id:string)=>Object.assign(base,{history:importHistory(id)},metricCoverage(id));
+
   const allDays=[];for(let d=start;d<=end;d=addDays(d,1))allDays.push(d);
   const dueEnd=month<currentMonth?end:month===currentMonth?today:addDays(start,-1);
+  const dueDays=allDays.filter(d=>d<=dueEnd);
   const daily=(id:string,label:string)=>{
     const coveredSet=new Set<string>();
     for(const d of allDays){
-      if(observations.some(x=>x.source_type===id&&day(x.period_start)===d))coveredSet.add(d);
+      if(observations.some((x:any)=>x.source_type===id&&day(x.period_start)===d))coveredSet.add(d);
     }
-    const due=allDays.filter(d=>d<=dueEnd),covered=due.filter(d=>coveredSet.has(d)).length;
+    const covered=dueDays.filter(d=>coveredSet.has(d)).length;
     const segments=allDays.map(d=>({key:d,label:d.slice(8),state:d>dueEnd?"future":coveredSet.has(d)?"complete":d===today?"partial":"missing"}));
     const missing=segments.filter(x=>x.state==="missing").map(x=>x.key);
-    return {id,label,cadence:"day",covered,expected:due.length,percentage:pct(covered,due.length),state:coverageState(covered,due.length,segments.some(x=>x.state==="partial")),missing,segments,unresolved:unresolvedCounts[id]||0};
+    return enrich({id,label,cadence:"day",covered,expected:dueDays.length,percentage:pct(covered,dueDays.length),state:coverageState(covered,dueDays.length,segments.some(x=>x.state==="partial")),missing,segments,unresolved:unresolvedCounts[id]||0},id);
   };
 
   const weekStarts:string[]=[];for(let w=monday(start);w<=end;w=addDays(w,7))weekStarts.push(w);
   const weekly=(id:string,label:string)=>{
-    const segments=weekStarts.map(w=>{const we=addDays(w,6),future=w>today,covered=spanCovers(imps,w,we,id)||observations.some(x=>x.source_type===id&&day(x.period_start)<=we&&day(x.period_end)>=w);return {key:w,label:`W${String(isoWeek(w)).padStart(2,"0")}`,range:`${w} → ${we}`,state:future?"future":covered?"complete":today<=we?"partial":"missing"}});
+    const segments=weekStarts.map(w=>{const we=addDays(w,6),future=w>today,covered=spanCovers(imps,w,we,id)||observations.some((x:any)=>x.source_type===id&&day(x.period_start)<=we&&day(x.period_end)>=w);return {key:w,label:`W${String(isoWeek(w)).padStart(2,"0")}`,range:`${w} → ${we}`,state:future?"future":covered?"complete":today<=we?"partial":"missing"}});
     const due=segments.filter(x=>x.state!=="future"),covered=due.filter(x=>x.state==="complete").length,missing=segments.filter(x=>x.state==="missing").map(x=>x.range);
-    return {id,label,cadence:"week",covered,expected:due.length,percentage:pct(covered,due.length),state:coverageState(covered,due.length,segments.some(x=>x.state==="partial")),missing,segments,unresolved:unresolvedCounts[id]||0};
+    return enrich({id,label,cadence:"week",covered,expected:due.length,percentage:pct(covered,due.length),state:coverageState(covered,due.length,segments.some(x=>x.state==="partial")),missing,segments,unresolved:unresolvedCounts[id]||0},id);
   };
 
   const storeCoreIds=["store_outbound_seconds_per_unit","store_outercase_scan_ratio","store_pofr","store_weighted_availability","store_uph","store_missing_items_ratio","store_undelivered_items_ratio","store_task_completion_ratio","store_total_score"];
   const storeCorePresent=new Set((storeMetrics||[]).filter((x:any)=>x.venue_key==="wolt_market_holesovice"&&day(x.period_start)===start&&day(x.period_end)===end).map((x:any)=>x.metric_id));
-  const storeMetricCovered=imps.some(x=>x.report_type==="store_metrics"&&day(x.period_start)<=start&&day(x.period_end)>=end)||storeCoreIds.every((id:string)=>storeCorePresent.has(id));
-  const storeCardCovered=(storeCards||[]).length>0||imps.some(x=>(x.report_type==="store_card_monthly"||x.metadata?.store_card_monthly)&&day(x.period_start)<=start&&day(x.period_end)>=end);
-  const quinyxCovered=spanCovers(imps,start,end,"quinyx");
-  const dueShifts=shiftRows.filter(x=>day(x.shift_date)<=today),actualShifts=dueShifts.filter(x=>x.actual_start),missingActual=dueShifts.filter(x=>!x.actual_start).map(x=>day(x.shift_date));
+  const storeMetricCovered=imps.some((x:any)=>x.report_type==="store_metrics"&&day(x.period_start)<=start&&day(x.period_end)>=end)||storeCoreIds.every((id:string)=>storeCorePresent.has(id));
+  const storeCardCovered=(storeCards||[]).length>0||imps.some((x:any)=>(x.report_type==="store_card_monthly"||x.metadata?.store_card_monthly)&&day(x.period_start)<=start&&day(x.period_end)>=end);
+
+  // Quinyx coverage comes from the actual stored shifts, not from one PDF spanning the whole month.
+  // This is important because a complete month is normally assembled from several weekly exports.
+  const scheduledDays=new Set(shiftRows.map((x:any)=>day(x.shift_date)).filter(Boolean));
+  const scheduledDueDays=dueDays.filter(d=>scheduledDays.has(d)).length;
+  const dueShifts=shiftRows.filter((x:any)=>day(x.shift_date)<=dueEnd);
+  const actualShifts=dueShifts.filter((x:any)=>x.actual_start);
+  const missingActual=[...new Set(dueShifts.filter((x:any)=>!x.actual_start).map((x:any)=>day(x.shift_date)))];
+  const missingSchedule=dueDays.filter(d=>!scheduledDays.has(d));
+  const quinyxHasData=shiftRows.length>0;
+  const quinyxPct=dueShifts.length?pct(actualShifts.length,dueShifts.length):(dueDays.length?pct(scheduledDueDays,dueDays.length):0);
+  const quinyxState=month>currentMonth?"future":!quinyxHasData?"missing":(scheduledDueDays>=dueDays.length&&missingActual.length===0)?"complete":"partial";
   const monthlyExpected=month>currentMonth?0:1;
 
   const teamRatingLatest=new Map<string,any>();
@@ -332,7 +380,7 @@ async function coverage(db:any,requestedMonth:string){
     return {key:String(p.id),label:p.display_name,state:r?.is_valid===true?"complete":r?"partial":month>currentMonth?"future":"missing"};
   });
   const teamRatingExpected=month>currentMonth?0:teamRatingPeople.length;
-  const teamRatingSource={
+  const teamRatingSource=enrich({
     id:"team_rating",label:"Team Rating Form",cadence:"response",
     covered:teamRatingValid.length,expected:teamRatingExpected,
     percentage:teamRatingExpected?pct(teamRatingValid.length,teamRatingExpected):0,
@@ -341,19 +389,27 @@ async function coverage(db:any,requestedMonth:string){
     missing:teamRatingSegments.filter((x:any)=>x.state==="missing").map((x:any)=>x.label),
     segments:teamRatingSegments,unresolved:0,disqualified:teamRatingInvalid.length,
     received:teamRatingLatest.size
-  };
+  },"team_rating");
+
+  const storeMetricsHistory=importHistory("store_metrics");
+  const storeCardHistory=importHistory("store_card_monthly");
   const sources:any[]=[
     weekly("ga_metrics","GA Metrics"),
     daily("daily_picking","Daily Picking"),
     daily("inbound","Inbound"),
-    {id:"quinyx",label:"Quinyx",cadence:"shift",covered:actualShifts.length,expected:dueShifts.length,percentage:dueShifts.length?pct(actualShifts.length,dueShifts.length):(quinyxCovered?100:0),state:month>currentMonth&&!quinyxCovered?"future":!quinyxCovered?"missing":missingActual.length?"partial":"complete",missing:[...new Set(missingActual)],segments:[],planned_shifts:shiftRows.length,due_shifts:dueShifts.length,actual_shifts:actualShifts.length,scheduled_period_complete:quinyxCovered,unresolved:unresolvedCounts.quinyx||0},
+    {id:"quinyx",label:"Quinyx",cadence:"shift",covered:actualShifts.length,expected:dueShifts.length,percentage:quinyxPct,state:quinyxState,
+      missing:[...missingSchedule.map(d=>"schedule "+d),...missingActual.map(d=>"actual "+d)],segments:allDays.map(d=>({key:d,label:d.slice(8),state:d>dueEnd?"future":!scheduledDays.has(d)?"missing":missingActual.includes(d)?"partial":"complete"})),
+      planned_shifts:shiftRows.length,due_shifts:dueShifts.length,actual_shifts:actualShifts.length,
+      scheduled_days:scheduledDueDays,expected_days:dueDays.length,scheduled_period_complete:scheduledDueDays>=dueDays.length,
+      unresolved:unresolvedCounts.quinyx||0,history:importHistory("quinyx"),metrics_covered:actualShifts.length,metrics_expected:dueShifts.length,metrics_percentage:quinyxPct},
     weekly("stock_count","Stock Count"),
     teamRatingSource,
-    {id:"store_metrics",label:"Store Metrics",cadence:"month",covered:storeMetricCovered?1:0,expected:monthlyExpected,percentage:storeMetricCovered?100:0,state:storeMetricCovered?"complete":month>currentMonth?"future":month===currentMonth?"partial":"missing",missing:storeMetricCovered||month>currentMonth?[]:[month],segments:[{key:month,label:month,state:storeMetricCovered?"complete":month>currentMonth?"future":month===currentMonth?"partial":"missing"}],unresolved:0},
-    {id:"store_card_monthly",label:"Monthly Store Card",cadence:"month",covered:storeCardCovered?1:0,expected:monthlyExpected,percentage:storeCardCovered?100:0,state:storeCardCovered?"complete":month>currentMonth?"future":month===currentMonth?"partial":"missing",missing:storeCardCovered||month>currentMonth?[]:[month],segments:[{key:month,label:month,state:storeCardCovered?"complete":month>currentMonth?"future":month===currentMonth?"partial":"missing"}],unresolved:0}
+    {id:"store_metrics",label:"Store Metrics",cadence:"month",covered:storeMetricCovered?1:0,expected:monthlyExpected,percentage:storeMetricCovered?100:0,state:storeMetricCovered?"complete":month>currentMonth?"future":month===currentMonth?"partial":"missing",missing:storeMetricCovered||month>currentMonth?[]:[month],segments:[{key:month,label:month,state:storeMetricCovered?"complete":month>currentMonth?"future":month===currentMonth?"partial":"missing"}],unresolved:0,history:storeMetricsHistory,metrics_covered:storeCorePresent.size,metrics_expected:storeCoreIds.length,metrics_percentage:pct(storeCorePresent.size,storeCoreIds.length)},
+    {id:"store_card_monthly",label:"Monthly Store Card",cadence:"month",covered:storeCardCovered?1:0,expected:monthlyExpected,percentage:storeCardCovered?100:0,state:storeCardCovered?"complete":month>currentMonth?"future":month===currentMonth?"partial":"missing",missing:storeCardCovered||month>currentMonth?[]:[month],segments:[{key:month,label:month,state:storeCardCovered?"complete":month>currentMonth?"future":month===currentMonth?"partial":"missing"}],unresolved:0,history:storeCardHistory,...metricCoverage("store_card_monthly")}
   ];
   const relevant=sources.filter(x=>x.expected>0),overall=relevant.length?Math.round(relevant.reduce((a,x)=>a+x.percentage,0)/relevant.length):0;
-  return {month,period_start:start,period_end:end,through:today,overall_percent:clamp(overall),sources};
+  const staged_total=imports.filter((x:any)=>["staged","previewed","partial"].includes(String(x.status))).length;
+  return {month,period_start:start,period_end:end,through:today,overall_percent:clamp(overall),staged_total,sources};
 }
 
 async function identityCandidates(db:any){
