@@ -597,6 +597,7 @@ document.addEventListener('click',async e=>{
  const API_ROOT='https://yhpgqkklnymfiacrztqf.supabase.co/functions/v1';
  const API_KEY='sb_publishable_EA9Sbn8ayjr0eHaI2m0s6A_Yct2lL8a';
  const PARSERS={ga_metrics:'parse-ga-metrics',daily_picking:'parse-daily-picking',inbound:'parse-inbound',quinyx:'parse-quinyx',stock_count:'parse-stock-count',store_metrics:'parse-store-metrics',store_card_monthly:'parse-store-card-monthly',team_rating:'parse-team-rating',universal_metrics:'parse-universal-metrics'};
+ const STORE_CARD_PARSER_VERSION='store-card-monthly-v23';
  const LABELS={ga_metrics:'GA Metrics',daily_picking:'Daily Picking',inbound:'Inbound',quinyx:'Quinyx',stock_count:'Stock Count',store_metrics:'Store Metrics',store_card_monthly:'Monthly Store Card',team_rating:'Team Rating Form',universal_metrics:'Universal Metric Import'};
  let batch=[];
  let busy=false;
@@ -671,10 +672,17 @@ document.addEventListener('click',async e=>{
  }
  async function stage(file){
   const report_type=supportedReport(file),h=await hash(file);
-  const q=await sb.from('imports').select('id,status,storage_path,report_type,filename').eq('file_hash',h).maybeSingle();
+  const q=await sb.from('imports').select('id,status,storage_path,report_type,filename,parser_version,metadata').eq('file_hash',h).maybeSingle();
   if(q.error)throw q.error;
   if(q.data){
-   return {file:file,hash:h,report_type:report_type,import_id:q.data.id,storage_path:q.data.storage_path,existing:true,skipCommit:q.data.status==='imported',state:'staged'};
+   const existingType=q.data.report_type||report_type;
+   const storeCardReparse=q.data.status==='imported'&&existingType==='store_card_monthly'&&q.data.parser_version!==STORE_CARD_PARSER_VERSION;
+   return {
+    file:file,hash:h,report_type:existingType,import_id:q.data.id,storage_path:q.data.storage_path,
+    parser_version:q.data.parser_version,existing:true,
+    skipCommit:q.data.status==='imported'&&!storeCardReparse,
+    legacyReparse:storeCardReparse,forceCommit:storeCardReparse,state:'staged'
+   };
   }
   const path='bulk/'+new Date().toISOString().slice(0,10)+'/'+crypto.randomUUID()+'_'+file.name.replace(/[^a-zA-Z0-9._-]+/g,'_');
   const up=await sb.storage.from('arena-imports').upload(path,file);if(up.error)throw up.error;
@@ -906,7 +914,7 @@ document.addEventListener('click',async e=>{
       uw.slice(0,30).map(function(r){return '<div class="warn">△ '+esc(r.reason||String(r))+'</div>'}).join('')+
       '</div></details>';
    }
-   html+='<div class="bulk-item"><div><div class="bulk-name">'+esc(x.file.name)+'</div><div class="bulk-type">'+esc(LABELS[x.report_type]||x.report_type)+(x.legacyReparse?' · payout reparse Store Card':x.skipCommit?' · exact duplicate':'')+'</div></div>'+
+   html+='<div class="bulk-item"><div><div class="bulk-name">'+esc(x.file.name)+'</div><div class="bulk-type">'+esc(LABELS[x.report_type]||x.report_type)+(x.legacyReparse?' · reparse Store Card '+esc(x.parser_version||'legacy')+' → '+esc(STORE_CARD_PARSER_VERSION):x.skipCommit?' · exact duplicate':'')+'</div></div>'+
     '<div class="'+cls+'">'+esc(state)+'</div><div class="bulk-counts">'+pill('nové',x.state==='skipped'?0:(s.new||0),'ok')+pill('změněné',x.state==='skipped'?0:(s.changed||0),'warn')+pill('stejné',x.state==='skipped'?0:(s.unchanged||0),'')+pill('konflikty',x.state==='skipped'?0:(s.conflicts||0),x.state!=='skipped'&&s.conflicts?'err':'')+
     '<button class="secondary batchSkip" data-item="'+batch.indexOf(x)+'" style="margin-left:6px">'+(x.state==='skipped'?'Vrátit do bulku':'Vynechat z bulku')+'</button></div>'+details+'</div>';
   });
@@ -925,11 +933,11 @@ document.addEventListener('click',async e=>{
  }
  async function loadStoredQueue(){
   if(busy)return 0;
-  msg($('#uploadStatus'),'Načítám staged PDF a Store Cards, které potřebují payout reparse…','warn');
+  msg($('#uploadStatus'),'Načítám staged PDF a Store Cards, které potřebují reparse novým parserem…','warn');
   const [stagedRes,legacyRes]=await Promise.all([
    sb.from('imports').select('id,file_hash,filename,report_type,storage_path,status,parser_version,metadata,created_at').eq('status','staged').order('created_at',{ascending:true}).limit(100),
    sb.from('imports').select('id,file_hash,filename,report_type,storage_path,status,parser_version,metadata,created_at')
-    .eq('status','imported').eq('report_type','store_card_monthly').neq('parser_version','store-card-monthly-v22').order('created_at',{ascending:true}).limit(50)
+    .eq('status','imported').eq('report_type','store_card_monthly').neq('parser_version',STORE_CARD_PARSER_VERSION).order('created_at',{ascending:true}).limit(50)
   ]);
   if(stagedRes.error)throw stagedRes.error;if(legacyRes.error)throw legacyRes.error;
   const rows=[...(stagedRes.data||[]),...(legacyRes.data||[])];
@@ -942,7 +950,7 @@ document.addEventListener('click',async e=>{
    let report_type=PARSERS[x.report_type]?x.report_type:(detected||'universal_metrics');
    if(x.parser_version==='universal-fallback-v1'&&detected&&detected!=='universal_metrics')report_type=detected;
    if(x.status==='imported'&&x.parser_version==='store-card-monthly-v2')report_type='store_card_monthly';
-   const payoutReparse=x.status==='imported'&&x.report_type==='store_card_monthly'&&x.parser_version!=='store-card-monthly-v22';
+   const payoutReparse=x.status==='imported'&&x.report_type==='store_card_monthly'&&x.parser_version!==STORE_CARD_PARSER_VERSION;
    loaded.push({
     file:file,hash:x.file_hash,report_type:report_type,import_id:x.id,storage_path:x.storage_path,
     existing:true,skipCommit:x.status==='imported'&&!payoutReparse,legacyReparse:payoutReparse,forceCommit:payoutReparse,state:'staged'
@@ -987,7 +995,9 @@ document.addEventListener('click',async e=>{
     try{
      await preview(item);
      const s=item.preflight&&item.preflight.summary||{};
-     if(item.skipCommit&&Number(s.new||0)===0&&Number(s.changed||0)===0)item.state='duplicate';
+     if(item.forceCommit){
+      item.skipCommit=false;item.state='ready';
+     }else if(item.skipCommit&&Number(s.new||0)===0&&Number(s.changed||0)===0)item.state='duplicate';
      else if(Number(s.new||0)>0||Number(s.changed||0)>0)item.skipCommit=false;
     }catch(e){item.state='error';item.error=e.message||String(e)}
     renderBatch();
@@ -1013,7 +1023,7 @@ document.addEventListener('click',async e=>{
    for(const item of batch){
     if(item.state==='skipped')continue;
     if(item.state==='done'){continue}
-    if(item.state==='duplicate'||item.skipCommit){
+    if((item.state==='duplicate'||item.skipCommit)&&!item.forceCommit){
      item.state='done';unchanged++;renderBatch();continue;
     }
     item.state='committing';item.error=null;renderBatch();
@@ -1118,14 +1128,14 @@ document.addEventListener('click',async e=>{
  }
  function setupCoverage(){
   const card=coverageCard();if(!card)return;
-  card.innerHTML='<div class="coverage-top"><div><h2 style="margin-bottom:4px">Data Coverage <span class="v152-badge">V173</span></h2><p class="muted" style="margin-bottom:0">% = skutečně zapsané časové pokrytí ve zvoleném měsíci. Pod každým zdrojem vidíš i pokrytí typů metrik, historii a staged soubory, které se ještě nepočítají.</p></div><div class="field"><label>Měsíc · detail</label><input id="coverageMonth" type="month" value="'+localMonth()+'"></div></div>'+
+  card.innerHTML='<div class="coverage-top"><div><h2 style="margin-bottom:4px">Data Coverage <span class="v152-badge">V174</span></h2><p class="muted" style="margin-bottom:0">% = skutečně zapsané časové pokrytí ve zvoleném měsíci. Pod každým zdrojem vidíš i pokrytí typů metrik, historii a staged soubory, které se ještě nepočítají.</p></div><div class="field"><label>Měsíc · detail</label><input id="coverageMonth" type="month" value="'+localMonth()+'"></div></div>'+
    '<div style="display:flex;align-items:baseline;gap:10px;margin:14px 0"><span id="coverageOverall" class="coverage-overall">—</span><span id="coverageThrough" class="muted"></span></div><div id="coverageSources"></div>';
   $('#coverageMonth').onchange=loadCoverage;
  }
  function setup(){
   if(window.__datahubV152)return;window.__datahubV152=true;
-  document.title='Performance Arena — Data Hub V173';
-  const small=document.querySelector('.brand small');if(small&&!/V1(?:5[2-9]|6[01])/.test(small.textContent))small.innerHTML+= ' <span class="v152-badge">V173</span>';
+  document.title='Performance Arena — Data Hub V174';
+  const small=document.querySelector('.brand small');if(small&&!/V1(?:5[2-9]|6[01])/.test(small.textContent))small.innerHTML+= ' <span class="v152-badge">V174</span>';
   setupUpload();setupCoverage();renderBatch();
   ensureIdentityPeople().then(renderBatch).catch(function(){});
   sb.auth.onAuthStateChange(function(_event,s){if(s)setTimeout(loadCoverage,50)});
