@@ -1694,7 +1694,7 @@ tr.unknown .admin-status{color:var(--muted)!important;background:rgba(148,163,18
 <div class="hidden" id="seasonRecapOverlay"><div class="season-recap-card"><div class="rundown-head"><div><div class="rundown-kicker">NOVÁ SEZÓNA</div><div class="rundown-title" id="seasonRecapTitle">Season Recap</div><div class="rundown-sub" id="seasonRecapSub">Tvoje poslední sezóna</div></div><button aria-label="Zavřít" class="rundown-close" id="seasonRecapClose">×</button></div><div class="season-recap-grid" id="seasonRecapStats"></div><div class="season-recap-section"><h4>🏆 Nejdůležitější výsledky</h4><div class="rundown-list" id="seasonRecapWins"></div></div><div class="season-recap-section"><h4>📈 Posun</h4><div class="rundown-list" id="seasonRecapProgress"></div></div><div class="rundown-actions"><button class="rundown-btn" id="seasonRecapContinue">Jdeme na novou sezónu</button></div></div></div>
 <div class="hidden" id="rundownOverlay"><div class="rundown-card"><div class="rundown-head"><div><div class="rundown-kicker">Tvoje poslední výsledky</div><div class="rundown-title" id="rundownTitle">Dobrá práce.</div><div class="rundown-sub" id="rundownSub">Rychlé shrnutí toho, co se ti povedlo.</div></div><button aria-label="Zavřít" class="rundown-close" id="rundownClose">×</button></div><div class="rundown-grid" id="rundownStats"></div><div class="rundown-section"><h4>🔥 Co se ti povedlo</h4><div class="rundown-list" id="rundownWins"></div></div><div class="rundown-section"><h4>🏆 Co jsi odemkl</h4><div class="rundown-achievements" id="rundownAchievements"></div></div><div class="rundown-section"><h4>🎯 Na čem můžeš ještě zabrat</h4><div class="rundown-list" id="rundownFocus"></div></div><div class="rundown-actions"><button class="rundown-btn" id="rundownContinue">Pokračovat do profilu</button></div></div></div>
 <div class="shell">
-<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V200</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
+<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V201</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
 <div class="layout">
 <aside class="sidebar">
 <div class="label" id="profileLabel">Profil</div><select class="select" id="workerSelect"></select>
@@ -2285,7 +2285,21 @@ function seasonEloFor(historyObj){
 }
 
 function tier(elo){if(elo>=1200)return['MASTER','#c084fc'];if(elo>=1100)return['GOLD','var(--gold)'];if(elo>=1000)return['SILVER','#94A3B8'];return['BRONZE','#D97706']}
-function seasonRank(){if(state.team){const scoped=seasonScopedTeam(state.team),eloMap=seasonEloFor(scoped);return Object.entries(eloMap).sort((a,b)=>b[1]-a[1]).map((x,i)=>{const weeks=(scoped.people?.[x[0]]?.history?.[0]||[]).filter(v=>n(v)!=null).length;return {name:x[0],elo:x[1],rank:i+1,tier:tier(x[1])[0],weeks,status:weeks<2?'PROVISIONAL':weeks<3?'PROVISIONAL RANK':'FULL'}})}if(state.quickLeaderboard?.players)return state.quickLeaderboard.players.map(x=>({...x,status:x.status||'FULL'}));return[]}
+function seasonRank(){
+ const unified=buildUnifiedWeeklyTeam(getSeasonFrame());
+ const scoped=unified||(state.team?seasonScopedTeam(state.team):null);
+ if(scoped?.people){
+   const eloMap=seasonEloFor(scoped);
+   return Object.entries(eloMap).sort((a,b)=>b[1]-a[1]).map((x,i)=>{
+     const p=scoped.people?.[x[0]],weeks=(scoped.labels||[]).filter(function(_,wi){
+       return (p?.history||[]).some(function(h){return n(h?.[wi])!=null});
+     }).length;
+     return {name:x[0],elo:x[1],rank:i+1,tier:tier(x[1])[0],weeks,status:weeks<2?'PROVISIONAL':weeks<3?'PROVISIONAL RANK':'FULL'};
+   });
+ }
+ if(state.quickLeaderboard?.players)return state.quickLeaderboard.players.map(x=>({...x,status:x.status||'FULL'}));
+ return[];
+}
 function playerSeasonData(name){const lb=seasonRank();return lb.find(x=>x.name===name)||{name,elo:999,rank:'—',tier:'UNRANKED',status:'PROVISIONAL'} }
 function performanceScoreFromLatest(p){const m=p?.latest?.metrics||{},defs=p?.metricDefinitions||[];const find=(aliases)=>{for(const a of aliases.map(norm)){const d=defs.find(x=>norm(x.name)===a);if(d&&m[d.key]&&m[d.key].value!=null)return {value:normalizeMetricValue(m[d.key].value,d.name),name:d.name}}for(const a of aliases.map(norm)){const d=defs.find(x=>norm(x.name).includes(a));if(d&&m[d.key]&&m[d.key].value!=null)return {value:normalizeMetricValue(m[d.key].value,d.name),name:d.name}}return null};const rules=[['p',["avg picking time","picking time"],20,2.57,true],['s',["items picked via scanner ratio","scanner ratio","scanner"],15,98,false],['mi',["missing incorrect items rate","missing rate"],20,.34,true],['u',["undelivered"],10,.24,true],['r',["average rating of goods","goods rating"],8,4.7,false],['ui',["not collected items ratio","not collected"],7,.24,true],['pofr',["perfect order fulfilment ratio","perfect order fulfillment ratio","pofr"],5,98,false]];let sum=0,w=0;for(const [,a,we,t,lo] of rules){const hit=find(a);if(!hit||hit.value==null)continue;const v=hit.value;let score=lo?(v<=0?100:t/v*100):v/t*100;sum+=Math.max(0,Math.min(120,score))*we;w+=we}return w?Math.min(100,sum/w):null}
 function streak(history){if(!history?.weeks?.length)return 0;const defs=history.metricDefinitions;let c=0;for(let i=history.weeks.length-1;i>=0;i--){const fake={metricDefinitions:defs,latest:history.weeks[i]};const p=metricBy(fake,['Avg Picking Time']);const s=metricBy(fake,['Items Picked Via Scanner Ratio']);const mi=metricBy(fake,['Missing Incorrect Items Rate']);const pf=metricBy(fake,['Perfect Order Fulfilment Ratio']);const pv=p?normalizeMetricValue(p.value,p.name):null,sv=s?normalizeMetricValue(s.value,s.name):null,mv=mi?normalizeMetricValue(mi.value,mi.name):null,fv=pf?normalizeMetricValue(pf.value,pf.name):null;let good=0;if(pv!=null&&pv<=2.57)good++;if(sv!=null&&sv>=98)good++;if(mv!=null&&mv<=.34)good++;if(fv!=null&&fv>=98)good++;if(good>=3)c++;else break}return c}
@@ -2380,6 +2394,15 @@ function seasonFrameFromDate(reference){
   return {seasonIndex:seasonIndex+1,start:seasonStart,end:seasonEnd,daysLeft:Math.ceil(ms/86400000),key:personalWeekKey(seasonStart)};
 }
 function getSeasonFrame(){
+  const unified=state.unifiedData?.people||{};
+  let latestUnified=null;
+  Object.values(unified).forEach(function(p){
+    [...Object.values(p?.weekly||{}),...Object.values(p?.daily||{})].forEach(function(s){
+      const key=(s?.labels||[]).at(-1),d=dateOnly(key);
+      if(d&&(!latestUnified||d>latestUnified))latestUnified=d;
+    });
+  });
+  if(latestUnified)return seasonFrameFromDate(latestUnified);
   const hs=state.history,weeks=hs?.weeks||[];
   if(weeks.length){
     const spans=historyWeekSpans(hs),latest=spans.at(-1)?.start;
@@ -2496,7 +2519,18 @@ async function loadUnifiedArenaData(force=false){
  return state.unifiedLoading;
 }
 function unifiedMetricDef(id){return state.unifiedData?.metrics?.find(x=>x.id===id)||null}
-function unifiedPersonByName(name){const t=norm(name);return Object.values(state.unifiedData?.people||{}).find(p=>norm(p.name)===t||norm(p.person_key)===t)||null}
+function arenaIdentityKey(v){return norm(v).replace(/[^a-z0-9]/g,'')}
+function unifiedPersonByName(name){
+ const t=norm(name),k=arenaIdentityKey(name);
+ return Object.values(state.unifiedData?.people||{}).find(function(p){
+   return norm(p.name)===t||norm(p.person_key)===t||arenaIdentityKey(p.name)===k||arenaIdentityKey(p.person_key)===k;
+ })||null;
+}
+function unifiedArenaDisplayName(p){
+ const keys=[p?.name,p?.person_key].map(arenaIdentityKey).filter(Boolean);
+ const alias=Object.keys(state.team?.people||{}).find(function(name){return keys.includes(arenaIdentityKey(name))});
+ return alias||p?.name||p?.person_key||'';
+}
 function seriesMap(series){const m=new Map();if(!series)return m;(series.labels||[]).forEach((k,i)=>{const v=Number(series.values?.[i]);if(Number.isFinite(v))m.set(String(k),v)});return m}
 function csMonthLabel(iso){
  const d=dateOnly(iso);if(!d)return String(iso||'—');
@@ -3714,11 +3748,7 @@ function renderHomeSeasonCharts(){
  const eloCanvas=document.getElementById('homeSeasonEloChart'),perfCanvas=document.getElementById('homeSeasonPerfChart');
  if(!eloCanvas||!perfCanvas||!state.history||!state.team)return;
  const frame=getSeasonFrame(),series=buildGeneratedSeries({frame:frame}),previous=buildGeneratedSeries({frame:previousSeasonFrame()});if(!series)return;
- const hsLabels=state.history?.weeks?.map(function(w){return w.week?.label||''})||[];
- const hsSpans=historyWeekSpans(state.history);
- const seasonKeys=indicesForDateWindow(hsLabels,state.history?.weekMeta||null,frame.start,frame.end).map(function(i){
-   return personalWeekKey(hsSpans[i]?.start)||hsLabels[i];
- });
+
  const renderOne=function(canvasId,personal,team,previousPersonal,valueId,moveId,metaId,kind){
    destroyChart(canvasId);
    const arr=personal.arr||[],validIdx=arr.map(function(v,i){return n(v)!=null?i:-1}).filter(function(i){return i>=0});
@@ -3731,7 +3761,7 @@ function renderHomeSeasonCharts(){
    const badge=document.getElementById(moveId);if(badge){badge.className='home-trend-move '+move.cls;badge.textContent=move.label}
    const trendLine=regressionLine(arr),pointRadius=arr.map(function(v,i){return i===latestIdx?5:(v!=null?2:0)});
    const pointBg=arr.map(function(v,i){return i===latestIdx?(move.cls==='good'?'#22c55e':move.cls==='bad'?'#ef4444':'#94a3b8'):'#35E78A'});
-   const keys=seasonKeys.slice(0,arr.length),displayLabels=personal.labels||[];
+   const keys=(personal.keys||[]).slice(0,arr.length),displayLabels=personal.labels||[];
    const personalPoints=homeSeasonChartPoints(keys,arr,'week',frame,displayLabels);
    const teamPoints=homeSeasonChartPoints(keys,team.arr||[],'week',frame,displayLabels);
    const trendPoints=homeSeasonChartPoints(keys,trendLine,'week',frame,displayLabels);
@@ -4228,6 +4258,47 @@ function movementFor(values,name){const vals=(values||[]).map(v=>normalizeMetric
 function movementHtml(m,name){if(!m)return '<div class="personal-movement neutral"><div class="movement-main"><span class="movement-arrow">•</span><div class="movement-copy"><span class="movement-label">vs minulý týden</span><span class="movement-value">Nedostatek dat</span></div></div></div>';const sign=m.diff>0?'+':'';const rel=m.relative==null?'':` · ${m.relative>0?'+':''}${fmt(m.relative,1)} %`;return `<div class="personal-movement ${m.cls}"><div class="movement-main"><span class="movement-arrow">${m.arrow}</span><div class="movement-copy"><span class="movement-label">vs minulý týden · ${m.text}</span><span class="movement-value">${sign}${formatNormVal(m.diff,name)}${rel}</span></div></div><span class="movement-context">${formatNormVal(m.prev,name)} → ${formatNormVal(m.current,name)}</span></div>`;}
 function renderPersonalDeltas(cards){const box=document.getElementById('personalDeltaGrid');if(!box)return;const picks=cards.filter(c=>c.sliced.arr.filter(v=>n(v)!=null).length>=2).slice(0,4);box.innerHTML=picks.map(c=>{const m=movementFor(c.sliced.arr,c.d.name);return `<div class="personal-delta-card ${m?.cls||'neutral'}"><div class="delta-kicker">${esc(cleanMetricName(c.d.name))}</div><div class="delta-title">${m?m.text:'Trend'}</div><div class="delta-value">${m?m.arrow+' '+(m.relative==null?'—':(m.relative>0?'+':'')+fmt(m.relative,1)+' %'):'—'}</div><div class="delta-sub">${m?formatNormVal(m.prev,c.d.name)+' → '+formatNormVal(m.current,c.d.name):'Nedostatek dat'}</div></div>`}).join('')||'<div class="notice">Není dostatek týdenních dat pro srovnání.</div>';animateCards('personalDeltaGrid')}
 function metricCardHtml(title,obj,compare){const v=obj?.value??null,tr=obj?.value!=null&&obj?.kind?null:null;return `<div class="metric-card"><div class="metric-top"><div class="metric-title">${esc(cleanMetricName(title))}</div>${tr?'':''}</div><div class="metric-main">${formatVal(v,title)}</div><div class="metric-sub">${compare?'Srovnání: '+formatVal(compare.value,compare.name):'aktuální průměr / týden'}</div></div>`}
+function buildUnifiedWeeklyTeam(frame=null){
+ const u=state.unifiedData;if(!u?.people||!u?.metrics)return null;
+ const excluded=new Set(['worked_hours','orders_per_hour','outbound_units_per_hour','inbound_units_per_hour','total_units_per_hour','substitutions_rate']);
+ const defs=(u.metrics||[]).filter(function(d){
+   return d.weekly_available&&!excluded.has(d.id)&&!String(d.id||'').startsWith('inbound_')&&d.id!=='stock_count';
+ }).map(function(d){
+   return {id:d.id,name:(d.legacy_names||[])[0]||d.label||d.id};
+ });
+ if(!defs.length)return null;
+ const keys=new Set();
+ Object.values(u.people||{}).forEach(function(p){
+   defs.forEach(function(d){
+     const s=p?.weekly?.[d.id];
+     (s?.labels||[]).forEach(function(k){
+       const dt=dateOnly(k);if(!dt)return;
+       if(frame&&(dt<frame.start||dt>frame.end))return;
+       keys.add(String(k));
+     });
+   });
+ });
+ const labels=[...keys].sort();if(!labels.length)return null;
+ const people={};
+ Object.values(u.people||{}).forEach(function(p){
+   const name=unifiedArenaDisplayName(p);if(!name)return;
+   const history=defs.map(function(d){
+     const map=seriesMap(p?.weekly?.[d.id]);
+     return labels.map(function(k){return map.has(k)?map.get(k):null});
+   });
+   if(history.some(function(h){return h.some(function(v){return n(v)!=null})}))people[name]={history:history,headers:defs.map(function(d){return d.name})};
+ });
+ return {labels:labels,headers:defs.map(function(d){return d.name}),people:people,source_mode:'Data Hub weekly'};
+}
+function performanceScoreForTeamPersonAt(team,defs,name,weekIndex){
+ const p=team?.people?.[name];if(!p)return null;
+ const metrics={};
+ defs.forEach(function(d){
+   const raw=p.history?.[d.index]?.[weekIndex];
+   if(raw!=null)metrics[d.key]={value:raw};
+ });
+ return performanceScoreFromLatest({latest:{metrics},metricDefinitions:defs});
+}
 function performanceScoreFromWeek(week,defs){
   if(!week||!defs?.length)return null;
   return performanceScoreFromLatest({latest:week,metricDefinitions:defs});
@@ -4254,6 +4325,31 @@ function teamPerformanceScoreAt(team,defs,weekIndex){
   return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;
 }
 function buildGeneratedSeries(opts={}){
+  const homeFrame=opts.frame||null;
+  if(homeFrame){
+    const team=buildUnifiedWeeklyTeam(homeFrame);
+    if(team?.labels?.length){
+      const labels=team.labels,defs=(team.headers||[]).map(function(name,index){return{name:name,index:index,key:'u'+index}});
+      const worker=Object.keys(team.people||{}).find(function(name){return arenaIdentityKey(name)===arenaIdentityKey(state.worker)})||state.worker;
+      const personalPerf=labels.map(function(_,i){return performanceScoreForTeamPersonAt(team,defs,worker,i)});
+      const teamPerf=labels.map(function(_,i){return teamPerformanceScoreAt(team,defs,i)});
+      const eloPersonal=Array(labels.length).fill(null),eloTeam=Array(labels.length).fill(null);
+      labels.forEach(function(_,absIdx){
+        const to=absIdx+1,prefix={labels:labels.slice(0,to),people:{},headers:team.headers||[]};
+        Object.entries(team.people||{}).forEach(function(entry){
+          prefix.people[entry[0]]={history:(entry[1].history||[]).map(function(h){return(h||[]).slice(0,to)})};
+        });
+        const elo=seasonEloFor(prefix);
+        eloPersonal[absIdx]=elo[worker]??null;
+        const all=Object.values(elo).filter(function(v){return n(v)!=null});
+        eloTeam[absIdx]=all.length?all.reduce(function(a,b){return a+b},0)/all.length:null;
+      });
+      const display=labels.map(function(k){return personalWeekLabel(k)});
+      const wrap=function(arr){return{arr:arr,labels:display,keys:labels}};
+      return{elo:wrap(eloPersonal),eloTeam:wrap(eloTeam),perf:wrap(personalPerf),perfTeam:wrap(teamPerf),source_mode:'Data Hub weekly'};
+    }
+  }
+
   const hs=state.history,team=state.team;
   if(!hs?.weeks?.length)return null;
   const labels=hs.weeks.map(function(w){return w.week.label}),spans=historyWeekSpans(hs),frame=opts.frame||null;
@@ -4294,6 +4390,7 @@ function buildGeneratedSeries(opts={}){
     })};
   };
   return{elo:slice(eloPersonal),eloTeam:slice(eloTeam),perf:slice(personalPerf),perfTeam:slice(teamPerf)};
+
 }
 function renderGeneratedTrendCharts(){
   const eloCanvas=document.getElementById('personalEloChart'),perfCanvas=document.getElementById('personalPerfChart');
