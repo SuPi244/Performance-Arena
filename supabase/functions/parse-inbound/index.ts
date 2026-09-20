@@ -14,6 +14,7 @@ const emailHints=[
 
 const canonical=(s:string)=>{
  const n=norm(s).replace("…","");
+ if(n.replace(/[^a-z0-9]+/g,"")==="nicksch")return "__ignored_nicksch__";
  for(const [prefix,full] of emailHints)if(n.startsWith(prefix))return full;
  return n;
 };
@@ -104,6 +105,7 @@ Deno.serve(async req=>{
   if(ignoreErr)return J({error:ignoreErr.message},500);
   const ignoredSet=new Set((persistentIgnored||[]).map((x:any)=>norm(x.normalized_value)));
   const ignoredRows=rows.filter((r:any)=>{
+    if(canonical(r.alias)==="__ignored_nicksch__")return true;
     const isUnknown=canonical(r.alias)==="unknow_userid";
     return isUnknown?ignoredSet.has(norm(r.user_id)):ignoredSet.has(norm(r.alias))||ignoredSet.has(canonical(r.alias));
   });
