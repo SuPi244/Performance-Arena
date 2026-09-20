@@ -82,7 +82,7 @@ Deno.serve(async(req)=>{
   const {data:imp,error:ie}=await db.from("imports").select("id,filename,report_type").eq("id",import_id).single(); if(ie)return J({error:ie.message},400);
   const p=parse(text); if(!p.rows.length)return J({error:"No Daily Picking rows parsed"},422);
   const compact=(s:any)=>norm(String(s||"")).replace(/[^a-z0-9]+/g,"");
-  const isTechnicalIdentity=(s:any)=>{const x=compact(s);return x==="woltmark"||x.startsWith("woltmarketholesovice")};
+  const isTechnicalIdentity=(s:any)=>{const x=compact(s);return x==="woltmark"||x.startsWith("woltmarketholesovice")||x==="nicksch"};
   const technicalRows=p.rows.filter((r:any)=>isTechnicalIdentity(r.alias));
   const candidateRows=p.rows.filter((r:any)=>!isTechnicalIdentity(r.alias));
   const {data:persistentIgnored,error:ignoreErr}=await db.from("ignored_identities").select("normalized_value").eq("source_type","daily_picking");
