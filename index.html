@@ -1694,7 +1694,7 @@ tr.unknown .admin-status{color:var(--muted)!important;background:rgba(148,163,18
 <div class="hidden" id="seasonRecapOverlay"><div class="season-recap-card"><div class="rundown-head"><div><div class="rundown-kicker">NOVÁ SEZÓNA</div><div class="rundown-title" id="seasonRecapTitle">Season Recap</div><div class="rundown-sub" id="seasonRecapSub">Tvoje poslední sezóna</div></div><button aria-label="Zavřít" class="rundown-close" id="seasonRecapClose">×</button></div><div class="season-recap-grid" id="seasonRecapStats"></div><div class="season-recap-section"><h4>🏆 Nejdůležitější výsledky</h4><div class="rundown-list" id="seasonRecapWins"></div></div><div class="season-recap-section"><h4>📈 Posun</h4><div class="rundown-list" id="seasonRecapProgress"></div></div><div class="rundown-actions"><button class="rundown-btn" id="seasonRecapContinue">Jdeme na novou sezónu</button></div></div></div>
 <div class="hidden" id="rundownOverlay"><div class="rundown-card"><div class="rundown-head"><div><div class="rundown-kicker">Tvoje poslední výsledky</div><div class="rundown-title" id="rundownTitle">Dobrá práce.</div><div class="rundown-sub" id="rundownSub">Rychlé shrnutí toho, co se ti povedlo.</div></div><button aria-label="Zavřít" class="rundown-close" id="rundownClose">×</button></div><div class="rundown-grid" id="rundownStats"></div><div class="rundown-section"><h4>🔥 Co se ti povedlo</h4><div class="rundown-list" id="rundownWins"></div></div><div class="rundown-section"><h4>🏆 Co jsi odemkl</h4><div class="rundown-achievements" id="rundownAchievements"></div></div><div class="rundown-section"><h4>🎯 Na čem můžeš ještě zabrat</h4><div class="rundown-list" id="rundownFocus"></div></div><div class="rundown-actions"><button class="rundown-btn" id="rundownContinue">Pokračovat do profilu</button></div></div></div>
 <div class="shell">
-<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V198</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
+<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V199</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
 <div class="layout">
 <aside class="sidebar">
 <div class="label" id="profileLabel">Profil</div><select class="select" id="workerSelect"></select>
@@ -3549,11 +3549,17 @@ function renderHomeMomentum(preset){
  const move=homeTrendMovement(diff,!!srs.lower_is_better,srs.unit,context);
  const pointRadius=values.map(function(v,i){return i===latestIdx?6:(v!=null?2.5:0)});
  const pointBg=values.map(function(v,i){return i===latestIdx?(move.cls==='good'?'#22c55e':move.cls==='bad'?'#ef4444':'#94a3b8'):'#35E78A'});
- charts.homeMomentumChart=new Chart(canvas,{type:'line',data:{labels:labels,datasets:[
-  {label:srs.label,data:values,borderColor:'#35E78A',backgroundColor:move.cls==='bad'?'rgba(239,68,68,.055)':'rgba(53,231,138,.09)',borderWidth:2.4,fill:true,tension:.32,pointRadius:pointRadius,pointBackgroundColor:pointBg,pointBorderWidth:0,spanGaps:true,segment:{borderColor:function(ctx){return ctx.p1DataIndex===latestIdx?(move.cls==='good'?'#22c55e':move.cls==='bad'?'#ef4444':'#94a3b8'):'#35E78A'},borderWidth:function(ctx){return ctx.p1DataIndex===latestIdx?4:2.4}}},
-  {label:'Týmový průměr',data:srs.team_values||[],borderColor:'#94A3B8',borderDash:[2,4],borderWidth:1.5,fill:false,tension:.3,pointRadius:0,spanGaps:true},
-  {label:'Trend',data:regressionLine(values),borderColor:'#7C5CFF',borderDash:[6,4],borderWidth:1.8,fill:false,tension:0,pointRadius:0,spanGaps:true}
- ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#91a79b',maxTicksLimit:8}},y:{ticks:{color:'#91a79b'}}}}});
+ const frame=srs.season_frame||getSeasonFrame();
+ const personalPoints=homeSeasonChartPoints(rawLabels,values,srs.granularity||'week',frame,labels);
+ const teamValues=srs.team_values||[];
+ const teamPoints=homeSeasonChartPoints(rawLabels,teamValues,srs.granularity||'week',frame,labels);
+ const trendValues=regressionLine(values);
+ const trendPoints=homeSeasonChartPoints(rawLabels,trendValues,srs.granularity||'week',frame,labels);
+ charts.homeMomentumChart=new Chart(canvas,{type:'line',data:{datasets:[
+  {label:srs.label,data:personalPoints,borderColor:'#35E78A',backgroundColor:move.cls==='bad'?'rgba(239,68,68,.055)':'rgba(53,231,138,.09)',borderWidth:2.4,fill:true,tension:.32,pointRadius:pointRadius,pointBackgroundColor:pointBg,pointBorderWidth:0,spanGaps:true,segment:{borderColor:function(ctx){return ctx.p1DataIndex===latestIdx?(move.cls==='good'?'#22c55e':move.cls==='bad'?'#ef4444':'#94a3b8'):'#35E78A'},borderWidth:function(ctx){return ctx.p1DataIndex===latestIdx?4:2.4}}},
+  {label:'Týmový průměr',data:teamPoints,borderColor:'#94A3B8',borderDash:[2,4],borderWidth:1.5,fill:false,tension:.3,pointRadius:0,spanGaps:true},
+  {label:'Trend',data:trendPoints,borderColor:'#7C5CFF',borderDash:[6,4],borderWidth:1.8,fill:false,tension:0,pointRadius:0,spanGaps:true}
+ ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{title:homeChartTooltipTitle,label:function(ctx){return ctx.dataset.label+': '+enhancedFmt(ctx.parsed.y,srs.unit)}}}},scales:{x:homeSeasonXAxis(frame,7,8,false),y:{ticks:{color:'#91a79b'}}}}});
  setText('homeMomentumValue',enhancedFmt(latest,srs.unit));
  const impact=latestDailyPickingImpact(),dailyHost=document.getElementById('homeMomentumDailyImpact');
  const dailyMode=srs.home_key==='output'?'output':srs.home_key==='quality'?'quality':srs.home_key==='efficiency'?'efficiency':null;
@@ -3640,11 +3646,16 @@ function renderHomeKpiTrend(spec){
  const validIdx=values.map(function(v,i){return v!=null&&Number.isFinite(v)?i:-1}).filter(function(i){return i>=0}),latestIdx=validIdx.at(-1);
  const pointRadius=values.map(function(v,i){return i===latestIdx?5:(v!=null?2:0)});
  const pointBg=values.map(function(v,i){return i===latestIdx?(movement.cls==='good'?'#22c55e':movement.cls==='bad'?'#ef4444':'#94a3b8'):'#35E78A'});
- charts[spec.canvasId]=new Chart(canvas,{type:'line',data:{labels:labels,datasets:[
-  {label:series.label,data:values,borderColor:'#35E78A',backgroundColor:movement.cls==='bad'?'rgba(239,68,68,.055)':'rgba(53,231,138,.07)',borderWidth:2,fill:true,tension:.32,pointRadius:pointRadius,pointBackgroundColor:pointBg,pointBorderWidth:0,spanGaps:true,segment:{borderColor:function(ctx){return ctx.p1DataIndex===latestIdx?(movement.cls==='good'?'#22c55e':movement.cls==='bad'?'#ef4444':'#94a3b8'):'#35E78A'},borderWidth:function(ctx){return ctx.p1DataIndex===latestIdx?3.6:2}}},
-  {label:'Týmový průměr',data:teamData,borderColor:'#94A3B8',borderDash:[2,4],borderWidth:1.25,fill:false,tension:.3,pointRadius:0,spanGaps:true},
-  {label:'Trend',data:regressionLine(values),borderColor:'#7C5CFF',borderDash:[5,4],borderWidth:1.45,fill:false,tension:0,pointRadius:0,spanGaps:true}
- ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{enabled:true}},scales:{x:{display:false},y:{ticks:{color:'#91a79b',maxTicksLimit:4,font:{size:9}},grid:{color:'rgba(145,167,155,.08)'}}}}});
+ const frame=series.season_frame||getSeasonFrame();
+ const personalPoints=homeSeasonChartPoints(rawLabels,values,series.granularity||'week',frame,labels);
+ const teamPoints=homeSeasonChartPoints(rawLabels,teamData,series.granularity||'week',frame,labels);
+ const trendValues=regressionLine(values);
+ const trendPoints=homeSeasonChartPoints(rawLabels,trendValues,series.granularity||'week',frame,labels);
+ charts[spec.canvasId]=new Chart(canvas,{type:'line',data:{datasets:[
+  {label:series.label,data:personalPoints,borderColor:'#35E78A',backgroundColor:movement.cls==='bad'?'rgba(239,68,68,.055)':'rgba(53,231,138,.07)',borderWidth:2,fill:true,tension:.32,pointRadius:pointRadius,pointBackgroundColor:pointBg,pointBorderWidth:0,spanGaps:true,segment:{borderColor:function(ctx){return ctx.p1DataIndex===latestIdx?(movement.cls==='good'?'#22c55e':movement.cls==='bad'?'#ef4444':'#94a3b8'):'#35E78A'},borderWidth:function(ctx){return ctx.p1DataIndex===latestIdx?3.6:2}}},
+  {label:'Týmový průměr',data:teamPoints,borderColor:'#94A3B8',borderDash:[2,4],borderWidth:1.25,fill:false,tension:.3,pointRadius:0,spanGaps:true},
+  {label:'Trend',data:trendPoints,borderColor:'#7C5CFF',borderDash:[5,4],borderWidth:1.45,fill:false,tension:0,pointRadius:0,spanGaps:true}
+ ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{enabled:true,callbacks:{title:homeChartTooltipTitle,label:function(ctx){return ctx.dataset.label+': '+enhancedFmt(ctx.parsed.y,series.unit)}}}},scales:{x:homeSeasonXAxis(frame,4,8,false),y:{ticks:{color:'#91a79b',maxTicksLimit:4,font:{size:9}},grid:{color:'rgba(145,167,155,.08)'}}}}});
 }
 function renderHomeKpiTrends(){
  const specs=[
@@ -3699,6 +3710,11 @@ function renderHomeSeasonCharts(){
  const eloCanvas=document.getElementById('homeSeasonEloChart'),perfCanvas=document.getElementById('homeSeasonPerfChart');
  if(!eloCanvas||!perfCanvas||!state.history||!state.team)return;
  const frame=getSeasonFrame(),series=buildGeneratedSeries({frame:frame}),previous=buildGeneratedSeries({frame:previousSeasonFrame()});if(!series)return;
+ const hsLabels=state.history?.weeks?.map(function(w){return w.week?.label||''})||[];
+ const hsSpans=historyWeekSpans(state.history);
+ const seasonKeys=indicesForDateWindow(hsLabels,state.history?.weekMeta||null,frame.start,frame.end).map(function(i){
+   return personalWeekKey(hsSpans[i]?.start)||hsLabels[i];
+ });
  const renderOne=function(canvasId,personal,team,previousPersonal,valueId,moveId,metaId,kind){
    destroyChart(canvasId);
    const arr=personal.arr||[],validIdx=arr.map(function(v,i){return n(v)!=null?i:-1}).filter(function(i){return i>=0});
@@ -3711,11 +3727,15 @@ function renderHomeSeasonCharts(){
    const badge=document.getElementById(moveId);if(badge){badge.className='home-trend-move '+move.cls;badge.textContent=move.label}
    const trendLine=regressionLine(arr),pointRadius=arr.map(function(v,i){return i===latestIdx?5:(v!=null?2:0)});
    const pointBg=arr.map(function(v,i){return i===latestIdx?(move.cls==='good'?'#22c55e':move.cls==='bad'?'#ef4444':'#94a3b8'):'#35E78A'});
-   charts[canvasId]=new Chart(document.getElementById(canvasId),{type:'line',data:{labels:personal.labels,datasets:[
-     {label:kind==='elo'?'Tvoje ELO':'Tvoje skóre',data:arr,borderColor:'#35E78A',backgroundColor:'rgba(53,231,138,.07)',borderWidth:2.3,fill:true,tension:.3,pointRadius:pointRadius,pointBackgroundColor:pointBg,pointBorderWidth:0,spanGaps:true},
-     {label:'Týmový průměr',data:team.arr,borderColor:'#94A3B8',borderDash:[2,4],borderWidth:1.5,fill:false,tension:.3,pointRadius:0,spanGaps:true},
-     {label:'Trend',data:trendLine,borderColor:'#7C5CFF',borderDash:[6,4],borderWidth:1.7,fill:false,tension:0,pointRadius:0,spanGaps:true}
-   ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{title:function(items){return items?.[0]?.label||''},label:function(ctx){return ctx.dataset.label+': '+format(ctx.parsed.y)}}}},scales:{x:{ticks:{color:'#91a79b',maxTicksLimit:7,font:{size:8}},grid:{display:false}},y:{ticks:{color:'#91a79b',maxTicksLimit:5,font:{size:8}},grid:{color:'rgba(145,167,155,.07)'}}}}});
+   const keys=seasonKeys.slice(0,arr.length),displayLabels=personal.labels||[];
+   const personalPoints=homeSeasonChartPoints(keys,arr,'week',frame,displayLabels);
+   const teamPoints=homeSeasonChartPoints(keys,team.arr||[],'week',frame,displayLabels);
+   const trendPoints=homeSeasonChartPoints(keys,trendLine,'week',frame,displayLabels);
+   charts[canvasId]=new Chart(document.getElementById(canvasId),{type:'line',data:{datasets:[
+     {label:kind==='elo'?'Tvoje ELO':'Tvoje skóre',data:personalPoints,borderColor:'#35E78A',backgroundColor:'rgba(53,231,138,.07)',borderWidth:2.3,fill:true,tension:.3,pointRadius:pointRadius,pointBackgroundColor:pointBg,pointBorderWidth:0,spanGaps:true},
+     {label:'Týmový průměr',data:teamPoints,borderColor:'#94A3B8',borderDash:[2,4],borderWidth:1.5,fill:false,tension:.3,pointRadius:0,spanGaps:true},
+     {label:'Trend',data:trendPoints,borderColor:'#7C5CFF',borderDash:[6,4],borderWidth:1.7,fill:false,tension:0,pointRadius:0,spanGaps:true}
+   ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{title:homeChartTooltipTitle,label:function(ctx){return ctx.dataset.label+': '+format(ctx.parsed.y)}}}},scales:{x:homeSeasonXAxis(frame,7,8,false),y:{ticks:{color:'#91a79b',maxTicksLimit:5,font:{size:8}},grid:{color:'rgba(145,167,155,.07)'}}}}});
    const first=arr.filter(function(v){return n(v)!=null}).at(0),seasonDelta=latest!=null&&first!=null?latest-first:null,vsPrev=latest!=null&&prevSeason!=null?latest-prevSeason:null;
    setText(metaId,(seasonDelta==null?'Sezónní vývoj':((seasonDelta>=0?'+':'')+format(seasonDelta)+' od začátku'))+(vsPrev==null?'':(' · vs minulá sezóna '+(vsPrev>=0?'+':'')+format(vsPrev)))+' · týmový průměr + trend');
    const card=document.getElementById(canvasId)?.closest('.home-season-card');if(card){card.classList.remove('trend-good','trend-bad','trend-neutral');card.classList.add('trend-'+move.cls)}
@@ -4326,6 +4346,38 @@ function personalWeekLabel(key){
 }
 function chartPeriodLabel(key,granularity){
   return String(granularity||'week')==='day'?shortDayLabel(key):personalWeekLabel(key);
+}
+function homeSeasonChartPointX(frame,key){
+  const f=frame||getSeasonFrame(),d=dateOnly(key);
+  if(!f||!d)return null;
+  return Math.round((d.getTime()-f.start.getTime())/86400000);
+}
+function homeSeasonChartPoints(keys,values,granularity,frame,displayLabels){
+  const f=frame||getSeasonFrame();if(!f)return[];
+  return (keys||[]).map(function(key,i){
+    const x=homeSeasonChartPointX(f,key);if(x==null)return null;
+    const raw=values?.[i],num=raw==null?null:Number(raw),y=Number.isFinite(num)?num:null;
+    return {x:x,y:y,periodLabel:(displayLabels&&displayLabels[i])||chartPeriodLabel(key,granularity||'week')};
+  }).filter(Boolean);
+}
+function homeSeasonXAxis(frame,maxTicks=7,fontSize=8,showGrid=false){
+  const f=frame||getSeasonFrame();if(!f)return{};
+  const maxDay=Math.max(1,Math.round((f.end.getTime()-f.start.getTime())/86400000));
+  return {
+    type:'linear',min:0,max:maxDay,
+    grid:showGrid?{color:'rgba(145,167,155,.07)'}:{display:false},
+    ticks:{
+      color:'#91a79b',maxTicksLimit:maxTicks,font:{size:fontSize},
+      callback:function(value){
+        const day=Math.max(0,Math.min(maxDay,Math.round(Number(value)||0)));
+        return shortDayLabel(addDays(f.start,day));
+      }
+    }
+  };
+}
+function homeChartTooltipTitle(items){
+  const raw=items?.[0]?.raw;
+  return raw?.periodLabel||'';
 }
 function personalDataHubWeeklySeries(){
   const d=state.storeCard||{};
