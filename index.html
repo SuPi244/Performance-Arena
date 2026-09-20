@@ -2199,7 +2199,11 @@ function renderStoreCardLive(){
  const bh=document.getElementById('bonusHistoryRows');
  if(bh){
   const rows=w.history||[];
-  bh.innerHTML=rows.length?rows.map(x=>'<tr><td>'+esc(x.bonus_month||'—')+'</td><td><strong>'+esc(czk(x.amount))+'</strong></td><td>'+esc(x.status||'confirmed')+'</td><td>'+esc(x.metadata?.total_points!=null?liveFmt(x.metadata.total_points,'points'):'—')+'</td></tr>').join(''):'<tr><td colspan="4" class="muted">Zatím žádný potvrzený bonus.</td></tr>';
+  bh.innerHTML=rows.length?rows.map(x=>{
+   const eligible=x?.metadata?.bonus_eligible;
+   const status=eligible===false?'<span class="err">BEZ NÁROKU</span>':esc(x.status||'confirmed');
+   return '<tr><td>'+esc(x.bonus_month||'—')+'</td><td><strong>'+esc(czk(x.amount))+'</strong></td><td>'+status+'</td><td>'+esc(x.metadata?.total_points!=null?liveFmt(x.metadata.total_points,'points'):'—')+'</td></tr>';
+  }).join(''):'<tr><td colspan="4" class="muted">Zatím žádný potvrzený bonus.</td></tr>';
  }
  const bl=document.getElementById('bonusLiveMonthGrid');
  if(bl){
