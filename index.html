@@ -1662,7 +1662,7 @@ html[data-theme="light"] .home-live-data-impact b{color:#0f172a}
 <div class="hidden" id="seasonRecapOverlay"><div class="season-recap-card"><div class="rundown-head"><div><div class="rundown-kicker">NOVÁ SEZÓNA</div><div class="rundown-title" id="seasonRecapTitle">Season Recap</div><div class="rundown-sub" id="seasonRecapSub">Tvoje poslední sezóna</div></div><button aria-label="Zavřít" class="rundown-close" id="seasonRecapClose">×</button></div><div class="season-recap-grid" id="seasonRecapStats"></div><div class="season-recap-section"><h4>🏆 Nejdůležitější výsledky</h4><div class="rundown-list" id="seasonRecapWins"></div></div><div class="season-recap-section"><h4>📈 Posun</h4><div class="rundown-list" id="seasonRecapProgress"></div></div><div class="rundown-actions"><button class="rundown-btn" id="seasonRecapContinue">Jdeme na novou sezónu</button></div></div></div>
 <div class="hidden" id="rundownOverlay"><div class="rundown-card"><div class="rundown-head"><div><div class="rundown-kicker">Tvoje poslední výsledky</div><div class="rundown-title" id="rundownTitle">Dobrá práce.</div><div class="rundown-sub" id="rundownSub">Rychlé shrnutí toho, co se ti povedlo.</div></div><button aria-label="Zavřít" class="rundown-close" id="rundownClose">×</button></div><div class="rundown-grid" id="rundownStats"></div><div class="rundown-section"><h4>🔥 Co se ti povedlo</h4><div class="rundown-list" id="rundownWins"></div></div><div class="rundown-section"><h4>🏆 Co jsi odemkl</h4><div class="rundown-achievements" id="rundownAchievements"></div></div><div class="rundown-section"><h4>🎯 Na čem můžeš ještě zabrat</h4><div class="rundown-list" id="rundownFocus"></div></div><div class="rundown-actions"><button class="rundown-btn" id="rundownContinue">Pokračovat do profilu</button></div></div></div>
 <div class="shell">
-<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V192</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
+<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V193</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
 <div class="layout">
 <aside class="sidebar">
 <div class="label" id="profileLabel">Profil</div><select class="select" id="workerSelect"></select>
@@ -2215,7 +2215,7 @@ function seasonEloFor(historyObj){
 }
 
 function tier(elo){if(elo>=1200)return['MASTER','#c084fc'];if(elo>=1100)return['GOLD','var(--gold)'];if(elo>=1000)return['SILVER','#94A3B8'];return['BRONZE','#D97706']}
-function seasonRank(){if(state.team){const eloMap=seasonEloFor(state.team);return Object.entries(eloMap).sort((a,b)=>b[1]-a[1]).map((x,i)=>{const weeks=(state.team.people[x[0]]?.history?.[0]||[]).filter(v=>n(v)!=null).length;return {name:x[0],elo:x[1],rank:i+1,tier:tier(x[1])[0],weeks,status:weeks<2?'PROVISIONAL':weeks<3?'PROVISIONAL RANK':'FULL'}})}if(state.quickLeaderboard?.players)return state.quickLeaderboard.players.map(x=>({...x,status:x.status||'FULL'}));return[]}
+function seasonRank(){if(state.team){const scoped=seasonScopedTeam(state.team),eloMap=seasonEloFor(scoped);return Object.entries(eloMap).sort((a,b)=>b[1]-a[1]).map((x,i)=>{const weeks=(scoped.people?.[x[0]]?.history?.[0]||[]).filter(v=>n(v)!=null).length;return {name:x[0],elo:x[1],rank:i+1,tier:tier(x[1])[0],weeks,status:weeks<2?'PROVISIONAL':weeks<3?'PROVISIONAL RANK':'FULL'}})}if(state.quickLeaderboard?.players)return state.quickLeaderboard.players.map(x=>({...x,status:x.status||'FULL'}));return[]}
 function playerSeasonData(name){const lb=seasonRank();return lb.find(x=>x.name===name)||{name,elo:999,rank:'—',tier:'UNRANKED',status:'PROVISIONAL'} }
 function performanceScoreFromLatest(p){const m=p?.latest?.metrics||{},defs=p?.metricDefinitions||[];const find=(aliases)=>{for(const a of aliases.map(norm)){const d=defs.find(x=>norm(x.name)===a);if(d&&m[d.key]&&m[d.key].value!=null)return {value:normalizeMetricValue(m[d.key].value,d.name),name:d.name}}for(const a of aliases.map(norm)){const d=defs.find(x=>norm(x.name).includes(a));if(d&&m[d.key]&&m[d.key].value!=null)return {value:normalizeMetricValue(m[d.key].value,d.name),name:d.name}}return null};const rules=[['p',["avg picking time","picking time"],20,2.57,true],['s',["items picked via scanner ratio","scanner ratio","scanner"],15,98,false],['mi',["missing incorrect items rate","missing rate"],20,.34,true],['u',["undelivered"],10,.24,true],['r',["average rating of goods","goods rating"],8,4.7,false],['ui',["not collected items ratio","not collected"],7,.24,true],['pofr',["perfect order fulfilment ratio","perfect order fulfillment ratio","pofr"],5,98,false]];let sum=0,w=0;for(const [,a,we,t,lo] of rules){const hit=find(a);if(!hit||hit.value==null)continue;const v=hit.value;let score=lo?(v<=0?100:t/v*100):v/t*100;sum+=Math.max(0,Math.min(120,score))*we;w+=we}return w?Math.min(100,sum/w):null}
 function streak(history){if(!history?.weeks?.length)return 0;const defs=history.metricDefinitions;let c=0;for(let i=history.weeks.length-1;i>=0;i--){const fake={metricDefinitions:defs,latest:history.weeks[i]};const p=metricBy(fake,['Avg Picking Time']);const s=metricBy(fake,['Items Picked Via Scanner Ratio']);const mi=metricBy(fake,['Missing Incorrect Items Rate']);const pf=metricBy(fake,['Perfect Order Fulfilment Ratio']);const pv=p?normalizeMetricValue(p.value,p.name):null,sv=s?normalizeMetricValue(s.value,s.name):null,mv=mi?normalizeMetricValue(mi.value,mi.name):null,fv=pf?normalizeMetricValue(pf.value,pf.name):null;let good=0;if(pv!=null&&pv<=2.57)good++;if(sv!=null&&sv>=98)good++;if(mv!=null&&mv<=.34)good++;if(fv!=null&&fv>=98)good++;if(good>=3)c++;else break}return c}
@@ -2269,27 +2269,56 @@ function renderHomeScanStrip(){
   animateCards('homeScanStrip');
 }
 
-function getSeasonFrame(){
-  const hs=state.history;
-  const weeks=hs?.weeks||[];
-  if(!weeks.length)return null;
-  const latest=weeks.at(-1);
-  const meta=hs.weekMeta?.[weeks.length-1]||null;
-  const startRaw=meta?.startDate||latest?.week?.startDate||null;
-  let start=startRaw?dateOnly(startRaw):null;
-  if(!start && latest?.week?.label){
-    const m=String(latest.week.label).match(/(\d{4})-(\d{2})-(\d{2})/);
-    if(m)start=new Date(+m[1],+m[2]-1,+m[3]);
-  }
-  if(!start)return null;
+function seasonFrameFromDate(reference){
+  const start=dateOnly(reference);if(!start)return null;
   const epoch=new Date(2026,2,30);
-  const diffWeeks=Math.floor((dateOnly(start)-epoch)/604800000);
-  const seasonIndex=Math.floor(diffWeeks/13);
+  const diffWeeks=Math.floor((start-epoch)/604800000);
+  const seasonIndex=Math.max(0,Math.floor(diffWeeks/13));
   const seasonStart=new Date(epoch.getTime()+seasonIndex*13*7*86400000);
   const seasonEnd=new Date(seasonStart.getTime()+13*7*86400000-86400000);
-  const today=new Date();
-  const ms=Math.max(0,seasonEnd.getTime()-(new Date(today.getFullYear(),today.getMonth(),today.getDate())).getTime());
-  return {seasonIndex:seasonIndex+1,start:seasonStart,end:seasonEnd,daysLeft:Math.ceil(ms/86400000),key:seasonStart.toISOString().slice(0,10)};
+  const today=new Date(),todayOnly=new Date(today.getFullYear(),today.getMonth(),today.getDate());
+  const ms=Math.max(0,seasonEnd.getTime()-todayOnly.getTime());
+  return {seasonIndex:seasonIndex+1,start:seasonStart,end:seasonEnd,daysLeft:Math.ceil(ms/86400000),key:personalWeekKey(seasonStart)};
+}
+function getSeasonFrame(){
+  const hs=state.history,weeks=hs?.weeks||[];
+  if(weeks.length){
+    const spans=historyWeekSpans(hs),latest=spans.at(-1)?.start;
+    if(latest)return seasonFrameFromDate(latest);
+  }
+  const team=state.team;
+  if(team?.labels?.length){
+    const spans=weekSpans(team.labels,team.weekMeta||null),latest=spans.at(-1)?.start;
+    if(latest)return seasonFrameFromDate(latest);
+  }
+  return seasonFrameFromDate(new Date());
+}
+function indicesForDateWindow(labels,weekMeta,start,end){
+  const spans=weekSpans(labels||[],weekMeta||null),s=dateOnly(start),e=dateOnly(end);
+  return spans.map(function(span,i){return{span,i}}).filter(function(x){
+    return(!s||x.span.end>=s)&&(!e||x.span.start<=e);
+  }).map(function(x){return x.i});
+}
+function currentSeasonIndexes(labels,weekMeta){
+  const f=getSeasonFrame();if(!f)return(labels||[]).map(function(_,i){return i});
+  return indicesForDateWindow(labels,weekMeta,f.start,f.end);
+}
+function currentSeasonWeeks(){
+  const hs=state.history,weeks=hs?.weeks||[];if(!weeks.length)return[];
+  return currentSeasonIndexes(weeks.map(function(w){return w.week?.label||''}),hs.weekMeta||null).map(function(i){return weeks[i]}).filter(Boolean);
+}
+function seasonScopedTeam(team){
+  if(!team?.people||!team?.labels?.length)return team;
+  const idx=currentSeasonIndexes(team.labels,team.weekMeta||null);
+  return {
+    ...team,
+    labels:idx.map(function(i){return team.labels[i]}),
+    weekMeta:Array.isArray(team.weekMeta)?idx.map(function(i){return team.weekMeta[i]}):team.weekMeta,
+    people:Object.fromEntries(Object.entries(team.people||{}).map(function(entry){
+      const name=entry[0],p=entry[1];
+      return[name,{...p,history:(p.history||[]).map(function(arr){return idx.map(function(i){return arr?.[i]??null})})}];
+    }))
+  };
 }
 function renderSeasonCountdown(){
   const f=getSeasonFrame(); if(!f)return;
