@@ -1546,11 +1546,11 @@ html[data-theme="light"] .home-momentum-panel.trend-good,html[data-theme="light"
 
 
 <style id="home-arena-unification-v187">
-:root{--arena-violet:#7C5CFF;--arena-silver:#94A3B8;--arena-target:#F59E0B}
+:root{--arena-violet:#7C5CFF;--arena-silver:#94A3B8}
 .arena-section-head{align-items:flex-end!important}.home-priority-kicker,.arena-card-kicker{color:#a78bfa!important;text-shadow:0 0 16px rgba(124,92,255,.22)}
 .arena-chart-legend{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:7px;font-weight:950;letter-spacing:.055em;color:var(--muted)}
 .arena-chart-legend span{display:inline-flex;align-items:center;gap:5px}.arena-chart-legend i{display:block;width:18px;height:3px;border-radius:99px;background:#35E78A;box-shadow:0 0 8px rgba(53,231,138,.22)}
-.arena-chart-legend .team i{height:2px;background:var(--arena-silver);box-shadow:none}.arena-chart-legend .trend i{height:2px;background:var(--arena-violet);box-shadow:0 0 8px rgba(124,92,255,.28)}.arena-chart-legend .target i{height:2px;background:var(--arena-target);box-shadow:none}
+.arena-chart-legend .team i{height:2px;background:var(--arena-silver);box-shadow:none}.arena-chart-legend .trend i{height:2px;background:var(--arena-violet);box-shadow:0 0 8px rgba(124,92,255,.28)}
 .home-momentum-legend{margin-top:7px}
 .home-season-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.home-season-card{position:relative;overflow:hidden;border:1px solid rgba(124,92,255,.24);border-radius:17px;padding:15px;background:radial-gradient(circle at 90% 0%,rgba(124,92,255,.09),transparent 28%),linear-gradient(145deg,rgba(53,231,138,.035),rgba(255,255,255,.012)),var(--panel);box-shadow:0 14px 36px rgba(0,0,0,.14)}
 .home-season-card:after,.arena-hud-card:after{content:"";position:absolute;right:12px;top:12px;width:18px;height:18px;border-top:2px solid rgba(124,92,255,.55);border-right:2px solid rgba(124,92,255,.55);pointer-events:none}
@@ -1571,6 +1571,51 @@ html[data-theme="light"] .home-season-card{background:radial-gradient(circle at 
 @media(min-width:1800px){.home-season-card{padding:19px}.home-season-card h4{font-size:16px}.home-season-value-box>strong{font-size:31px}.home-season-chart{height:285px}.arena-chart-legend{font-size:8.5px}.arena-chart-legend i{width:22px}.employee-team-pulse-section{padding:18px}}
 </style>
 
+
+<style id="home-compact-v188">
+#page-home>.section{margin-top:11px}
+.home-signal-row{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(360px,.85fr);gap:10px}
+.home-signal-panel{border:1px solid rgba(124,92,255,.15);border-radius:17px;padding:13px;background:linear-gradient(rgba(124,92,255,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(124,92,255,.015) 1px,transparent 1px),var(--panel);background-size:32px 32px}
+.home-signal-row .home-headline-grid{grid-template-columns:1fr 1fr;gap:7px}
+.home-signal-row .home-headline-card{min-height:82px;padding:11px 12px;border-radius:12px}
+.home-signal-row .home-headline-card>strong{font-size:20px;margin-top:6px}.home-signal-row .home-headline-card>small{margin-top:4px}
+.home-signal-row .home-kpi-pulse-section{margin-top:0}
+.home-signal-row .home-kpi-pulse{grid-template-columns:1fr 1fr!important;gap:7px!important}
+.home-signal-row .home-kpi-pulse .scan-chip{min-height:49px!important;padding:8px 10px!important;border-radius:10px!important}
+.home-focus-grid{grid-template-columns:minmax(0,1.35fr) minmax(320px,.65fr)}
+.home-momentum-panel,.home-leaderboard-panel{min-height:330px}
+.home-momentum-chart{height:215px}
+.home-game-loop{margin-top:10px!important}.home-game-loop>.panel{padding:12px!important}.home-game-loop .section-head{margin-bottom:7px}
+.home-season-card{padding:12px}.home-season-chart{height:180px;margin-top:5px}.home-season-card-head small{margin-top:2px}.arena-chart-footer{padding-top:6px;margin-top:3px}
+.home-kpi-trend-card{padding:11px}.home-kpi-mini-chart{height:105px;margin-top:5px}.home-kpi-trend-card>small{margin-top:4px}
+.employee-team-pulse-section{padding:12px!important}.employee-team-pulse-summary{margin-bottom:8px}.employee-team-pulse-list{gap:5px}.employee-pulse-row{padding-top:8px;padding-bottom:8px}
+.home-deep-dive{margin-top:11px!important}
+@media(max-width:1250px){
+ .home-signal-row{grid-template-columns:1fr}
+ .home-signal-row .home-headline-grid{grid-template-columns:repeat(4,1fr)}
+ .home-signal-row .home-kpi-pulse{grid-template-columns:repeat(5,1fr)!important}
+}
+@media(max-width:900px){
+ .home-signal-row .home-headline-grid{grid-template-columns:1fr 1fr}
+ .home-signal-row .home-kpi-pulse{grid-template-columns:repeat(3,1fr)!important}
+ .home-momentum-panel,.home-leaderboard-panel{min-height:0}.home-momentum-chart{height:210px}
+}
+@media(max-width:600px){
+ #page-home>.section{margin-top:9px}
+ .home-signal-panel{padding:10px}
+ .home-signal-row .home-kpi-pulse{grid-template-columns:1fr 1fr!important}
+ .home-season-chart{height:165px}.home-kpi-mini-chart{height:110px}
+}
+@media(min-width:1800px){
+ #page-home>.section{margin-top:13px}
+ .home-signal-row{grid-template-columns:minmax(0,1.2fr) minmax(520px,.8fr)}
+ .home-signal-row .home-headline-card{min-height:95px;padding:13px 14px}.home-signal-row .home-headline-card>strong{font-size:25px}
+ .home-signal-row .home-kpi-pulse .scan-chip{min-height:58px!important}
+ .home-momentum-panel,.home-leaderboard-panel{min-height:365px!important}.home-momentum-chart{height:245px!important}
+ .home-season-chart{height:205px!important}.home-kpi-mini-chart{height:120px!important}
+}
+</style>
+
 </head>
 <body><div class="ambient-particles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
 <div id="loginOverlay">
@@ -1586,7 +1631,7 @@ html[data-theme="light"] .home-season-card{background:radial-gradient(circle at 
 <div class="hidden" id="seasonRecapOverlay"><div class="season-recap-card"><div class="rundown-head"><div><div class="rundown-kicker">NOVÁ SEZÓNA</div><div class="rundown-title" id="seasonRecapTitle">Season Recap</div><div class="rundown-sub" id="seasonRecapSub">Tvoje poslední sezóna</div></div><button aria-label="Zavřít" class="rundown-close" id="seasonRecapClose">×</button></div><div class="season-recap-grid" id="seasonRecapStats"></div><div class="season-recap-section"><h4>🏆 Nejdůležitější výsledky</h4><div class="rundown-list" id="seasonRecapWins"></div></div><div class="season-recap-section"><h4>📈 Posun</h4><div class="rundown-list" id="seasonRecapProgress"></div></div><div class="rundown-actions"><button class="rundown-btn" id="seasonRecapContinue">Jdeme na novou sezónu</button></div></div></div>
 <div class="hidden" id="rundownOverlay"><div class="rundown-card"><div class="rundown-head"><div><div class="rundown-kicker">Tvoje poslední výsledky</div><div class="rundown-title" id="rundownTitle">Dobrá práce.</div><div class="rundown-sub" id="rundownSub">Rychlé shrnutí toho, co se ti povedlo.</div></div><button aria-label="Zavřít" class="rundown-close" id="rundownClose">×</button></div><div class="rundown-grid" id="rundownStats"></div><div class="rundown-section"><h4>🔥 Co se ti povedlo</h4><div class="rundown-list" id="rundownWins"></div></div><div class="rundown-section"><h4>🏆 Co jsi odemkl</h4><div class="rundown-achievements" id="rundownAchievements"></div></div><div class="rundown-section"><h4>🎯 Na čem můžeš ještě zabrat</h4><div class="rundown-list" id="rundownFocus"></div></div><div class="rundown-actions"><button class="rundown-btn" id="rundownContinue">Pokračovat do profilu</button></div></div></div>
 <div class="shell">
-<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V187</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
+<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V188</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
 <div class="layout">
 <aside class="sidebar">
 <div class="label" id="profileLabel">Profil</div><select class="select" id="workerSelect"></select>
@@ -1688,20 +1733,20 @@ html[data-theme="light"] .home-season-card{background:radial-gradient(circle at 
   </div>
 </div>
 
-<div class="section">
-  <div class="section-head home-priority-head"><div><span class="home-priority-kicker">THIS MONTH</span><h3>HLAVNÍ SIGNÁLY</h3></div><span>rychlý přehled bez metric overloadu</span></div>
-  <div class="home-headline-grid">
-    <div class="home-headline-card output"><span>📦 OUTPUT</span><strong id="homeOutputValue">—</strong><small id="homeOutputSub">Orders · Units</small></div>
-    <div class="home-headline-card efficiency"><span>⚙️ EFFICIENCY</span><strong id="homeEfficiencyValue">—</strong><small id="homeEfficiencySub">Total units / worked hour</small></div>
-    <div class="home-headline-card quality"><span>🛡️ QUALITY</span><strong id="homeQualityValue">—</strong><small id="homeQualitySub">Scan · Missing · Undelivered · POFR</small></div>
-    <div class="home-headline-card reliability"><span>⏰ RELIABILITY</span><strong id="homeReliabilityValue">—</strong><small id="homeReliabilitySub">On-Time</small></div>
-  </div>
-</div>
-
-
-<div class="section home-kpi-pulse-section">
-  <div class="section-head home-priority-head"><div><span class="home-priority-kicker">KPI PULSE</span><h3>RYCHLÁ KONTROLA</h3></div><span>zelená = na cíli · červená = mimo cíl</span></div>
-  <div class="scan-strip home-kpi-pulse" id="homeScanStrip"></div>
+<div class="section home-signal-row">
+  <section class="home-signal-panel">
+    <div class="section-head home-priority-head"><div><span class="home-priority-kicker">THIS MONTH</span><h3>HLAVNÍ SIGNÁLY</h3></div><span>rychlý přehled</span></div>
+    <div class="home-headline-grid">
+      <div class="home-headline-card output"><span>📦 OUTPUT</span><strong id="homeOutputValue">—</strong><small id="homeOutputSub">Orders · Units</small></div>
+      <div class="home-headline-card efficiency"><span>⚙️ EFFICIENCY</span><strong id="homeEfficiencyValue">—</strong><small id="homeEfficiencySub">Total units / worked hour</small></div>
+      <div class="home-headline-card quality"><span>🛡️ QUALITY</span><strong id="homeQualityValue">—</strong><small id="homeQualitySub">Scan · Missing · Undelivered · POFR</small></div>
+      <div class="home-headline-card reliability"><span>⏰ RELIABILITY</span><strong id="homeReliabilityValue">—</strong><small id="homeReliabilitySub">On-Time</small></div>
+    </div>
+  </section>
+  <section class="home-signal-panel home-kpi-pulse-section">
+    <div class="section-head home-priority-head"><div><span class="home-priority-kicker">KPI PULSE</span><h3>RYCHLÁ KONTROLA</h3></div><span>stav vůči cíli</span></div>
+    <div class="scan-strip home-kpi-pulse" id="homeScanStrip"></div>
+  </section>
 </div>
 
 <div class="section home-focus-grid">
@@ -1723,6 +1768,7 @@ html[data-theme="light"] .home-season-card{background:radial-gradient(circle at 
   </section>
 </div>
 
+<div class="section grid2 home-game-loop"><section class="panel"><div class="section-head"><h3>⚔️ AKTIVNÍ VÝZVY</h3><span>co můžeš ovlivnit teď</span></div><div id="questList"></div></section><section class="panel"><div class="section-head"><h3>🏅 ODZNAKY</h3><span>season progress</span></div><div class="badge-row badge-showcase" id="badgeList"></div></section></div>
 
 <div class="section home-season-arena">
   <div class="section-head home-priority-head arena-section-head">
@@ -1754,7 +1800,7 @@ html[data-theme="light"] .home-season-card{background:radial-gradient(circle at 
 </div>
 
 <div class="section home-kpi-trends-section">
-  <div class="section-head home-priority-head arena-section-head"><div><span class="home-priority-kicker">KEY KPI TRENDS</span><h3>📊 HLAVNÍ KPI V ČASE</h3></div><div class="arena-chart-legend"><span class="player"><i></i>TY</span><span class="team"><i></i>TÝM</span><span class="trend"><i></i>TREND</span><span class="target"><i></i>CÍL</span></div></div>
+  <div class="section-head home-priority-head arena-section-head"><div><span class="home-priority-kicker">KEY KPI TRENDS</span><h3>📊 HLAVNÍ KPI V ČASE</h3></div><div class="arena-chart-legend"><span class="player"><i></i>TY</span><span class="team"><i></i>TÝM</span><span class="trend"><i></i>TREND</span></div></div>
   <div class="home-kpi-trend-grid">
     <section class="home-kpi-trend-card"><div class="home-kpi-trend-head"><div><span>💚 POFR</span><strong id="homeKpiPofrValue">—</strong></div><div class="home-kpi-badges"><b id="homeKpiPofrMove" class="home-trend-move neutral">—</b><b id="homeKpiPofrStatus" class="home-kpi-status neutral">—</b></div></div><div class="home-kpi-mini-chart"><canvas id="homeKpiPofrChart"></canvas></div><small id="homeKpiPofrMeta">Cíl ≥ 98 %</small></section>
     <section class="home-kpi-trend-card"><div class="home-kpi-trend-head"><div><span>🛡️ MISSING</span><strong id="homeKpiMissingValue">—</strong></div><div class="home-kpi-badges"><b id="homeKpiMissingMove" class="home-trend-move neutral">—</b><b id="homeKpiMissingStatus" class="home-kpi-status neutral">—</b></div></div><div class="home-kpi-mini-chart"><canvas id="homeKpiMissingChart"></canvas></div><small id="homeKpiMissingMeta">Cíl ≤ 0,34 %</small></section>
@@ -1784,7 +1830,7 @@ html[data-theme="light"] .home-season-card{background:radial-gradient(circle at 
   <div class="employee-team-pulse-actions"><button class="tool" id="employeeTeamPulseToggle" onclick="toggleEmployeeTeamPulse()">Zobrazit celý tým</button></div>
 </div>
 
-<div class="section grid2 home-game-loop"><section class="panel"><div class="section-head"><h3>⚔️ AKTIVNÍ VÝZVY</h3><span>co můžeš ovlivnit teď</span></div><div id="questList"></div></section><section class="panel"><div class="section-head"><h3>🏅 ODZNAKY</h3><span>season progress</span></div><div class="badge-row badge-showcase" id="badgeList"></div></section></div>
+
 
 <details class="section home-deep-dive">
   <summary><div><span class="home-priority-kicker">DETAILED PERFORMANCE</span><strong>Všechny metriky, rank progress a sezónní detail</strong></div><span class="home-deep-dive-hint">Rozbalit</span></summary>
@@ -3036,7 +3082,6 @@ function renderHomeKpiTrend(spec){
  const labels=Array.isArray(series.display_labels)&&series.display_labels.length===rawLabels.length
    ?series.display_labels
    :(series.granularity==='day'?rawLabels.map(function(x){const m=String(x).match(/^\d{4}-(\d{2})-(\d{2})$/);return m?(Number(m[2])+'. '+Number(m[1])+'.'):x}):rawLabels);
- const targetData=values.map(function(v){return v==null?null:spec.target});
  const teamData=homeTeamAverageSeries(spec,series.labels||[]);
  const validIdx=values.map(function(v,i){return v!=null&&Number.isFinite(v)?i:-1}).filter(function(i){return i>=0}),latestIdx=validIdx.at(-1);
  const pointRadius=values.map(function(v,i){return i===latestIdx?5:(v!=null?2:0)});
@@ -3044,8 +3089,7 @@ function renderHomeKpiTrend(spec){
  charts[spec.canvasId]=new Chart(canvas,{type:'line',data:{labels:labels,datasets:[
   {label:series.label,data:values,borderColor:'#35E78A',backgroundColor:movement.cls==='bad'?'rgba(239,68,68,.055)':'rgba(53,231,138,.07)',borderWidth:2,fill:true,tension:.32,pointRadius:pointRadius,pointBackgroundColor:pointBg,pointBorderWidth:0,spanGaps:true,segment:{borderColor:function(ctx){return ctx.p1DataIndex===latestIdx?(movement.cls==='good'?'#22c55e':movement.cls==='bad'?'#ef4444':'#94a3b8'):'#35E78A'},borderWidth:function(ctx){return ctx.p1DataIndex===latestIdx?3.6:2}}},
   {label:'Týmový průměr',data:teamData,borderColor:'#94A3B8',borderDash:[2,4],borderWidth:1.25,fill:false,tension:.3,pointRadius:0,spanGaps:true},
-  {label:'Trend',data:regressionLine(values),borderColor:'#7C5CFF',borderDash:[5,4],borderWidth:1.45,fill:false,tension:0,pointRadius:0,spanGaps:true},
-  {label:'Cíl',data:targetData,borderColor:'#f59e0b',borderDash:[4,4],borderWidth:1.2,fill:false,tension:0,pointRadius:0,spanGaps:true}
+  {label:'Trend',data:regressionLine(values),borderColor:'#7C5CFF',borderDash:[5,4],borderWidth:1.45,fill:false,tension:0,pointRadius:0,spanGaps:true}
  ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{enabled:true}},scales:{x:{display:false},y:{ticks:{color:'#91a79b',maxTicksLimit:4,font:{size:9}},grid:{color:'rgba(145,167,155,.08)'}}}}});
 }
 function renderHomeKpiTrends(){
@@ -3087,13 +3131,13 @@ function renderEmployeeTeamPulse(){
  const almost=rows.filter(function(x){return x.known>0&&x.misses===1}).length;
  if(summary)summary.innerHTML='<span class="good">✓ '+full+' lidí · všechna známá KPI na cíli</span><span>'+almost+' lidí · 1 KPI mimo</span><span>'+rows.length+' aktivních lidí</span>';
  setText('employeeTeamPulseMeta','Poslední dostupný týden · kliknutím otevřeš profil');
- const shown=employeeTeamPulseExpanded?rows:rows.slice(0,8);
+ const shown=employeeTeamPulseExpanded?rows:rows.slice(0,5);
  box.innerHTML=shown.map(function(x){
    const good=Math.max(0,x.known-x.misses),score=x.known?good+'/'+x.known:'—',tone=x.known&&x.misses===0?'full':x.misses<=1?'mid':'low',me=x.name===state.worker;
    return'<div class="employee-pulse-row'+(me?' me':'')+'" data-employee-pulse-person="'+esc(x.name)+'"><div class="employee-pulse-name"><strong>'+esc(x.name)+(me?' · TY':'')+'</strong><span>'+esc(x.lb.tier||tier(Number(x.lb.elo)||0)[0])+' · '+esc(x.lb.elo)+' ELO</span></div>'+employeePulseMetric(x.metrics.picking,'picking')+employeePulseMetric(x.metrics.scanner,'scanner')+employeePulseMetric(x.metrics.missing,'missing')+employeePulseMetric(x.metrics.pofr,'pofr')+'<span class="employee-pulse-score '+tone+'">'+score+' na cíli</span></div>';
  }).join('')||'<div class="notice">Týmová KPI zatím nejsou dostupná.</div>';
  box.querySelectorAll('[data-employee-pulse-person]').forEach(function(el){el.onclick=function(){openDetail(el.getAttribute('data-employee-pulse-person'))}});
- if(toggle){toggle.style.display=rows.length>8?'inline-flex':'none';toggle.textContent=employeeTeamPulseExpanded?'Zobrazit méně':'Zobrazit celý tým ('+rows.length+')'}
+ if(toggle){toggle.style.display=rows.length>5?'inline-flex':'none';toggle.textContent=employeeTeamPulseExpanded?'Zobrazit méně':'Zobrazit celý tým ('+rows.length+')'}
 }
 
 function renderHomeSeasonCharts(){
