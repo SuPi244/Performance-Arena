@@ -1373,6 +1373,39 @@ html[data-theme="light"] .sc-you-badge{color:#166534;background:rgba(34,197,94,.
 @media(max-width:900px){.team-rating-people{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.team-rating-people{grid-template-columns:1fr}.team-rating-person{padding:10px 11px}}
 </style>
+<style id="unified-ui-v175">
+/* V175 — one visual language across legacy Sheets + Data Hub surfaces */
+.storecard-wallet-grid,.projection-grid,.friendly-summary-grid{gap:9px}
+.storecard-wallet-card,.projection-card,.friendly-summary-card,.enhanced-kpi,.summary-card,.small-stat{
+  border:1px solid var(--line)!important;
+  border-radius:15px!important;
+  background:rgba(16,34,25,.82)!important;
+  box-shadow:none!important;
+}
+.storecard-wallet-card{padding:11px!important}
+.storecard-wallet-card .k,.projection-card .pk,.friendly-summary-card .fk{
+  font-size:8px!important;text-transform:uppercase;letter-spacing:.09em;color:var(--muted)!important;font-weight:900!important
+}
+.storecard-wallet-card .v,.projection-card .pv,.friendly-summary-card .fv{font-size:23px!important;font-weight:900!important;margin-top:5px!important}
+.storecard-wallet-card .s,.projection-card .ps,.friendly-summary-card .fs{font-size:8px!important;color:var(--muted)!important;margin-top:3px!important;line-height:1.4!important}
+.friendly-summary-card{min-height:0!important;padding:11px!important}
+.friendly-summary-card .fi{font-size:18px!important;margin-bottom:2px}
+.unified-static-card{min-height:94px}
+.enhanced-kpi-grid,.enhanced-metric-grid,.datahub-group-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.projection-category{background:rgba(16,34,25,.82)!important;border-radius:15px!important}
+.player-live-section .detail-live-grid{margin-top:10px}
+html[data-theme="light"] .storecard-wallet-card,
+html[data-theme="light"] .projection-card,
+html[data-theme="light"] .friendly-summary-card,
+html[data-theme="light"] .projection-category,
+html[data-theme="light"] .unified-static-card{background:#f7fbf8!important}
+@media(max-width:700px){
+ .storecard-wallet-grid,.projection-grid,.friendly-summary-grid,.metric-grid,.enhanced-kpi-grid,.enhanced-metric-grid,.datahub-group-grid{grid-template-columns:1fr 1fr!important}
+}
+@media(max-width:470px){
+ .storecard-wallet-grid,.projection-grid,.friendly-summary-grid,.metric-grid,.enhanced-kpi-grid,.enhanced-metric-grid,.datahub-group-grid{grid-template-columns:1fr!important}
+}
+</style>
 </head>
 <body><div class="ambient-particles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
 <div id="loginOverlay">
@@ -1388,7 +1421,7 @@ html[data-theme="light"] .sc-you-badge{color:#166534;background:rgba(34,197,94,.
 <div class="hidden" id="seasonRecapOverlay"><div class="season-recap-card"><div class="rundown-head"><div><div class="rundown-kicker">NOVÁ SEZÓNA</div><div class="rundown-title" id="seasonRecapTitle">Season Recap</div><div class="rundown-sub" id="seasonRecapSub">Tvoje poslední sezóna</div></div><button aria-label="Zavřít" class="rundown-close" id="seasonRecapClose">×</button></div><div class="season-recap-grid" id="seasonRecapStats"></div><div class="season-recap-section"><h4>🏆 Nejdůležitější výsledky</h4><div class="rundown-list" id="seasonRecapWins"></div></div><div class="season-recap-section"><h4>📈 Posun</h4><div class="rundown-list" id="seasonRecapProgress"></div></div><div class="rundown-actions"><button class="rundown-btn" id="seasonRecapContinue">Jdeme na novou sezónu</button></div></div></div>
 <div class="hidden" id="rundownOverlay"><div class="rundown-card"><div class="rundown-head"><div><div class="rundown-kicker">Tvoje poslední výsledky</div><div class="rundown-title" id="rundownTitle">Dobrá práce.</div><div class="rundown-sub" id="rundownSub">Rychlé shrnutí toho, co se ti povedlo.</div></div><button aria-label="Zavřít" class="rundown-close" id="rundownClose">×</button></div><div class="rundown-grid" id="rundownStats"></div><div class="rundown-section"><h4>🔥 Co se ti povedlo</h4><div class="rundown-list" id="rundownWins"></div></div><div class="rundown-section"><h4>🏆 Co jsi odemkl</h4><div class="rundown-achievements" id="rundownAchievements"></div></div><div class="rundown-section"><h4>🎯 Na čem můžeš ještě zabrat</h4><div class="rundown-list" id="rundownFocus"></div></div><div class="rundown-actions"><button class="rundown-btn" id="rundownContinue">Pokračovat do profilu</button></div></div></div>
 <div class="shell">
-<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V174</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
+<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V175</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
 <div class="layout">
 <aside class="sidebar">
 <div class="label">Profil</div><select class="select" id="workerSelect"></select>
@@ -1410,11 +1443,7 @@ html[data-theme="light"] .sc-you-badge{color:#166534;background:rgba(34,197,94,.
 <div class="storecard-wallet-card"><div class="k">Aktuální Store Card</div><div class="v" id="storeCardCoverage">—</div><div class="s">dostupnost live vstupů</div></div>
 <div class="storecard-wallet-card"><div class="k">Poslední oficiální body</div><div class="v" id="storeCardOfficialPoints">—</div><div class="s" id="storeCardOfficialPeriod">uzavřený měsíc</div></div>
 </div>
-<div class="panel storecard-live-panel">
-<div class="section-head"><h3>LIVE MONTH PROGRESS</h3><span><span class="storecard-provisional">PROVISIONAL</span></span></div>
-<div class="storecard-live-grid" id="storeCardPersonalLive"><div class="notice">Čekám na live Store Card data…</div></div>
-<div class="notice" id="storeCardProjectionNote" style="margin-top:10px">Přesný bonus se zobrazí až po reprodukci všech Store Card scoring pravidel 1:1.</div>
-</div>
+
 </div>
 <div class="section"><div class="scan-strip" id="homeScanStrip"></div></div><div class="section grid2"><section class="panel"><div class="section-head"><h3>⚔️ AKTIVNÍ VÝZVY</h3><span>reward loop</span></div><div id="questList"></div></section><section class="panel"><div class="section-head"><h3>🏅 ODZNAKY</h3><span>season progress</span></div><div class="badge-row badge-showcase" id="badgeList"></div></section></div>
 <div class="section"><div class="panel rank-progress-panel"><div class="section-head"><h3>⭐ RANK PROGRESS</h3><span id="rankProgressText">—</span></div><div class="rank-rail"><div class="rank-rail-track"><span id="rankBar" style="width:0%"></span></div><div class="rank-scale"><span class="rank-stop bronze" data-rank-min="900"><i>🔰</i><b>Bronze</b><em>900+</em></span><span class="rank-stop silver" data-rank-min="1000"><i>🛡️</i><b>Silver</b><em>1000</em></span><span class="rank-stop gold" data-rank-min="1100"><i>🥇</i><b>Gold</b><em>1100</em></span><span class="rank-stop master" data-rank-min="1200"><i>💎</i><b>Master</b><em>1200+</em></span></div></div><div class="rank-current-range"><span id="rankFrom">—</span><strong id="rankTo">—</strong></div></div></div>
@@ -1440,21 +1469,19 @@ html[data-theme="light"] .sc-you-badge{color:#166534;background:rgba(34,197,94,.
 </div><div class="section"><div class="toolbar range-toolbar"><span class="tool">📅 Období</span><label class="date-tool">Od <input class="date-input" id="personalDateStart" type="date"/></label><label class="date-tool">Do <input class="date-input" id="personalDateEnd" type="date"/></label><button class="tool range-clear" id="personalDateClear">Celá historie</button><select class="tool select" id="compareSelect" style="width:auto;min-width:170px"><option value="">Bez srovnání</option></select></div></div><div class="section"><div class="section-head"><h3>KLÍČOVÉ KPI</h3><span id="personalMeta">—</span></div><div class="metric-grid" id="personalKpis"></div></div><div class="section"><details class="user-details"><summary>📋 Detailní osobní metriky <span style="color:var(--muted);font-size:8px">pro ty, kdo chtějí všechna čísla</span></summary><div class="details-body"><div class="metric-grid" id="personalMetrics"></div></div></details></div><div class="section"><div class="section-head"><h3>📈 SEASON TREND</h3><span>vygenerované hodnoty · tvoje vs. tým</span></div><div class="season-generated-grid"><section class="generated-chart-card"><div class="generated-chart-head"><div><div class="generated-chart-title">Season ELO</div><div class="generated-chart-sub">Vývoj sezónního ELO po týdnech</div></div><div><div class="generated-chart-value" id="personalEloChartValue">—</div><div class="generated-chart-trend neutral" id="personalEloChartTrend">—</div></div></div><div class="chart-wrap small"><canvas id="personalEloChart"></canvas></div><div class="generated-chart-caption"><span class="generated-chart-key"><i></i> tvoje ELO</span><span class="generated-chart-key team"><i></i> týmový průměr</span></div></section><section class="generated-chart-card"><div class="generated-chart-head"><div><div class="generated-chart-title">Performance Score</div><div class="generated-chart-sub">Týdenní skóre ze stejných KPI a vah jako Arena</div></div><div><div class="generated-chart-value" id="personalPerfChartValue">—</div><div class="generated-chart-trend neutral" id="personalPerfChartTrend">—</div></div></div><div class="chart-wrap small"><canvas id="personalPerfChart"></canvas></div><div class="generated-chart-caption"><span class="generated-chart-key"><i></i> tvoje skóre</span><span class="generated-chart-key team"><i></i> týmový průměr</span></div></section></div></div>
 <div class="section"><div class="section-head"><h3>INBOUND</h3><span id="inboundMeta">týdenní Data Hub historie</span></div><div class="metric-grid" id="personalInbound"></div></div><div class="section"><div class="section-head"><h3>POSLEDNÍ TÝDEN</h3><span>zlepšení / zhoršení vs. předchozí týden</span></div><div class="personal-delta-grid" id="personalDeltaGrid"></div></div></section>
 <section class="page" id="page-efficiency">
-<div class="hero"><div class="eyebrow">Data Hub · Context efficiency</div><h2>Efektivita</h2><p>Output, efektivita, kvalita a reliability pohromadě. Efektivita je kontextová vrstva — není to automaticky Rank/ELO.</p></div>
+<div class="hero"><div class="eyebrow">Aktuální výkon</div><h2>Efektivita</h2><p>Output, efektivita, kvalita a reliability pohromadě. Efektivita je kontextová vrstva — není to automaticky Rank/ELO.</p></div>
 <div class="section"><div class="storecard-wallet-grid">
 <div class="storecard-wallet-card"><div class="k">Total Units / Worked Hour</div><div class="v" id="effTotalUPH">—</div><div class="s">outbound + inbound / skutečně odpracované hodiny</div></div>
 <div class="storecard-wallet-card"><div class="k">Quality-adjusted Units / Hour</div><div class="v" id="effQualityUPH">—</div><div class="s">BETA · korekce o Missing + Undelivered</div></div>
 <div class="storecard-wallet-card"><div class="k">Orders / Worked Hour</div><div class="v" id="effOrdersPH">—</div><div class="s">pozorovaný picking output</div></div>
 <div class="storecard-wallet-card"><div class="k">Worked Hours MTD</div><div class="v" id="effWorkedHours">—</div><div class="s" id="effPeriodLabel">aktuální měsíc</div></div>
 </div></div><div class="friendly-narrative" id="effFriendlySummary"><strong>Jednoduše:</strong> po načtení ti řeknu, jestli jde efektivita nahoru, jak jsi proti týmu a jestli kvalita drží krok.</div>
-<div class="section enhanced-four-grid">
-<section class="panel"><div class="section-head"><h3>📦 OUTPUT</h3><span>kolik práce prošlo systémem</span></div><div class="enhanced-kpi-grid" id="effOutputGrid"></div></section>
-<section class="panel"><div class="section-head"><h3>⚙️ EFFICIENCY</h3><span>output / odpracovaný čas</span></div><div class="enhanced-kpi-grid" id="effEfficiencyGrid"></div></section>
-<section class="panel"><div class="section-head"><h3>🛡️ QUALITY</h3><span>rychlost není bez kvality výkon</span></div><div class="enhanced-kpi-grid" id="effQualityGrid"></div></section>
-<section class="panel"><div class="section-head"><h3>🕒 RELIABILITY</h3><span>Quinyx context</span></div><div class="enhanced-kpi-grid" id="effReliabilityGrid"></div></section>
-</div>
+<div class="section"><div class="section-head"><h3>📦 OUTPUT</h3><span>týdenní / aktuální data v jednom stylu</span></div><div class="metric-grid" id="effOutputGrid"></div></div>
+<div class="section"><div class="section-head"><h3>⚙️ EFEKTIVITA</h3><span>output / skutečně odpracovaný čas</span></div><div class="metric-grid" id="effEfficiencyGrid"></div></div>
+<div class="section"><details class="user-details" open><summary>🛡️ KVALITA <span style="color:var(--muted);font-size:8px">stejné KPI jako v osobním přehledu</span></summary><div class="details-body"><div class="metric-grid" id="effQualityGrid"></div></div></details></div>
+<div class="section"><details class="user-details"><summary>🕒 SPOLEHLIVOST <span style="color:var(--muted);font-size:8px">směny a docházka</span></summary><div class="details-body"><div class="metric-grid" id="effReliabilityGrid"></div></div></details></div>
 <div class="section"><section class="panel"><div class="section-head"><h3>🌓 SHIFT EFFICIENCY</h3><span>Morning / Afternoon / Middle podle dostupných směn</span></div><div style="overflow:auto"><table class="table enhanced-table"><thead><tr><th>Shift</th><th>Dny</th><th>Hodiny</th><th>Total units/h</th><th>Outbound/h</th><th>Inbound/h</th><th>Orders/h</th></tr></thead><tbody id="effShiftRows"><tr><td colspan="7" class="muted">Načítám…</td></tr></tbody></table></div></section></div>
-<div class="section"><details class="user-details"><summary>🧩 Všechny detailní metriky z Data Hubu <span id="enhancedMetricMeta">aktuální měsíc</span></summary><div class="details-body" id="enhancedMetricGroups"></div></details></div>
+<div class="section"><details class="user-details"><summary>🧩 Všechny detailní metriky <span id="enhancedMetricMeta">aktuální měsíc</span></summary><div class="details-body" id="enhancedMetricGroups"></div></details></div>
 <div class="notice" id="efficiencyMethodNote">Outbound = skutečně vypickované položky (Items Picked Count; fallback Item Count Total). Orders = Picking App Task Count. Efektivita používá jen hodiny, ke kterým máme odpovídající output data — chybějící report se nepočítá jako nulový výkon.</div>
 </section>
 
@@ -1500,11 +1527,11 @@ html[data-theme="light"] .sc-you-badge{color:#166534;background:rgba(34,197,94,.
 <section class="page" id="page-correlation"><div class="hero"><div class="eyebrow">Analýza</div><h2>Korelace</h2><p>Porovnání dvou metrik napříč týmem. Dashboard automaticky vyhodnotí sílu vztahu a přidá jednoduchou interpretaci.</p></div><div class="section"><div class="toolbar"><select class="tool select" id="corrX"></select><select class="tool select" id="corrY"></select></div></div><div class="section subgrid"><div class="summary-card"><span class="summary-label">Korelace r</span><span class="summary-value" id="corrR">—</span></div><div class="summary-card"><span class="summary-label">Vzorek</span><span class="summary-value" id="corrN">—</span></div><div class="summary-card"><span class="summary-label">Síla vztahu</span><span class="summary-value" id="corrStrength">—</span></div></div><div class="section panel"><div class="chart-wrap"><canvas id="corrChart"></canvas></div><div class="notice" id="corrSummary">—</div></div></section>
 <section class="page" id="page-bottlenecks"><div class="hero"><div class="eyebrow">Diagnostika</div><h2>Bottlenecks</h2><p>Identifikuje největší odchylky od cíle a ukáže, co má tým řešit jako první — rychlost, kvalitu nebo přesnost.</p></div><div class="section subgrid"><div class="summary-card"><span class="summary-label">Největší problém</span><span class="summary-value" id="diagTop">—</span></div><div class="summary-card"><span class="summary-label">Ohrožených lidí</span><span class="summary-value" id="diagPeople">—</span></div><div class="summary-card"><span class="summary-label">Priorita</span><span class="summary-value" id="diagPriority">—</span></div></div><div class="diag-4k-columns"><div class="section" id="diagnosticOverview"></div><div class="section"><div class="section-head"><h3>TOP PRIORITY</h3><span>největší odchylky</span></div><div id="bottleneckList"></div></div></div></section>
 <section class="page" id="page-leaderboard"><div class="hero"><div class="eyebrow">Competitive arena</div><h2>Season Leaderboard</h2><p>Sezónní pořadí, metrikové žebříčky a detail hráče.</p></div><div class="section"><div class="toolbar"><button class="tool lb-mode active" data-mode="people">👥 Lidé</button><button class="tool lb-mode" data-mode="stores">🏪 Stores</button><select class="tool select" id="lbMetric" style="max-width:340px"></select></div></div><div class="section"><div class="section-head"><h3 id="lbHeading">SEASON TOP</h3><span id="lbMeta">—</span></div><div class="lb-podium" id="leaderboardPodium"></div></div><div class="section panel"><div class="lb-list" id="leaderboardList"></div></div></section>
-<section class="page" id="page-store"><div class="hero"><div class="eyebrow">Store arena</div><h2>Store přehled</h2><p>Měsíční KPI, mini-grafy a porovnání dvou prodejen v duchu původního dashboardu.</p></div><div class="section"><div class="toolbar range-toolbar"><select class="tool select" id="storeSelect"></select><label class="date-tool">Od <input class="date-input" id="storeDateStart" type="date"/></label><label class="date-tool">Do <input class="date-input" id="storeDateEnd" type="date"/></label><button class="tool range-clear" id="storeDateClear">Celá historie</button><select class="tool select" id="storeCompare"><option value="">Bez srovnání</option></select></div></div><div class="section"><div class="panel storecard-live-panel"><div class="section-head"><h3>🏪 STORE CARD · LIVE MTD</h3><span id="storeCardStoreMeta"><span class="storecard-provisional">PROVISIONAL</span></span></div><div class="storecard-live-grid" id="storeCardStoreLive"><div class="notice">Čekám na live Store Card data…</div></div></div></div><div class="section"><div class="section-head"><h3>KLÍČOVÉ STORE KPI</h3><span id="storeMeta">—</span></div><div class="metric-grid" id="storeKpis"></div></div><div class="section"><div class="section-head"><h3>OSTATNÍ STORE METRIKY</h3><span>všechny další dostupné metriky</span></div><div class="metric-grid" id="storeMetrics"></div></div><div class="section"><div class="section-head"><h3>🏪 STORE CHALLENGES</h3><span><button class="tool store-page-quest-switch active" data-sqmode="active" style="padding:5px 7px">Aktivní měsíc</button> <button class="tool store-page-quest-switch" data-sqmode="history" style="padding:5px 7px">Splněné</button></span></div><div id="storePageQuestContext" style="font-size:10px;color:var(--muted);margin-bottom:10px"></div><div class="store-quest-grid" id="storePageQuestList"></div></div></section>
+<section class="page" id="page-store"><div class="hero"><div class="eyebrow">Store arena</div><h2>Store přehled</h2><p>Měsíční KPI, mini-grafy a porovnání dvou prodejen v duchu původního dashboardu.</p></div><div class="section"><div class="toolbar range-toolbar"><select class="tool select" id="storeSelect"></select><label class="date-tool">Od <input class="date-input" id="storeDateStart" type="date"/></label><label class="date-tool">Do <input class="date-input" id="storeDateEnd" type="date"/></label><button class="tool range-clear" id="storeDateClear">Celá historie</button><select class="tool select" id="storeCompare"><option value="">Bez srovnání</option></select></div></div><div class="section"><div class="section-head"><h3>KLÍČOVÉ STORE KPI</h3><span id="storeMeta">—</span></div><div class="metric-grid" id="storeKpis"></div></div><div class="section"><div class="section-head"><h3>OSTATNÍ STORE METRIKY</h3><span>všechny další dostupné metriky</span></div><div class="metric-grid" id="storeMetrics"></div></div><div class="section"><div class="section-head"><h3>🏪 STORE CHALLENGES</h3><span><button class="tool store-page-quest-switch active" data-sqmode="active" style="padding:5px 7px">Aktivní měsíc</button> <button class="tool store-page-quest-switch" data-sqmode="history" style="padding:5px 7px">Splněné</button></span></div><div id="storePageQuestContext" style="font-size:10px;color:var(--muted);margin-bottom:10px"></div><div class="store-quest-grid" id="storePageQuestList"></div></div></section>
 <div class="notice" id="globalNotice">Načítám data…</div><div class="notice error hidden" id="fatal"></div>
 </main></div></div>
 <div class="overlay" id="profileOverlay"><div class="modal"><div class="modal-head"><div><div class="eyebrow">Player selector</div><h2 style="margin:5px 0 0">Vyber profil</h2></div><button class="close" id="closeProfile">✕</button></div><div class="section"><input class="tool" id="profileSearch" placeholder="Hledat jméno…" style="width:100%;padding:10px"/></div><div class="team-list" id="profileChoices"></div></div></div>
-<div class="badge-legend-overlay" id="badgeLegendOverlay"><div class="badge-legend-modal" role="dialog" aria-modal="true" aria-labelledby="badgeLegendTitle"><div class="badge-legend-head"><div><h3 id="badgeLegendTitle">🏅 LEGENDA ODZNAKŮ</h3><p>Co jednotlivé odznaky znamenají a jak je získat</p></div><button class="badge-legend-close" id="closeBadgeLegend" aria-label="Zavřít">✕</button></div><p class="badge-legend-tip">Klikni na libovolný odznak v profilu pro otevření této legendy.</p><div class="badge-legend-grid" id="badgeLegendGrid"></div></div></div><div class="overlay" id="detailOverlay"><div class="modal player-modal"><div class="modal-head player-modal-head"><div><div class="eyebrow">Player profile</div><h2 id="detailName" class="player-profile-name">—</h2><div id="detailSubtitle" class="player-profile-sub">Season performance · posledních 13 týdnů</div></div><button class="close" id="closeDetail">✕</button></div><div class="profile-top player-profile-top"><div class="profile-hero player-identity-card"><div class="player-rank-line"><span class="profile-kicker">SEASON RANK</span><span id="detailTier" class="player-tier">—</span></div><div class="player-rank-main"><span id="detailRankCrest" class="player-rank-crest">🏆</span><div><div id="detailRank" class="player-rank-value">—</div><div id="detailElo" class="player-elo-value">—</div></div></div><div class="player-rank-track"><span id="detailRankFill"></span></div><div id="rankUpBurst" class="rank-up-burst" aria-hidden="true"><div class="rank-up-inner"><div class="rank-up-title">RANK UP!</div><div id="rankUpBurstSub" class="rank-up-sub">—</div></div></div></div><div class="profile-hero player-badges-card"><div class="player-card-head"><span class="profile-kicker">BADGES</span><span id="detailBadgeCount" class="player-card-count">0</span></div><div class="badge-row player-detail-badges" id="detailBadges"></div></div></div><div class="profile-grid player-profile-grid" id="detailStats"></div><div class="section player-live-section"><div class="section-head"><h3>LIVE DATA HUB</h3><span id="detailLiveOpsMeta">aktuální měsíc</span></div><div class="enhanced-kpi-grid detail-live-grid" id="detailLiveOps"><div class="notice">Načítám live data…</div></div></div><div class="section player-insights-section"><div class="section-head"><h3>VÝKONNOSTNÍ PROFIL</h3><span>sezónní průměr vs. tým</span></div><div class="detail-insights" id="detailInsights"><div class="insight"><strong>Silná stránka</strong><span>—</span></div><div class="insight"><strong>Největší rezerva</strong><span>—</span></div></div></div><div class="section player-breakdown-section"><div class="section-head"><h3>SEASON BREAKDOWN</h3><span>13týdenní průměr · barva = výkon vs. tým</span></div><div class="breakdown-list" id="detailBreakdown"></div></div></div></div>
+<div class="badge-legend-overlay" id="badgeLegendOverlay"><div class="badge-legend-modal" role="dialog" aria-modal="true" aria-labelledby="badgeLegendTitle"><div class="badge-legend-head"><div><h3 id="badgeLegendTitle">🏅 LEGENDA ODZNAKŮ</h3><p>Co jednotlivé odznaky znamenají a jak je získat</p></div><button class="badge-legend-close" id="closeBadgeLegend" aria-label="Zavřít">✕</button></div><p class="badge-legend-tip">Klikni na libovolný odznak v profilu pro otevření této legendy.</p><div class="badge-legend-grid" id="badgeLegendGrid"></div></div></div><div class="overlay" id="detailOverlay"><div class="modal player-modal"><div class="modal-head player-modal-head"><div><div class="eyebrow">Player profile</div><h2 id="detailName" class="player-profile-name">—</h2><div id="detailSubtitle" class="player-profile-sub">Season performance · posledních 13 týdnů</div></div><button class="close" id="closeDetail">✕</button></div><div class="profile-top player-profile-top"><div class="profile-hero player-identity-card"><div class="player-rank-line"><span class="profile-kicker">SEASON RANK</span><span id="detailTier" class="player-tier">—</span></div><div class="player-rank-main"><span id="detailRankCrest" class="player-rank-crest">🏆</span><div><div id="detailRank" class="player-rank-value">—</div><div id="detailElo" class="player-elo-value">—</div></div></div><div class="player-rank-track"><span id="detailRankFill"></span></div><div id="rankUpBurst" class="rank-up-burst" aria-hidden="true"><div class="rank-up-inner"><div class="rank-up-title">RANK UP!</div><div id="rankUpBurstSub" class="rank-up-sub">—</div></div></div></div><div class="profile-hero player-badges-card"><div class="player-card-head"><span class="profile-kicker">BADGES</span><span id="detailBadgeCount" class="player-card-count">0</span></div><div class="badge-row player-detail-badges" id="detailBadges"></div></div></div><div class="profile-grid player-profile-grid" id="detailStats"></div><div class="section player-live-section"><div class="section-head"><h3>AKTUÁLNÍ VÝKON</h3><span id="detailLiveOpsMeta">aktuální měsíc</span></div><div class="metric-grid detail-live-grid" id="detailLiveOps"><div class="notice">Načítám live data…</div></div></div><div class="section player-insights-section"><div class="section-head"><h3>VÝKONNOSTNÍ PROFIL</h3><span>sezónní průměr vs. tým</span></div><div class="detail-insights" id="detailInsights"><div class="insight"><strong>Silná stránka</strong><span>—</span></div><div class="insight"><strong>Největší rezerva</strong><span>—</span></div></div></div><div class="section player-breakdown-section"><div class="section-head"><h3>SEASON BREAKDOWN</h3><span>13týdenní průměr · barva = výkon vs. tým</span></div><div class="breakdown-list" id="detailBreakdown"></div></div></div></div>
 <div class="loading-overlay" id="loadingOverlay"><div class="loading-card"><div class="loader-orb"><span></span></div><div class="loading-title">Načítám Performance Arena</div><div class="loading-sub" id="loadingStage">Připravuji profil…</div><div class="loading-progress"><span id="loadingProgress"></span></div><div class="loading-tip" id="loadingTip"></div></div></div>
 <script>
 const API_URL='https://script.google.com/macros/s/AKfycbxC38rlABSICaLkd8X1hsqBuOHYhgtg7naei1UyyRPKyHIqW818K4jSIbd74zG-nMqy/exec';
@@ -1880,7 +1907,7 @@ function enhancedFmt(v,unit){
  return liveFmt(v,'number');
 }
 function enhancedKpi(label,value,unit='number',sub=''){
- return '<div class="enhanced-kpi"><div class="ek">'+esc(label)+'</div><div class="ev">'+esc(enhancedFmt(value,unit))+'</div>'+(sub?'<div class="es">'+esc(sub)+'</div>':'')+'</div>';
+ return '<div class="metric-card unified-static-card"><div class="metric-top"><div class="metric-title">'+esc(label)+'</div></div><div class="metric-main">'+esc(enhancedFmt(value,unit))+'</div>'+(sub?'<div class="metric-sub">'+esc(sub)+'</div>':'<div class="metric-sub">aktuální období</div>')+'</div>';
 }
 
 function projectionBonusText(p){
@@ -2292,7 +2319,7 @@ function renderStoreCardLive(){
   }).join('')||'<tr><td colspan="5" class="muted">Zatím není dost dat.</td></tr>';
  }
  renderPersonalFriendlySummary();
- if(document.getElementById('page-personal')?.classList.contains('active'))renderHubTrend();
+
  setText('officialStoreCardPeriod',d.latest_official_points?.period_start||'uzavřený měsíc');
  const om=document.getElementById('officialStoreCardMetrics');
  if(om){
@@ -2375,9 +2402,12 @@ function renderStoreCardLive(){
  const labels={output:'📦 Output / activity',speed:'⚡ Speed / time',quality:'🛡️ Quality',other:'🧩 Other'};
  const root=document.getElementById('enhancedMetricGroups');
  if(root){
-  root.innerHTML=Object.keys(groups).filter(k=>groups[k].length).map(k=>'<div class="datahub-group"><div class="datahub-group-title">'+labels[k]+'</div><div class="datahub-group-grid">'+groups[k].map(x=>'<div class="enhanced-kpi"><div class="ek">'+esc(x.label)+'</div><div class="ev">'+esc(enhancedFmt(x.value,x.unit))+'</div><div class="es">'+esc(x.aggregation||'')+' · '+esc(x.metric_id)+'</div><span class="metric-source">'+esc((x.source_types||[]).join(' + ')||'Data Hub')+'</span></div>').join('')+'</div></div>').join('')||'<div class="notice">V aktuálním měsíci zatím nejsou nové Data Hub metriky.</div>';
+  root.innerHTML=Object.keys(groups).filter(k=>groups[k].length).map(k=>'<div class="datahub-group"><div class="datahub-group-title">'+labels[k]+'</div><div class="metric-grid">'+groups[k].map(x=>enhancedKpi(x.label,x.value,x.unit,x.aggregation==='sum'?'součet za období':'průměr za období')).join('')+'</div></div>').join('')||'<div class="notice">V aktuálním měsíci zatím nejsou další detailní metriky.</div>';
  }
  setText('enhancedMetricMeta',(lp.month||'aktuální měsíc')+' · '+((d.raw_metrics||[]).length)+' metrik');
+ if(document.getElementById('page-store')?.classList.contains('active')&&state.storeHistory){
+   try{drawStore();}catch(e){console.warn('merged store redraw',e)}
+ }
 }
 function renderHome(){if(!state.player)return;renderSeasonCountdown();const p=state.player,lb=playerSeasonData(state.worker),sc=performanceScoreFromLatest(p),st=streak(state.history),life=lifetimeProgressFor(state.worker),xp=life.xp,lvl=life.level,within=xp%1000,t=tier(lb.elo);document.body.dataset.tier=t[0];setText('homeName',p.worker);setText('homeTier',t[0]);setText('homeRank','#'+lb.rank);const rankIcon=t[0]==='MASTER'?'💎':t[0]==='GOLD'?'🥇':t[0]==='SILVER'?'🛡️':'🔰';setText('rankCrest',rankIcon);setText('rankHeadline',t[0]==='UNRANKED'?'UNRANKED':t[0]);setText('sElo',lb.elo+' b.');setText('sRank',t[0]==='UNRANKED'?'—':`${t[0]}${lb.status&&lb.status!=='FULL'?' · '+lb.status:''} · #${lb.rank}`);setText('sRankIcon',rankIcon);setText('sPerf',sc==null?'—':fmt(sc,1));setText('sStreak',st);setText('homeLevel','LVL '+lvl);setText('homeXp',within+' / 1000 XP');document.getElementById('xpBar').style.width=(within/10)+'%';setText('seasonMeta',state.team?.labels?.length?('Rank: sezónní ELO · Level: celoživotní XP · '+state.team.labels.length+' týdnů dostupných'):'Aktuální rank · sezónní detail se dopočítá při otevření žebříčku');const rankBar=document.getElementById('rankBar');const rankMin=900,rankMax=1200;const rankPct=Math.min(100,Math.max(0,((lb.elo-rankMin)/(rankMax-rankMin))*100));rankBar.style.width=rankPct+'%';setText('rankProgressText',t[0]==='UNRANKED'?'—':t[0]);setText('rankFrom','');setText('rankTo','');document.querySelectorAll('.rank-rail .rank-stop').forEach((el,i)=>{const min=Number(el.dataset.rankMin||0);el.classList.toggle('active',lb.elo>=min);el.classList.toggle('current',(i===0&&lb.elo<1000)||(i===1&&lb.elo>=1000&&lb.elo<1100)||(i===2&&lb.elo>=1100&&lb.elo<1200)||(i===3&&lb.elo>=1200));});const b=badges(state.worker);document.getElementById('badgeList').innerHTML=b.map(x=>`<span class="badge" data-emoji="${esc(x[0])}" data-title="${esc(x[1])}" title="${esc(x[1])}">${x[0]} ${esc(x[1])}</span>`).join('')||'<span class="empty-badges">Zatím žádné sezónní odznaky</span>';renderQuests();renderHomeScanStrip();renderHomeBreakdown();renderAchievements();renderStoreCardLive();renderStoreQuests().catch(e=>{console.warn('store quests',e);const b=document.getElementById('homeStoreQuestList');if(b)b.innerHTML='<div class=\"notice error\">Store Challenges se nepodařilo načíst.</div>';});animateWidth('xpBar',within/10,850);const rankPct2=Math.min(100,Math.max(0,((lb.elo-900)/(1200-900))*100));animateWidth('rankBar',rankPct2,1000);animateCards('badgeList');animateCards('homeQuestList');animateCards('homeStoreQuestList')}
 function seasonMetricPoints(name,mine,teamValues){ return seasonMetricContribution(name,mine,teamValues); }
@@ -4055,22 +4085,99 @@ function seasonMetricWeightedPoints(name,mine,teamValues){
 async function ensureTeam(){if(state.team){renderHomeBreakdown();renderAchievements();return state.team;}return api('team_history').then(d=>{state.team=filterInactiveTeamPeople(d);renderHome();renderHomeBreakdown();renderAchievements();return state.team})}
 async function ensureStores(){if(state.storeHistory){renderStoreQuests().catch(()=>{});renderAchievements();return state.storeHistory;}return api('stores_history').then(d=>{state.storeHistory=d;renderStores();renderStoreQuests().catch(()=>{});renderAchievements();return d})}
 async function renderStores(){if(!state.storeHistory)return;const names=Object.keys(state.storeHistory.stores||{});const sel=document.getElementById('storeSelect');const cmp=document.getElementById('storeCompare');const savedStore=localStorage.getItem('arenaStoreName'); sel.innerHTML=names.map(n=>`<option>${esc(n)}</option>`).join(''); if(savedStore&&names.includes(savedStore))sel.value=savedStore;cmp.innerHTML='<option value="">Bez srovnání</option>'+names.map(n=>`<option>${esc(n)}</option>`).join('');sel.onchange=()=>{localStorage.setItem('arenaStoreName',sel.value);drawStore()};cmp.onchange=drawStore;if(!state.storeHistory)return;drawStore()}
+function storeLiveMetricValue(metricName){
+  const ls=state.storeCard?.live_store||{};
+  const k=norm(metricName);
+  if(k==='uph'||k.includes('units per hour'))return n(Number(ls.uph));
+  if(k.includes('pofr')||k.includes('perfect order'))return n(Number(ls.pofr));
+  if(k.includes('missing'))return n(Number(ls.missing_items_ratio));
+  if(k.includes('undelivered'))return n(Number(ls.undelivered_items_ratio));
+  if(k.includes('worked hours'))return n(Number(ls.worked_hours));
+  if(k.includes('outbound units'))return n(Number(ls.outbound_units));
+  if(k.includes('inbound units'))return n(Number(ls.inbound_units));
+  return null;
+}
+function storeMonthKey(v){
+  const d=dateOnly(v)||dateOnly(String(v||'')+'-01');
+  if(!d)return null;
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+}
 function drawStore(){
   const name=document.getElementById('storeSelect').value;if(!name||!state.storeHistory)return;
-  const cmp=document.getElementById('storeCompare').value;const s=state.storeHistory.stores[name],sc=cmp?state.storeHistory.stores[cmp]:null,defs=state.storeHistory.headers||[];
-  const rawLabels=state.storeHistory.labels||[];
-  const dateFiltered=(state.storeRangeStart||state.storeRangeEnd)?rawLabels.map((lab,i)=>({lab,i})).filter(x=>{const d=dateOnly(x.lab); if(!d)return false; const s=state.storeRangeStart?dateOnly(state.storeRangeStart):null; const e=state.storeRangeEnd?dateOnly(state.storeRangeEnd):null; const endOfMonth=new Date(d.getFullYear(),d.getMonth()+1,0); return (!s||endOfMonth>=s)&&(!e||d<=e);}):null;
-  const indices=dateFiltered?dateFiltered.map(x=>x.i):rawLabels.map((_,i)=>i);
-  const labels=indices.map(i=>rawLabels[i]);
+  const cmp=document.getElementById('storeCompare').value;
+  const store=state.storeHistory.stores[name],sc=cmp?state.storeHistory.stores[cmp]:null,defs=state.storeHistory.headers||[];
+  const baseLabels=state.storeHistory.labels||[];
+  const live=state.storeCard?.live_store||{};
+  const selectedIsHolesovice=norm(name).includes('holesovice');
+  const liveMonth=selectedIsHolesovice?storeMonthKey(live.month||live.through):null;
+
   const rows=[];
-  defs.forEach((d,i)=>{if(isIgnored(d))return;const hist=indices.map(j=>normalizeMetricValue((s.history[i]||[])[j],d));const vals=hist.filter(v=>n(v)!=null);if(!vals.length)return;const avg=vals.reduce((a,b)=>a+b,0)/vals.length;const ch=sc?indices.map(j=>normalizeMetricValue((sc.history[i]||[])[j],d)):null;const cvals=ch?ch.filter(v=>n(v)!=null):[];const cmpAvg=cvals.length?cvals.reduce((a,b)=>a+b,0)/cvals.length:null;const networkHist=storeNetworkAverageSeries(i,indices,d);const networkVals=networkHist.filter(v=>n(v)!=null);const networkAvg=networkVals.length?networkVals.reduce((a,b)=>a+b,0)/networkVals.length:null;const prev=hist.length>=2&&n(hist.at(-2))!=null?hist.at(-2):null;const curr=hist.length&&n(hist.at(-1))!=null?hist.at(-1):null;const improved=prev!=null&&curr!=null?(lowerBetter(d)?curr<prev:curr>prev):null;const delta=prev!=null&&curr!=null?curr-prev:null;rows.push({d,avg,cmp:cmpAvg,networkAvg,i,hist,networkHist,tr:(improved===null?'→':improved?'↑':'↓'),movement:{improved,delta,prev,curr}})});
+  defs.forEach((metricName,i)=>{
+    if(isIgnored(metricName))return;
+    const byMonth=new Map();
+    baseLabels.forEach((lab,j)=>{
+      const key=storeMonthKey(lab);if(!key)return;
+      byMonth.set(key,{label:lab,value:normalizeMetricValue((store.history[i]||[])[j],metricName),baseIndex:j,source:'history'});
+    });
+
+    const liveValue=storeLiveMetricValue(metricName);
+    if(liveMonth&&liveValue!=null){
+      const old=byMonth.get(liveMonth);
+      byMonth.set(liveMonth,{label:old?.label||liveMonth,value:normalizeMetricValue(liveValue,metricName),baseIndex:old?.baseIndex??null,source:old?'merged':'live'});
+    }
+
+    let points=[...byMonth.entries()].map(([key,x])=>({key,...x})).sort((a,b)=>a.key.localeCompare(b.key));
+    if(state.storeRangeStart||state.storeRangeEnd){
+      const from=state.storeRangeStart?dateOnly(state.storeRangeStart):null,to=state.storeRangeEnd?dateOnly(state.storeRangeEnd):null;
+      points=points.filter(p=>{
+        const d=dateOnly(p.key+'-01');if(!d)return false;
+        const end=new Date(d.getFullYear(),d.getMonth()+1,0);
+        return (!from||end>=from)&&(!to||d<=to);
+      });
+    }
+    const labels=points.map(p=>p.label),hist=points.map(p=>p.value);
+    const vals=hist.filter(v=>n(v)!=null);if(!vals.length)return;
+    const avg=vals.reduce((a,b)=>a+b,0)/vals.length;
+
+    const compHist=points.map(p=>{
+      if(!sc||p.baseIndex==null)return null;
+      return normalizeMetricValue((sc.history[i]||[])[p.baseIndex],metricName);
+    });
+    const cvals=compHist.filter(v=>n(v)!=null),cmpAvg=cvals.length?cvals.reduce((a,b)=>a+b,0)/cvals.length:null;
+
+    const networkHist=points.map(p=>p.baseIndex==null?null:storeNetworkAverageSeries(i,[p.baseIndex],metricName)[0]);
+    const networkVals=networkHist.filter(v=>n(v)!=null),networkAvg=networkVals.length?networkVals.reduce((a,b)=>a+b,0)/networkVals.length:null;
+    const validIndices=hist.map((v,idx)=>n(v)!=null?idx:-1).filter(idx=>idx>=0);
+    const currIdx=validIndices.at(-1),prevIdx=validIndices.length>1?validIndices.at(-2):null;
+    const curr=currIdx!=null?hist[currIdx]:null,prev=prevIdx!=null?hist[prevIdx]:null;
+    const improved=prev!=null&&curr!=null?(lowerBetter(metricName)?curr<prev:curr>prev):null;
+    const delta=prev!=null&&curr!=null?curr-prev:null;
+    rows.push({d:metricName,avg,cmp:cmpAvg,networkAvg,i,hist,labels,networkHist,compHist,movement:{improved,delta,prev,curr},hasLive:points.some(p=>p.source!=='history')});
+  });
 
   const kpiKeys=['pofr','uph','ui','mi'];
-  function card(x){const cid='store_s_'+x.i;const mv=x.movement||{};const moveText=mv.prev!=null&&mv.curr!=null?`${mv.improved===null?'→':mv.improved?'↑':'↓'} ${mv.improved===null?'Beze změny':mv.improved?'Zlepšení':'Zhoršení'} · ${formatNormVal(mv.prev,x.d)} → ${formatNormVal(mv.curr,x.d)}`:'Nedostatek dat';const moveCls=mv.improved===null?'neutral':mv.improved?'good':'bad';setTimeout(()=>{destroyChart(cid);const c=document.getElementById(cid);if(!c)return;charts[cid]=new Chart(c,{type:'line',data:{labels,datasets:[{label:'Výkon',data:x.hist,borderColor:'#35E78A',backgroundColor:'rgba(53,231,138,.07)',fill:true,tension:.3,pointRadius:0,spanGaps:true,borderWidth:2},{label:'Trend',data:regressionLine(x.hist),borderColor:'#7C5CFF',borderDash:[5,5],borderWidth:1.5,fill:false,tension:0,pointRadius:0,spanGaps:true},{label:'Průměr sítě',data:x.networkHist,borderColor:'#94A3B8',borderDash:[3,4],borderWidth:1.5,fill:false,tension:0,pointRadius:0,spanGaps:true},{...(sc?{label:'Srovnání',data:indices.map(j=>normalizeMetricValue((sc.history[x.i]||[])[j],x.d)),borderColor:'#F59E0B',borderDash:[4,4],borderWidth:1.5,pointRadius:0,spanGaps:true}: {})}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{display:false},y:{display:false}}}})},0);return `<div class="metric-card"><div class="metric-top"><div class="metric-title">${esc(cleanMetricName(x.d))}</div>${x.networkAvg!=null?`<span class="trend neutral">síť ${formatNormVal(x.networkAvg,x.d)}</span>`:''}</div><div class="metric-main">${formatNormVal(x.avg,x.d)}</div><div class="metric-sub">${cmp?'Srovnání: '+esc(cmp)+' · '+(x.cmp!=null?formatNormVal(x.cmp,x.d):'—')+(x.networkAvg!=null?' · Průměr sítě: '+formatNormVal(x.networkAvg,x.d):''):('Průměr vybraného období'+(x.networkAvg!=null?' · Průměr sítě: '+formatNormVal(x.networkAvg,x.d):''))}</div><div class="personal-movement ${moveCls}" style="margin-top:8px"><div class="movement-main"><span class="movement-arrow">${mv.improved===null?'→':mv.improved?'↑':'↓'}</span><div class="movement-copy"><span class="movement-label">vs minulý týden</span><span class="movement-value">${esc(moveText)}</span></div></div></div><div class="spark"><canvas id="${cid}"></canvas></div></div>`}
+  function card(x){
+    const cid='store_s_'+x.i,mv=x.movement||{};
+    const moveText=mv.prev!=null&&mv.curr!=null?`${mv.improved===null?'→':mv.improved?'↑':'↓'} ${mv.improved===null?'Beze změny':mv.improved?'Zlepšení':'Zhoršení'} · ${formatNormVal(mv.prev,x.d)} → ${formatNormVal(mv.curr,x.d)}`:'Nedostatek dat';
+    const moveCls=mv.improved===null?'neutral':mv.improved?'good':'bad';
+    setTimeout(()=>{
+      destroyChart(cid);const cv=document.getElementById(cid);if(!cv)return;
+      const datasets=[
+        {label:'Výkon',data:x.hist,borderColor:'#35E78A',backgroundColor:'rgba(53,231,138,.07)',fill:true,tension:.3,pointRadius:0,spanGaps:true,borderWidth:2},
+        {label:'Trend',data:regressionLine(x.hist),borderColor:'#7C5CFF',borderDash:[5,5],borderWidth:1.5,fill:false,tension:0,pointRadius:0,spanGaps:true},
+        {label:'Průměr sítě',data:x.networkHist,borderColor:'#94A3B8',borderDash:[3,4],borderWidth:1.5,fill:false,tension:0,pointRadius:0,spanGaps:true}
+      ];
+      if(sc)datasets.push({label:'Srovnání',data:x.compHist,borderColor:'#F59E0B',borderDash:[4,4],borderWidth:1.5,pointRadius:0,spanGaps:true});
+      charts[cid]=new Chart(cv,{type:'line',data:{labels:x.labels,datasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{display:false},y:{display:false}}}});
+    },0);
+    const currentBadge=x.hasLive?'<span class="trend good">aktuální měsíc</span>':(x.networkAvg!=null?'<span class="trend neutral">síť '+formatNormVal(x.networkAvg,x.d)+'</span>':'');
+    return `<div class="metric-card"><div class="metric-top"><div class="metric-title">${esc(cleanMetricName(x.d))}</div>${currentBadge}</div><div class="metric-main">${formatNormVal(x.avg,x.d)}</div><div class="metric-sub">${cmp?'Srovnání: '+esc(cmp)+' · '+(x.cmp!=null?formatNormVal(x.cmp,x.d):'—')+(x.networkAvg!=null?' · Průměr sítě: '+formatNormVal(x.networkAvg,x.d):''):('Průměr vybraného období'+(x.networkAvg!=null?' · Průměr sítě: '+formatNormVal(x.networkAvg,x.d):''))}</div><div class="personal-movement ${moveCls}" style="margin-top:8px"><div class="movement-main"><span class="movement-arrow">${mv.improved===null?'→':mv.improved?'↑':'↓'}</span><div class="movement-copy"><span class="movement-label">vs předchozí měsíc</span><span class="movement-value">${esc(moveText)}</span></div></div></div><div class="spark"><canvas id="${cid}"></canvas></div></div>`;
+  }
   document.getElementById('storeKpis').innerHTML=rows.filter(x=>kpiKeys.some(k=>norm(x.d)===k||norm(x.d).includes(k))).map(card).join('')||'<div class="panel">Store KPI zatím bez dat.</div>';
   document.getElementById('storeMetrics').innerHTML=rows.filter(x=>!kpiKeys.some(k=>norm(x.d)===k||norm(x.d).includes(k))).map(card).join('');
-  const storeRangeTxt=(state.storeRangeStart||state.storeRangeEnd)?` ${state.storeRangeStart||'…'} – ${state.storeRangeEnd||'…'}`:(state.storeRange==='all'?'celá historie':`posledních ${state.storeRange} měsíců`);
-  setText('storeMeta',labels.length+' měsíců ·'+storeRangeTxt);
+  const shownMonths=new Set(rows.flatMap(x=>x.labels.map(storeMonthKey).filter(Boolean))).size;
+  const storeRangeTxt=(state.storeRangeStart||state.storeRangeEnd)?` ${state.storeRangeStart||'…'} – ${state.storeRangeEnd||'…'}`:'celá historie';
+  setText('storeMeta',shownMonths+' měsíců · historie'+(selectedIsHolesovice&&liveMonth?' + aktuální měsíc':'')+' · '+storeRangeTxt);
 }
 async function openPage(page){if(loginRole!=='admin'&&page==='correlation')return;document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-'+page).classList.add('active');document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));if(page==='personal'){if(!state.history)state.history=await api('player_history',{worker:state.worker});if(!state.team){try{state.team=await api('team_history')}catch(e){console.warn('team_history for personal average',e)}}buildMetricCards();renderPersonalFriendlySummary();}if(page==='home'){renderHome(); if(!state.team) ensureTeam().catch(()=>{}); if(!state.storeHistory) ensureStores().catch(()=>{})}if(page==='efficiency'||page==='bonuses'){renderStoreCardLive()}if(page==='achievements'){renderAchievements(); if(!state.team) ensureTeam().catch(()=>{}); if(!state.storeHistory) ensureStores().catch(()=>{})} if(page==='team'){renderTeam()}if(page==='correlation'){await renderCorrelation()}if(page==='bottlenecks'){if(!state.team){try{state.team=await api('team_history')}catch(e){console.warn('team_history for diagnostics',e)}}await renderBottlenecks()}if(page==='leaderboard'){if(state.lbMode==='people'){await ensureTeam();if(state.worker){try{state.storeCard=await loadStoreCardLive(state.worker,{force:true})}catch(e){console.warn('live leaderboard refresh',e)}}}else await ensureStores();state.leaderMetric=null;renderLeaderboard()}if(page==='store'){await ensureStores();renderStoreCardLive();renderStoreQuests().catch(()=>{})}}
 
