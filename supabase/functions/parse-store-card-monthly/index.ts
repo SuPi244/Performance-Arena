@@ -384,9 +384,9 @@ function parseRewards(layout:any[],people:any[],period:any,knownPeople:any[]=[])
   // The result table itself marks TOP 1-5 with medals. Use that as the
   // authoritative rank so bonus decomposition does not depend on amount ordering.
   const topRankByPerson=new Map<string,number>();
+  const rankingTop5:any[]=[];
   for(const r of rows){
-    const pid=resolveName(txt(r,75,185));
-    if(!pid)continue;
+    const sourceName=txt(r,75,185);
     const medal=txt(r,200,230);
     let rank:number|null=null;
     if(/🥇/.test(medal))rank=1;
@@ -397,8 +397,18 @@ function parseRewards(layout:any[],people:any[],period:any,knownPeople:any[]=[])
       if(badges>=2)rank=4;
       else if(badges===1)rank=5;
     }
-    if(rank)topRankByPerson.set(String(pid),rank);
+    if(!rank||!sourceName)continue;
+    const pid=resolveName(sourceName);
+    const totalPoints=val(r,185,205);
+    rankingTop5.push({
+      rank,
+      source_name:sourceName,
+      person_id:pid,
+      total_points:totalPoints
+    });
+    if(pid)topRankByPerson.set(String(pid),rank);
   }
+  rankingTop5.sort((a:any,b:any)=>Number(a.rank)-Number(b.rank));
 
   // Official payout table on page 1. Match payout names to canonical person_id.
   // Keep coordinates broad enough for Jan-Aug layouts, then validate by canonical name.
@@ -500,6 +510,7 @@ function parseRewards(layout:any[],people:any[],period:any,knownPeople:any[]=[])
 
   return {
     top_bonus_czk,team_effort_pct,team_bonus_40h,team_bonus_30h,team_bonus_rules,monthly_threshold_points,payouts,
+    ranking_top5:rankingTop5,
     color_eligibility_detected:colorAware,
     ineligible_people:payouts.filter((x:any)=>x.bonus_eligible===false).map((x:any)=>x.display_name),
     payout_match_count:payouts.length
@@ -764,8 +775,48 @@ function mergeRewards(base:any,textParsed:any){
   };
 
   const payoutMap=new Map<string,any>();
-  for(const p of base?.payouts||[])if(p.person_id)payoutMap.set(String(p.person_id),p);
-  for(const p of textParsed.payouts||[])if(p.person_id)payoutMap.set(String(p.person_id),p);
+  let historicalRankingPayouts:any[]=[];
+  let ignoredHistoricalTopNames:any[]=[];
+
+  if(!teamBonusExists&&Array.isArray(base?.ranking_top5)&&Array.isArray(base?.top_bonus_czk)){
+    // Jan-Mar historical format: TOP 1-5 ranking IS the monetary payout.
+    // Unknown/former workers are intentionally ignored, but still keep their rank slot.
+    for(const row of base.ranking_top5.slice(0,5)){
+      const rank=Number(row.rank||0);
+      const amount=Number(base.top_bonus_czk[rank-1]||0);
+      if(!rank||!Number.isFinite(amount))continue;
+      if(!row.person_id){
+        ignoredHistoricalTopNames.push({rank,source_name:row.source_name,total_points:row.total_points});
+        continue;
+      }
+      const p={
+        person_id:String(row.person_id),
+        email:null,
+        display_name:row.source_name,
+        source_name:row.source_name,
+        confirmed_bonus_czk:amount,
+        bonus_eligible:true,
+        eligibility_source:"historical_top5_ranking",
+        top_rank:rank,
+        payout_decomposition:{
+          top_rank:rank,
+          top_bonus_czk:amount,
+          team_bonus_czk:0,
+          hours_band:"not_applicable",
+          team_tier:null,
+          rule_match:true
+        },
+        payout_decomposition_candidates:[],
+        payout_rule_match:true,
+        payout_match_source:"historical_top5_ranking"
+      };
+      historicalRankingPayouts.push(p);
+      payoutMap.set(String(row.person_id),p);
+    }
+  }else{
+    for(const p of base?.payouts||[])if(p.person_id)payoutMap.set(String(p.person_id),p);
+    for(const p of textParsed.payouts||[])if(p.person_id)payoutMap.set(String(p.person_id),p);
+  }
 
   return {
     ...base,
@@ -777,8 +828,15 @@ function mergeRewards(base:any,textParsed:any){
     payouts:[...payoutMap.values()],
     ineligible_people:[...payoutMap.values()].filter((x:any)=>x.bonus_eligible===false).map((x:any)=>x.display_name),
     payout_match_count:payoutMap.size,
-    reward_parse_source:!teamBonusExists?"layout+text_no_team_bonus":useTextRules?"layout+text":"layout_text_payout_fallback",
-    reward_text_diagnostics:textParsed.diagnostics
+    historical_ranking_payouts:historicalRankingPayouts,
+    ignored_historical_top_names:ignoredHistoricalTopNames,
+    reward_parse_source:!teamBonusExists?"historical_top5_ranking":useTextRules?"layout+text":"layout_text_payout_fallback",
+    reward_text_diagnostics:{
+      ...(textParsed.diagnostics||{}),
+      ranking_top5:base?.ranking_top5||[],
+      historical_ranking_matches:historicalRankingPayouts.length,
+      ignored_historical_top_names:ignoredHistoricalTopNames
+    }
   };
 }
 
@@ -1072,12 +1130,14 @@ Deno.serve(async req=>{
    reward_text_diagnostics:rewards.reward_text_diagnostics||null,
    unknown_people_ignored:true,
    historical_top_only:rewards.team_bonus_exists===false,
+   historical_ranking_payouts:rewards.historical_ranking_payouts||[],
+   ignored_historical_top_names:rewards.ignored_historical_top_names||[],
    people:resolved,
    store_metrics:stores
   };
 
   if(mode==="preview"){
-   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v17",
+   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v19",
     note:"Preview only. Existing identities are resolved by email/picker login. New historical people are shown before commit."});
   }
 
@@ -1166,7 +1226,7 @@ Deno.serve(async req=>{
    team_bonus_30h_czk:rewards.team_bonus_30h,
    source_import_id:import_id,
    status:"official",
-   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v17",filename:imp.filename,bonus_rules:{top_bonus_czk:rewards.top_bonus_czk||[],team_bonus:rewards.team_bonus_rules||null}},
+   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v19",filename:imp.filename,bonus_rules:{top_bonus_czk:rewards.top_bonus_czk||[],team_bonus:rewards.team_bonus_rules||null}},
    updated_at:new Date().toISOString()
   };
   const {error:sce}=await db.from("store_card_months").upsert(monthRow,{onConflict:"month"});
@@ -1244,7 +1304,7 @@ Deno.serve(async req=>{
    status:"imported",
    period_start:period.period_start,
    period_end:period.period_end,
-   parser_version:"store-card-monthly-v17",
+   parser_version:"store-card-monthly-v19",
    record_count:totalRecords,
    metadata:{
     ...(imp.metadata||{}),
@@ -1262,7 +1322,7 @@ Deno.serve(async req=>{
    ...common,
    preview:false,
    committed:true,
-   parser_stage:"store-card-monthly-committed-v17",
+   parser_stage:"store-card-monthly-committed-v19",
    observations_attempted:obs.length,
    observations_inserted:obsWritten,
    store_metrics_attempted:storeRows.length,
