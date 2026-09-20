@@ -150,14 +150,16 @@ function colBounds(ds:any[],d:any){
    : d.x+(ds.length>1 ? (d.x-ds[i-1].x)/2 : 60);
  return [left,right];
 }
-function roleCandidates(items:any[]){
+function roleCandidates(items:any[],dayAnchors:any[]=[]){
  const out:any[]=[];
  for(const z of items||[]){
    const s=String(z.text||"").replace(/\s+/g," ").trim();
    const m=s.match(/\b(GA|SL)\s+(Morning|Afternoon|Shift\s+Middle)\b/i);
-   if(m)out.push({...z,text:`${m[1].toUpperCase()} ${m[2].replace(/\s+/g," ")}`,raw_text:s});
+   if(m)out.push({...z,text:`${m[1].toUpperCase()} ${m[2].replace(/\s+/g," ")}`,raw_text:s,synthetic:false});
  }
- // Split text fallback: GA | Morning, or GA | Shift | Middle on the same visual row.
+
+ // Split text fallback. Older exports often emit GA / Morning / venue as separate
+ // PDF text items. Build the phrase per day-column, never across the whole page row.
  const ys:any[]=[];
  for(const z of items||[]){
    let row=ys.find((r:any)=>Math.abs(Number(r.y)-Number(z.y))<1.8);
@@ -165,12 +167,28 @@ function roleCandidates(items:any[]){
    row.items.push(z);
  }
  for(const r of ys){
-   r.items.sort((a:any,b:any)=>Number(a.x)-Number(b.x));
-   const joined=r.items.map((z:any)=>String(z.text||"").trim()).join(" ").replace(/\s+/g," ");
-   const m=joined.match(/\b(GA|SL)\s+(Morning|Afternoon|Shift\s+Middle)\b/i);
-   if(!m)continue;
-   const ga=r.items.find((z:any)=>/^(GA|SL)$/i.test(String(z.text||"").trim()))||r.items[0];
-   out.push({x:Number(ga.x),y:Number(r.y),text:`${m[1].toUpperCase()} ${m[2].replace(/\s+/g," ")}`,raw_text:joined,synthetic:true});
+   const groups:any[]=[];
+   if(dayAnchors&&dayAnchors.length){
+     for(const d of dayAnchors){
+       const cell=r.items.filter((z:any)=>nearestDay(dayAnchors,Number(z.x))===d);
+       if(cell.length)groups.push(cell);
+     }
+   }else groups.push(r.items);
+
+   for(const cell of groups){
+     cell.sort((a:any,b:any)=>Number(a.x)-Number(b.x));
+     const joined=cell.map((z:any)=>String(z.text||"").trim()).join(" ").replace(/\s+/g," ").trim();
+     const m=joined.match(/\b(GA|SL)\s+(Morning|Afternoon|Shift\s+Middle)\b/i);
+     if(!m)continue;
+     const ga=cell.find((z:any)=>/^(GA|SL)$/i.test(String(z.text||"").trim()))
+       ||cell.find((z:any)=>/\b(GA|SL)\b/i.test(String(z.text||"")))
+       ||cell[0];
+     out.push({
+       x:Number(ga.x),y:Number(r.y),
+       text:`${m[1].toUpperCase()} ${m[2].replace(/\s+/g," ")}`,
+       raw_text:joined,synthetic:true
+     });
+   }
  }
  const uniq=new Map<string,any>();
  for(const z of out){
@@ -179,6 +197,7 @@ function roleCandidates(items:any[]){
  }
  return [...uniq.values()];
 }
+
 function pairAtY(items:any[], y:number){
  const ts=items.filter((z:any)=>isTime(z.text)&&Math.abs(z.y-y)<1.1).sort((a:any,b:any)=>a.x-b.x);
  return ts.length>=2?[ts[0].text,ts[ts.length-1].text]:null;
@@ -192,8 +211,9 @@ function reportCutoff(items:any[]){
 }
 function parse(pages:any[]){
  const rows:any[]=[],missingDatePages:number[]=[],pagePeriods:any[]=[],missingDateDebug:any[]=[],inferredDatePages:any[]=[];
+ let rosterBandsExamined=0,rolesInsideRosterBands=0,skippedMichleRoles=0,pagesWithUsablePeriod=0;
  const contexts=(pages||[]).map((pg:any)=>{
-   const it=pg.items||[],baseDays=days(it),ps=personAnchors(it),cutoff=reportCutoff(it),roles=roleCandidates(it);
+   const it=pg.items||[],baseDays=days(it),ps=personAnchors(it),cutoff=reportCutoff(it),roles=roleCandidates(it,baseDays);
    return {pg,it,baseDays,ps,roles,cutoff,period:pagePeriod(it)};
  });
  const pageScan=contexts.map((x:any)=>({
@@ -229,18 +249,23 @@ function parse(pages:any[]){
   const ds=baseDays.map((d:any)=>({...d,date:dateForDay(period,d.day)}));
   if(ds.some((d:any)=>!d.date)){missingDatePages.push(Number(pg.page));missingDateDebug.push({page:Number(pg.page),header_candidates:dateDebug(it)});continue}
   pagePeriods.push({page:Number(pg.page),period_start:period.start,period_end:period.end,header:period.raw,source:period.source||"range"});
+  pagesWithUsablePeriod++;
 
   for(let pi=0;pi<ps.length;pi++){
    const p=ps[pi]; if(!p.roster)continue;
+   rosterBandsExamined++;
    const bottom=pi+1<ps.length?ps[pi+1].y:p.y-95,band=it.filter((z:any)=>z.y<=p.y+5&&z.y>bottom+1);
-   for(const role of roleCandidates(band)){
+   const bandRoles=roleCandidates(band,ds);
+   rolesInsideRosterBands+=bandRoles.length;
+   for(const role of bandRoles){
     const d=nearestDay(ds,role.x),[left,right]=colBounds(ds,d);
     const ownsDay=(z:any)=>nearestDay(ds,z.x)===d;
     const c=band.filter(ownsDay);
     const pageCol=it.filter(ownsDay);
     // Quinyx may print Michle either inside the same text item or as a neighbour.
-    if(norm(role.raw_text||"").includes("michle prague")||
-       pageCol.some((z:any)=>norm(z.text).includes("michle prague")&&Math.abs(z.y-role.y)<2.8))continue;
+    const roleIsMichle=norm(role.raw_text||"").includes("michle prague")||
+       pageCol.some((z:any)=>norm(z.text).includes("michle prague")&&Math.abs(z.y-role.y)<2.8);
+    if(roleIsMichle){skippedMichleRoles++;continue;}
     const ys=[...new Set(c.filter((z:any)=>isTime(z.text)).map((z:any)=>z.y))].sort((x:any,y:any)=>y-x);
     const pairs=ys.map((y:any)=>({y,pair:pairAtY(c,y)})).filter((q:any)=>q.pair);
     const above=pairs.filter((q:any)=>q.y>role.y+2).sort((x:any,y:any)=>x.y-y.y);
@@ -337,6 +362,10 @@ function parse(pages:any[]){
    excluded_adjacent_month_rows:deduped.length-monthRows.length,
    missingDatePages:[...new Set(missingDatePages)].sort((a,b)=>a-b),
    pagePeriods,missingDateDebug,inferredDatePages,pageScan,
+   pages_with_usable_period:pagesWithUsablePeriod,
+   roster_bands_examined:rosterBandsExamined,
+   roles_inside_roster_bands:rolesInsideRosterBands,
+   skipped_michle_roles:skippedMichleRoles,
    candidate_row_count:rows.length,deduped_row_count:deduped.length,month_row_count:monthRows.length
  };
 }
@@ -374,9 +403,22 @@ Deno.serve(async req=>{
     const ds=scan.reduce((a:number,x:any)=>a+Number(x.day_anchors||0),0);
     const ps=scan.reduce((a:number,x:any)=>a+Number(x.person_anchors||0),0);
     const rs=scan.reduce((a:number,x:any)=>a+Number(x.role_candidates||0),0);
+    const diagnostics={
+      pages:b.layout_json?.length||0,
+      day_anchors:ds,person_anchors:ps,role_candidates:rs,
+      pages_with_usable_period:parsed.pages_with_usable_period||0,
+      roster_bands_examined:parsed.roster_bands_examined||0,
+      roles_inside_roster_bands:parsed.roles_inside_roster_bands||0,
+      skipped_michle_roles:parsed.skipped_michle_roles||0,
+      page_scan:scan,missing_date_pages:parsed.missingDatePages,
+      page_periods:parsed.pagePeriods,date_debug:parsed.missingDateDebug
+    };
+    await db.from("imports").update({
+      metadata:{...(imp.metadata||{}),quinyx_parse_debug:{parser:"v29",...diagnostics,at:new Date().toISOString()}}
+    }).eq("id",import_id);
     return J({
-      error:`No Quinyx shifts parsed · pages ${b.layout_json?.length||0} · day anchors ${ds} · people ${ps} · role candidates ${rs}`,
-      diagnostics:{pages:b.layout_json?.length||0,day_anchors:ds,person_anchors:ps,role_candidates:rs,page_scan:scan,missing_date_pages:parsed.missingDatePages,page_periods:parsed.pagePeriods,date_debug:parsed.missingDateDebug}
+      error:`No Quinyx shifts parsed · pages ${diagnostics.pages} · usable period ${diagnostics.pages_with_usable_period} · day anchors ${ds} · people ${ps} · roles page ${rs} · roles in person bands ${diagnostics.roles_inside_roster_bands} · skipped Michle ${diagnostics.skipped_michle_roles}`,
+      diagnostics
     },422);
   }
   const dates=rows.map((r:any)=>r.date).sort(),period_start=dates[0],period_end=dates[dates.length-1];
@@ -402,9 +444,9 @@ Deno.serve(async req=>{
     date_debug:parsed.missingDateDebug
   };
 
-  if(mode==="preview")return J({ok:true,preview:true,parser_stage:"quinyx-layout-v28",shift_count:rows.length,
+  if(mode==="preview")return J({ok:true,preview:true,parser_stage:"quinyx-layout-v29",shift_count:rows.length,
     people_count:validation.people_count,period_start,period_end,validation,rows,
-    note:"Preview only. V28 navíc zvládá rozdělené hlavičky dnů a rozdělené GA/SL role ve starších Quinyx exportech a vrací diagnostiku anchorů. Nic se ještě nezapisuje."});
+    note:"Preview only. V29 skládá rozdělené GA/SL role po jednotlivých denních sloupcích, takže Michle text z jiné buňky nemůže zahodit Holešovice směnu. Nic se ještě nezapisuje."});
 
   if(mode!=="commit")return J({error:"Unsupported mode"},400);
   if(!import_id)return J({error:"Missing import_id"},400);
@@ -435,7 +477,7 @@ Deno.serve(async req=>{
     import_id,
     source_record_key:`shift|${pmap.get(r.person_key)}|${r.date}|${norm(r.role).replace(/\s+/g," ")}|${norm(r.shift_type).replace(/\s+/g," ")}`,
     metadata:{
-      source_type:"quinyx",parser_version:"quinyx-v28",source_name:r.name,page:r.page,
+      source_type:"quinyx",parser_version:"quinyx-v29",source_name:r.name,page:r.page,
       page_period_start:r.page_period_start,page_period_end:r.page_period_end,
       confidence:r.confidence,venue:"Holešovice, Prague",export_cutoff:new Date().toISOString().slice(0,10)
     }
@@ -446,7 +488,7 @@ Deno.serve(async req=>{
   if(we)return J({error:we.message},500);
 
   await db.from("imports").update({
-    status:"imported",period_start,period_end,parser_version:"quinyx-v28"
+    status:"imported",period_start,period_end,parser_version:"quinyx-v29"
   }).eq("id",import_id);
 
   return J({ok:true,committed:true,inserted_count:w?.length??0,attempted_count:payload.length,
