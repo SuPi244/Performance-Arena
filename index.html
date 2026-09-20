@@ -1647,6 +1647,16 @@ html[data-theme="light"] .home-live-data-impact b{color:#0f172a}
 @media(min-width:1800px){.home-live-data-impact{font-size:9px;padding:9px 11px}}
 </style>
 
+
+<style id="admin-period-scope-v193">
+.admin-period-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:11px 13px;border:1px solid rgba(124,92,255,.18);border-radius:14px;background:linear-gradient(90deg,rgba(124,92,255,.07),rgba(53,231,138,.025))}
+.admin-period-copy{display:grid;gap:2px;min-width:180px}.admin-period-copy strong{font-size:10px}.admin-period-buttons{display:flex;gap:6px;flex-wrap:wrap;flex:1}
+.admin-period-btn.active{color:#ddd6fe!important;border-color:rgba(124,92,255,.55)!important;background:rgba(124,92,255,.15)!important;box-shadow:0 0 18px rgba(124,92,255,.08)}
+.admin-period-custom{display:none;align-items:center;gap:6px}.admin-period-custom.show{display:flex}.admin-period-custom input{border:1px solid var(--line);border-radius:8px;background:rgba(255,255,255,.025);color:var(--text);padding:7px 8px;font:inherit}
+tr.unknown .admin-status{color:var(--muted)!important;background:rgba(148,163,184,.08)!important;border-color:rgba(148,163,184,.16)!important}
+@media(max-width:900px){.admin-period-bar{align-items:flex-start;flex-direction:column}.admin-period-copy{min-width:0}.admin-period-custom{width:100%;flex-wrap:wrap}}
+</style>
+
 </head>
 <body><div class="ambient-particles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
 <div id="loginOverlay">
@@ -1691,6 +1701,22 @@ html[data-theme="light"] .home-live-data-impact b{color:#0f172a}
 <div class="admin-hero">
   <div><div class="eyebrow">Management view · Holešovice</div><h2>Operations Dashboard</h2><p>Stav celého týmu na jedné obrazovce. KPI, trend, Store Card a lidé, kteří potřebují pozornost.</p></div>
   <div class="admin-live-badge"><i class="dot"></i><span>LIVE TEAM VIEW</span></div>
+</div>
+<div class="section admin-period-bar">
+  <div class="admin-period-copy"><span class="home-priority-kicker">TIME SCOPE</span><strong id="adminPeriodLabel">Aktuální stav</strong></div>
+  <div class="admin-period-buttons">
+    <button class="tool admin-period-btn active" data-admin-period="current" onclick="setAdminPeriodMode('current')">Aktuální stav</button>
+    <button class="tool admin-period-btn" data-admin-period="season" onclick="setAdminPeriodMode('season')">Aktuální sezóna</button>
+    <button class="tool admin-period-btn" data-admin-period="13" onclick="setAdminPeriodMode('13')">13 týdnů</button>
+    <button class="tool admin-period-btn" data-admin-period="month" onclick="setAdminPeriodMode('month')">Tento měsíc</button>
+    <button class="tool admin-period-btn" data-admin-period="all" onclick="setAdminPeriodMode('all')">Vše</button>
+    <button class="tool admin-period-btn" data-admin-period="custom" onclick="setAdminPeriodMode('custom')">Vlastní</button>
+  </div>
+  <div class="admin-period-custom" id="adminPeriodCustom">
+    <input type="date" id="adminPeriodStart" onchange="applyAdminCustomPeriod()"/>
+    <span>→</span>
+    <input type="date" id="adminPeriodEnd" onchange="applyAdminCustomPeriod()"/>
+  </div>
 </div>
 <div class="section admin-summary-grid">
   <div class="admin-summary-card"><span>Aktivní zaměstnanci</span><strong id="adminActiveCount">—</strong><small>aktivní v posledních 3 týdnech</small></div>
@@ -3399,14 +3425,15 @@ function renderEmployeeTeamPulse(){
    box.innerHTML='<div class="notice">Týmový přehled se načte spolu s týmovou historií.</div>';
    if(summary)summary.innerHTML='';if(toggle)toggle.style.display='none';return;
  }
- const rows=adminSnapshots().slice().sort(function(a,b){
+ const pulseScope={mode:'employee-current',indices:currentSeasonIndexes(state.team.labels||[],state.team.weekMeta||null),aggregate:false,label:'Aktuální stav'};
+ const rows=adminSnapshots(pulseScope).slice().filter(function(x){return x.known>0}).sort(function(a,b){
    if(a.name===state.worker)return-1;if(b.name===state.worker)return 1;
    return a.name.localeCompare(b.name,'cs');
  });
  const full=rows.filter(function(x){return x.known>0&&x.misses===0}).length;
  const almost=rows.filter(function(x){return x.known>0&&x.misses===1}).length;
  if(summary)summary.innerHTML='<span class="good">✓ '+full+' lidí · všechna známá KPI na cíli</span><span>'+almost+' lidí · 1 KPI mimo</span><span>'+rows.length+' aktivních lidí</span>';
- setText('employeeTeamPulseMeta','Poslední dostupný týden · kliknutím otevřeš profil');
+ setText('employeeTeamPulseMeta','AKTUÁLNÍ STAV · poslední dostupné KPI v aktuální sezóně · není season average');
  const shown=employeeTeamPulseExpanded?rows:rows.slice(0,5);
  box.innerHTML=shown.map(function(x){
    const good=Math.max(0,x.known-x.misses),score=x.known?good+'/'+x.known:'—',tone=x.known&&x.misses===0?'full':x.misses<=1?'mid':'low',me=x.name===state.worker;
@@ -5021,19 +5048,67 @@ function drawStore(){
  setText('storeMeta',new Set(rows.flatMap(x=>x.labels)).size+' měsíců · '+rows.length+' metrik · oficiální Store Card'+(liveMonth?' + aktuální měsíc':''));
 }
 
-let adminTeamFilter='all',adminTeamSearch='';
+let adminTeamFilter='all',adminTeamSearch='',adminPeriodMode='current',adminPeriodStart='',adminPeriodEnd='';
 function adminMetricIndex(aliases){
  const headers=state.team?.headers||[];
  return headers.findIndex(function(h){const k=norm(h);return aliases.some(function(a){const z=norm(a);return k===z||k.includes(z)||z.includes(k)})});
 }
-function adminMetricPoint(person,aliases,offset){
+function adminPeriodScope(mode=adminPeriodMode){
+ const team=state.team,labels=team?.labels||[],all=labels.map(function(_,i){return i});
+ if(!labels.length)return{mode,indices:[],aggregate:false,label:'Bez dat'};
+ const spans=weekSpans(labels,team.weekMeta||null),f=getSeasonFrame();
+ let indices=all,aggregate=true,label='Celá historie';
+ if(mode==='current'){
+   indices=currentSeasonIndexes(labels,team.weekMeta||null);aggregate=false;label='Aktuální stav · poslední dostupné KPI v sezóně';
+ }else if(mode==='season'){
+   indices=currentSeasonIndexes(labels,team.weekMeta||null);label=f?('Aktuální sezóna · '+fmtDate(f.start)+' – '+fmtDate(f.end)):'Aktuální sezóna';
+ }else if(mode==='13'){
+   indices=all.slice(Math.max(0,all.length-13));label='Posledních 13 týdnů';
+ }else if(mode==='month'){
+   const now=new Date(),start=new Date(now.getFullYear(),now.getMonth(),1),end=new Date(now.getFullYear(),now.getMonth()+1,0);
+   indices=indicesForDateWindow(labels,team.weekMeta||null,start,end);label='Tento měsíc · '+start.toLocaleDateString('cs-CZ',{month:'long',year:'numeric'});
+ }else if(mode==='custom'){
+   const start=adminPeriodStart?dateOnly(adminPeriodStart):null,end=adminPeriodEnd?dateOnly(adminPeriodEnd):null;
+   indices=indicesForDateWindow(labels,team.weekMeta||null,start,end);label='Vlastní období · '+(adminPeriodStart||'…')+' – '+(adminPeriodEnd||'…');
+ }
+ return{mode,indices,aggregate,label,spans};
+}
+function syncAdminPeriodUi(){
+ const scope=adminPeriodScope();
+ document.querySelectorAll('.admin-period-btn').forEach(function(b){b.classList.toggle('active',b.dataset.adminPeriod===adminPeriodMode)});
+ const custom=document.getElementById('adminPeriodCustom');if(custom)custom.classList.toggle('show',adminPeriodMode==='custom');
+ const a=document.getElementById('adminPeriodStart'),b=document.getElementById('adminPeriodEnd');
+ if(a&&a.value!==adminPeriodStart)a.value=adminPeriodStart;if(b&&b.value!==adminPeriodEnd)b.value=adminPeriodEnd;
+ setText('adminPeriodLabel',scope.label);
+ return scope;
+}
+function setAdminPeriodMode(mode){
+ adminPeriodMode=mode||'current';
+ if(adminPeriodMode==='custom'&&!adminPeriodStart&&!adminPeriodEnd){
+   const f=getSeasonFrame();if(f){adminPeriodStart=personalWeekKey(f.start);adminPeriodEnd=personalWeekKey(f.end)}
+ }
+ renderAdminDashboard();
+}
+function applyAdminCustomPeriod(){
+ const a=document.getElementById('adminPeriodStart'),b=document.getElementById('adminPeriodEnd');
+ adminPeriodStart=a?.value||'';adminPeriodEnd=b?.value||'';
+ if(adminPeriodStart&&adminPeriodEnd&&adminPeriodStart>adminPeriodEnd){const x=adminPeriodStart;adminPeriodStart=adminPeriodEnd;adminPeriodEnd=x}
+ adminPeriodMode='custom';renderAdminDashboard();
+}
+function adminMetricPoint(person,aliases,offset,scope){
  const headers=state.team?.headers||[],idx=adminMetricIndex(aliases);if(idx<0||!person)return null;
- const arr=person.history?.[idx]||[];let found=0;
- for(let i=arr.length-1;i>=0;i--){const v=normalizeMetricValue(arr[i],headers[idx]);if(v==null)continue;if(found===(offset||0))return{value:v,name:headers[idx],index:i};found++}
+ const arr=person.history?.[idx]||[],cfg=scope||adminPeriodScope(),indices=(cfg.indices||[]).filter(function(i){return i>=0&&i<arr.length});
+ if(cfg.aggregate){
+   const vals=indices.map(function(i){return normalizeMetricValue(arr[i],headers[idx])}).filter(function(v){return v!=null});
+   if(!vals.length)return null;
+   return{value:vals.reduce(function(a,b){return a+b},0)/vals.length,name:headers[idx],index:indices.at(-1),count:vals.length,aggregate:true};
+ }
+ let found=0;
+ for(let z=indices.length-1;z>=0;z--){const i=indices[z],v=normalizeMetricValue(arr[i],headers[idx]);if(v==null)continue;if(found===(offset||0))return{value:v,name:headers[idx],index:i};found++}
  return null;
 }
-function adminPersonSnapshot(name,person){
- const lb=playerSeasonData(name);
+function adminPersonSnapshot(name,person,scope){
+ const lb=playerSeasonData(name),cfg=scope||adminPeriodScope();
  const defs=[
   {key:'picking',label:'Picking',aliases:['avg picking time','picking time per item','picking time'],target:2.57,lower:true},
   {key:'scanner',label:'Scanner',aliases:['items picked via scanner ratio','scanner ratio','scan to pick','scanner'],target:98,lower:false},
@@ -5041,14 +5116,15 @@ function adminPersonSnapshot(name,person){
   {key:'pofr',label:'POFR',aliases:['perfect order fulfilment ratio','perfect order fulfillment ratio','pofr'],target:98,lower:false}
  ];
  const metrics={};let known=0,misses=0;
- defs.forEach(function(d){const cur=adminMetricPoint(person,d.aliases,0),prev=adminMetricPoint(person,d.aliases,1),value=cur?.value??null;const good=value==null?null:(d.lower?value<=d.target:value>=d.target);if(good!==null){known++;if(!good)misses++}let improving=null;if(value!=null&&prev?.value!=null){const diff=value-prev.value;improving=Math.abs(diff)<.0001?null:(d.lower?diff<0:diff>0)}metrics[d.key]={...d,value,good,prev:prev?.value??null,improving}});
+ defs.forEach(function(d){const cur=adminMetricPoint(person,d.aliases,0,cfg),prev=cfg.aggregate?null:adminMetricPoint(person,d.aliases,1,cfg),value=cur?.value??null;const good=value==null?null:(d.lower?value<=d.target:value>=d.target);if(good!==null){known++;if(!good)misses++}let improving=null;if(value!=null&&prev?.value!=null){const diff=value-prev.value;improving=Math.abs(diff)<.0001?null:(d.lower?diff<0:diff>0)}metrics[d.key]={...d,value,good,prev:prev?.value??null,improving,aggregate:!!cur?.aggregate}});
  const pr=(state.storeCard?.projection?.leaderboard||[]).find(function(x){return norm(x.display_name)===norm(name)})||null;
- const status=misses>=2?'attention':misses===1?'watch':'ok',reasons=defs.filter(function(d){return metrics[d.key].good===false}).map(function(d){return d.label});
+ const status=known===0?'unknown':misses>=2?'attention':misses===1?'watch':'ok',reasons=defs.filter(function(d){return metrics[d.key].good===false}).map(function(d){return d.label});
  return{name,lb,metrics,known,misses,status,reasons,storeCard:pr};
 }
-function adminSnapshots(){
+function adminSnapshots(scope){
  if(!state.team?.people)return[];
- return Object.entries(state.team.people).map(function(x){return adminPersonSnapshot(x[0],x[1])}).sort(function(a,b){const order={attention:0,watch:1,ok:2};return(order[a.status]-order[b.status])||(Number(a.lb.rank)||999)-(Number(b.lb.rank)||999)});
+ const cfg=scope||adminPeriodScope();
+ return Object.entries(state.team.people).map(function(x){return adminPersonSnapshot(x[0],x[1],cfg)}).sort(function(a,b){const order={attention:0,watch:1,ok:2,unknown:3};return(order[a.status]-order[b.status])||(Number(a.lb.rank)||999)-(Number(b.lb.rank)||999)});
 }
 function adminKpiCell(m){
  if(!m||m.value==null)return'<span class="admin-kpi neutral">—</span>';
@@ -5056,8 +5132,8 @@ function adminKpiCell(m){
  return'<span class="admin-kpi '+cls+'">'+symbol+' '+esc(formatNormVal(m.value,m.name))+'</span>';
 }
 function setAdminTeamFilter(v){adminTeamFilter=v||'all';document.querySelectorAll('.admin-team-filter').forEach(function(b){b.classList.toggle('active',b.dataset.adminFilter===adminTeamFilter)});renderAdminDashboard()}
-function adminHealthSeries(){
- const team=state.team;if(!team?.people||!team.labels?.length)return{labels:[],values:[]};
+function adminHealthSeries(scope){
+ const team=state.team,cfg=scope||adminPeriodScope();if(!team?.people||!team.labels?.length)return{labels:[],values:[],scope:cfg};
  const specs=[
   {aliases:['avg picking time','picking time per item','picking time'],target:2.57,lower:true},
   {aliases:['items picked via scanner ratio','scanner ratio','scan to pick','scanner'],target:98,lower:false},
@@ -5065,14 +5141,17 @@ function adminHealthSeries(){
   {aliases:['perfect order fulfilment ratio','perfect order fulfillment ratio','pofr'],target:98,lower:false}
  ].map(function(x){return{...x,idx:adminMetricIndex(x.aliases)}}).filter(function(x){return x.idx>=0});
  const values=(team.labels||[]).map(function(_,wi){let good=0,total=0;Object.values(team.people||{}).forEach(function(p){specs.forEach(function(sp){const raw=p.history?.[sp.idx]?.[wi],v=normalizeMetricValue(raw,team.headers[sp.idx]);if(v==null)return;total++;if(sp.lower?v<=sp.target:v>=sp.target)good++})});return total?good/total*100:null});
- return{labels:team.labels||[],values};
+ const idx=cfg.indices||[];
+ return{labels:idx.map(function(i){return team.labels[i]}),values:idx.map(function(i){return values[i]}),scope:cfg};
 }
-function renderAdminHealthChart(){
+function renderAdminHealthChart(scope){
  const canvas=document.getElementById('adminHealthChart');if(!canvas)return;
- const d=adminHealthSeries(),pairs=d.values.map(function(v,i){return{v,i}}).filter(function(x){return x.v!=null}),latest=pairs.at(-1)?.v??null,prev=pairs.length>1?pairs.at(-2).v:null;
- setText('adminHealthValue',latest==null?'—':fmt(latest,1)+' %');setText('adminTeamHealth',latest==null?'—':fmt(latest,0)+' %');
- const delta=latest!=null&&prev!=null?latest-prev:null;setText('adminHealthDelta',delta==null?'Nedostatek dat pro změnu':((delta>=0?'↑ +':'↓ ')+fmt(delta,1)+' p. b. vs předchozí týden'));setText('adminHealthMeta',Math.min(13,d.labels.length)+' posledních týdnů');
- destroyChart('adminHealthChart');const start=Math.max(0,d.labels.length-13),labels=d.labels.slice(start).map(personalWeekLabel),values=d.values.slice(start);
+ const d=adminHealthSeries(scope),valid=d.values.filter(function(v){return v!=null}),latest=valid.at(-1)??null,prev=valid.length>1?valid.at(-2):null;
+ const display=d.scope?.aggregate&&valid.length?valid.reduce(function(a,b){return a+b},0)/valid.length:latest;
+ setText('adminHealthValue',display==null?'—':fmt(display,1)+' %');setText('adminTeamHealth',display==null?'—':fmt(display,0)+' %');
+ const delta=latest!=null&&prev!=null?latest-prev:null;setText('adminHealthDelta',delta==null?'Nedostatek dat pro změnu':((delta>=0?'↑ +':'↓ ')+fmt(delta,1)+' p. b. · poslední změna'));
+ setText('adminHealthMeta',d.scope?.label||'Vybrané období');
+ destroyChart('adminHealthChart');const labels=d.labels.map(personalWeekLabel),values=d.values;
  charts.adminHealthChart=new Chart(canvas,{type:'line',data:{labels,datasets:[{label:'KPI target hit rate',data:values,borderColor:'#35E78A',backgroundColor:'rgba(53,231,138,.09)',borderWidth:2.4,fill:true,tension:.3,pointRadius:2,spanGaps:true},{label:'80 %',data:values.map(function(v){return v==null?null:80}),borderColor:'#f59e0b',borderDash:[5,5],borderWidth:1.2,pointRadius:0,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#91a79b',maxTicksLimit:7,font:{size:8}}},y:{min:0,max:100,ticks:{color:'#91a79b',callback:function(v){return v+' %'}},grid:{color:'rgba(145,167,155,.08)'}}}}});
 }
 function adminMovementPlain(x){
@@ -5083,15 +5162,15 @@ function adminMovementPlain(x){
 function renderAdminDashboard(){
  const page=document.getElementById('page-admin');if(!page||loginRole!=='admin')return;
  if(!state.team?.people){setText('adminRosterMeta','Čekám na team history…');return}
- const snaps=adminSnapshots(),ranks=seasonRank(),pr=state.storeCard?.projection||{},scRows=Array.isArray(pr.leaderboard)?pr.leaderboard:[];
+ const scope=syncAdminPeriodUi(),snaps=adminSnapshots(scope),ranks=seasonRank(),pr=state.storeCard?.projection||{},scRows=Array.isArray(pr.leaderboard)?pr.leaderboard:[];
  setText('adminActiveCount',snaps.length);const eloVals=ranks.map(function(x){return Number(x.elo)}).filter(Number.isFinite);setText('adminAvgElo',eloVals.length?fmt(eloVals.reduce(function(a,b){return a+b},0)/eloVals.length,0):'—');setText('adminTeamEffort',pr.team_effort_estimate_percent!=null?fmt(Number(pr.team_effort_estimate_percent),1)+' %':'—');
- const cov=scRows.map(function(x){return Number(x.coverage)}).filter(Number.isFinite);setText('adminScoreCoverage',cov.length?fmt(cov.reduce(function(a,b){return a+b},0)/cov.length,0)+' %':'—');renderAdminHealthChart();
+ const cov=scRows.map(function(x){return Number(x.coverage)}).filter(Number.isFinite);setText('adminScoreCoverage',cov.length?fmt(cov.reduce(function(a,b){return a+b},0)/cov.length,0)+' %':'—');renderAdminHealthChart(scope);
  const attention=snaps.filter(function(x){return x.status!=='ok'});setText('adminAttentionCount',attention.length+' lidí');
  const al=document.getElementById('adminAttentionList');if(al)al.innerHTML=attention.slice(0,6).map(function(x){const reason=x.reasons.length?x.reasons.join(' · '):'KPI trend ke kontrole';return'<div class="admin-attention-row" data-admin-person="'+esc(x.name)+'"><div><strong>'+esc(x.name)+'</strong><span>'+esc(reason)+' · '+x.lb.elo+' ELO · #'+x.lb.rank+'</span></div><span class="admin-attention-badge">'+x.misses+' KPI mimo</span></div>'}).join('')||'<div class="notice">Žádný z hlavních KPI signálů aktuálně nevyžaduje pozornost.</div>';
  const scl=document.getElementById('adminScoreCardList');if(scl)scl.innerHTML=scRows.slice().sort(function(a,b){return Number(a.rank)-Number(b.rank)}).slice(0,5).map(function(x){return'<div class="admin-score-row" data-admin-person="'+esc(x.display_name)+'"><div>'+esc(storeCardRankLabel(x.rank))+'</div><div><strong>'+esc(x.display_name)+'</strong><small>'+esc(adminMovementPlain(x))+'</small></div><div class="admin-score-points">'+esc(liveFmt(x.points,'points'))+'</div><div class="admin-score-coverage">'+esc(x.coverage)+' %</div></div>'}).join('')||'<div class="notice">Live Store Card pořadí zatím není dostupné.</div>';
  const dist={MASTER:0,GOLD:0,SILVER:0,BRONZE:0};ranks.forEach(function(x){const t=x.tier||tier(Number(x.elo)||0)[0];if(dist[t]!=null)dist[t]++});const rd=document.getElementById('adminRankDistribution');if(rd)rd.innerHTML=[['💎','Master',dist.MASTER],['🥇','Gold',dist.GOLD],['🛡️','Silver',dist.SILVER],['🔰','Bronze',dist.BRONZE]].map(function(x){return'<div class="admin-rank-box"><i>'+x[0]+'</i><strong>'+x[2]+'</strong><span>'+x[1]+'</span></div>'}).join('');
- const search=norm(adminTeamSearch||'');let visible=snaps.filter(function(x){return(adminTeamFilter==='all'||x.status===adminTeamFilter)&&(!search||norm(x.name).includes(search))});setText('adminRosterMeta',visible.length+' / '+snaps.length+' zaměstnanců');
- const tb=document.getElementById('adminTeamRows');if(tb)tb.innerHTML=visible.map(function(x){const sc=x.storeCard,scText=sc?(liveFmt(sc.points,'points')+' · #'+sc.rank):'—',statusText=x.status==='attention'?x.misses+' KPI mimo':x.status==='watch'?'1 KPI mimo':'Na cíli';return'<tr class="'+x.status+'" data-admin-person="'+esc(x.name)+'"><td>#'+esc(x.lb.rank)+'</td><td class="admin-person-name"><strong>'+esc(x.name)+'</strong><span>'+esc(x.lb.tier||tier(Number(x.lb.elo)||0)[0])+'</span></td><td><strong>'+esc(x.lb.elo)+' ELO</strong></td><td>'+adminKpiCell(x.metrics.picking)+'</td><td>'+adminKpiCell(x.metrics.scanner)+'</td><td>'+adminKpiCell(x.metrics.missing)+'</td><td>'+adminKpiCell(x.metrics.pofr)+'</td><td>'+esc(scText)+'</td><td><span class="admin-status '+x.status+'">'+statusText+'</span></td></tr>'}).join('')||'<tr><td colspan="9" class="muted">Tomuto filtru neodpovídá žádný zaměstnanec.</td></tr>';
+ const search=norm(adminTeamSearch||'');let visible=snaps.filter(function(x){return(adminTeamFilter==='all'||x.status===adminTeamFilter)&&(!search||norm(x.name).includes(search))});setText('adminRosterMeta',visible.length+' / '+snaps.length+' zaměstnanců · '+scope.label+(scope.aggregate?' · průměr období':' · poslední dostupné KPI'));
+ const tb=document.getElementById('adminTeamRows');if(tb)tb.innerHTML=visible.map(function(x){const sc=x.storeCard,scText=sc?(liveFmt(sc.points,'points')+' · #'+sc.rank):'—',statusText=x.status==='unknown'?'Bez dat':x.status==='attention'?x.misses+' KPI mimo':x.status==='watch'?'1 KPI mimo':'Na cíli';return'<tr class="'+x.status+'" data-admin-person="'+esc(x.name)+'"><td>#'+esc(x.lb.rank)+'</td><td class="admin-person-name"><strong>'+esc(x.name)+'</strong><span>'+esc(x.lb.tier||tier(Number(x.lb.elo)||0)[0])+'</span></td><td><strong>'+esc(x.lb.elo)+' ELO</strong></td><td>'+adminKpiCell(x.metrics.picking)+'</td><td>'+adminKpiCell(x.metrics.scanner)+'</td><td>'+adminKpiCell(x.metrics.missing)+'</td><td>'+adminKpiCell(x.metrics.pofr)+'</td><td>'+esc(scText)+'</td><td><span class="admin-status '+x.status+'">'+statusText+'</span></td></tr>'}).join('')||'<tr><td colspan="9" class="muted">Tomuto filtru neodpovídá žádný zaměstnanec.</td></tr>';
  document.querySelectorAll('#page-admin [data-admin-person]').forEach(function(el){el.onclick=function(){openDetail(el.getAttribute('data-admin-person')).catch(function(e){console.warn(e)})}});
 }
 async function openPage(page){if(loginRole!=='admin'&&(page==='correlation'||page==='admin'))return;document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-'+page).classList.add('active');document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));if(page==='personal'){if(!state.history)state.history=await api('player_history',{worker:state.worker});if(!state.team){try{state.team=await api('team_history')}catch(e){console.warn('team_history for personal average',e)}}buildMetricCards();renderPersonalFriendlySummary();}if(page==='admin'){await ensureTeam();renderAdminDashboard()}if(page==='home'){renderHome(); if(!state.team) ensureTeam().catch(()=>{}); if(!state.storeHistory) ensureStores().catch(()=>{}); refreshLiveArenaIfStale(false).catch(function(e){console.warn('Home live refresh',e)})}if(page==='efficiency'){renderStoreCardLive()}if(page==='bonuses'){try{state.storeCard=await loadStoreCardLive(state.worker,{force:true})}catch(e){console.warn('fresh bonus wallet reload',e)}renderStoreCardLive()}if(page==='achievements'){renderAchievements(); if(!state.team) ensureTeam().catch(()=>{}); if(!state.storeHistory) ensureStores().catch(()=>{})} if(page==='team'){await ensureTeam();await loadUnifiedArenaData();await renderTeam()}if(page==='correlation'){await loadUnifiedArenaData();await renderCorrelation()}if(page==='bottlenecks'){await loadUnifiedArenaData();await renderBottlenecks()}if(page==='leaderboard'){if(state.lbMode==='people'){await ensureTeam();if(state.worker){try{state.storeCard=await loadStoreCardLive(state.worker,{force:true})}catch(e){console.warn('live leaderboard refresh',e)}}}else{await loadUnifiedArenaData();await ensureStores()}state.leaderMetric=null;renderLeaderboard()}if(page==='store'){await loadUnifiedArenaData();await ensureStores();renderStoreCardLive();drawStore();renderStoreQuests().catch(()=>{})}}
