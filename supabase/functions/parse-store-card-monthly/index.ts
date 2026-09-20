@@ -383,32 +383,26 @@ function parseRewards(layout:any[],people:any[],period:any,knownPeople:any[]=[])
 
   // The result table itself marks TOP 1-5 with medals. Use that as the
   // authoritative rank so bonus decomposition does not depend on amount ordering.
-  const topRankByPerson=new Map<string,number>();
-  const rankingTop5:any[]=[];
+  // The visible Results table is already sorted by score. Red/struck rows are
+  // disqualified for rewards and must not consume a TOP rank slot.
+  const resultRows:any[]=[];
   for(const r of rows){
     const sourceName=txt(r,75,185);
-    const medal=txt(r,200,230);
-    let rank:number|null=null;
-    if(/🥇/.test(medal))rank=1;
-    else if(/🥈/.test(medal))rank=2;
-    else if(/🥉/.test(medal))rank=3;
-    else {
-      const badges=(medal.match(/🏅/g)||[]).length;
-      if(badges>=2)rank=4;
-      else if(badges===1)rank=5;
-    }
-    if(!rank||!sourceName)continue;
+    const score=val(r,185,215);
+    if(!sourceName||score==null)continue;
+    if(/GA name|Venue Name|Team effort|tablet|Exter\d*|restaurant-api/i.test(sourceName))continue;
     const pid=resolveName(sourceName);
-    const totalPoints=val(r,185,205);
-    rankingTop5.push({
-      rank,
-      source_name:sourceName,
-      person_id:pid,
-      total_points:totalPoints
+    const red=(r.items||[]).some((i:any)=>{
+      const x=center(i);
+      return x>=75&&x<185&&i.red_bg===true;
     });
-    if(pid)topRankByPerson.set(String(pid),rank);
+    resultRows.push({source_name:sourceName,person_id:pid,total_points:Number(score),ineligible:red});
   }
-  rankingTop5.sort((a:any,b:any)=>Number(a.rank)-Number(b.rank));
+
+  const eligibleRanking=resultRows.filter((x:any)=>!x.ineligible).slice(0,5);
+  const rankingTop5=eligibleRanking.map((x:any,i:number)=>({...x,rank:i+1}));
+  const topRankByPerson=new Map<string,number>();
+  for(const x of rankingTop5)if(x.person_id)topRankByPerson.set(String(x.person_id),Number(x.rank));
 
   // Official payout table on page 1. Match payout names to canonical person_id.
   // Keep coordinates broad enough for Jan-Aug layouts, then validate by canonical name.
@@ -511,6 +505,7 @@ function parseRewards(layout:any[],people:any[],period:any,knownPeople:any[]=[])
   return {
     top_bonus_czk,team_effort_pct,team_bonus_40h,team_bonus_30h,team_bonus_rules,monthly_threshold_points,payouts,
     ranking_top5:rankingTop5,
+    result_rows:resultRows,
     color_eligibility_detected:colorAware,
     ineligible_people:payouts.filter((x:any)=>x.bonus_eligible===false).map((x:any)=>x.display_name),
     payout_match_count:payouts.length
@@ -840,6 +835,120 @@ function mergeRewards(base:any,textParsed:any){
   };
 }
 
+function monthDistance(a:any,b:any){
+  const pa=String(a||"").slice(0,7).split("-").map(Number),pb=String(b||"").slice(0,7).split("-").map(Number);
+  if(pa.length<2||pb.length<2||!pa[0]||!pb[0])return 9999;
+  return Math.abs((pa[0]*12+pa[1])-(pb[0]*12+pb[1]));
+}
+
+async function applyFormulaPayoutFallback(db:any,rewards:any,knownPeople:any[],period:any){
+  const teamExists=rewards?.team_bonus_exists!==false;
+  if(!teamExists)return rewards;
+
+  // If the PDF has a real person->amount payout table, keep it. April-style cards do
+  // not have that table; the old parser used to false-match numbers from Team Bonus.
+  const textMatches=Number(rewards?.reward_text_diagnostics?.matched_payouts||0);
+  if(textMatches>=3)return rewards;
+
+  const rows=(rewards?.result_rows||[]).filter((x:any)=>x.person_id);
+  if(!rows.length)return rewards;
+
+  const kpById=new Map((knownPeople||[]).map((p:any)=>[String(p.id),p]));
+  const activeRows=rows.filter((x:any)=>{
+    const kp=kpById.get(String(x.person_id));
+    return kp&&kp.active===true;
+  });
+  if(!activeRows.length)return rewards;
+
+  const ids=[...new Set(activeRows.map((x:any)=>String(x.person_id)))];
+  const {data:history,error:he}=await db.from("bonus_ledger")
+    .select("person_id,bonus_month,status,metadata")
+    .in("person_id",ids)
+    .in("status",["confirmed","paid"])
+    .eq("source_type","store_card_monthly");
+  if(he)throw new Error("Bonus band history lookup failed: "+he.message);
+
+  const bandByPerson=new Map<string,{band:string,month:string,distance:number}>();
+  for(const h of history||[]){
+    const band=h?.metadata?.payout_decomposition?.hours_band;
+    if(band!=="30h"&&band!=="40h")continue;
+    const dist=monthDistance(h.bonus_month,period?.period_start);
+    const key=String(h.person_id);
+    const old=bandByPerson.get(key);
+    if(!old||dist<old.distance||(dist===old.distance&&String(h.bonus_month)<old.month)){
+      bandByPerson.set(key,{band,month:String(h.bonus_month),distance:dist});
+    }
+  }
+
+  const rankByPerson=new Map((rewards?.ranking_top5||[])
+    .filter((x:any)=>x.person_id)
+    .map((x:any)=>[String(x.person_id),Number(x.rank)]));
+  const top=Array.isArray(rewards?.top_bonus_czk)?rewards.top_bonus_czk.map(Number):[];
+  const rules=rewards?.team_bonus_rules||{};
+  const selected40=Number(rules.selected_40h_czk??rewards?.team_bonus_40h);
+  const selected30=Number(rules.selected_30h_czk??rewards?.team_bonus_30h);
+  const selectedTier=rules.selected_tier??null;
+
+  const payouts:any[]=[];
+  for(const row of activeRows){
+    const pid=String(row.person_id),kp=kpById.get(pid)||{};
+    const rank=rankByPerson.get(pid)||null;
+    const topAmount=rank?Number(top[rank-1]||0):0;
+
+    let band:string="none",teamAmount=0,eligible=false,bandSource="none";
+    if(!row.ineligible&&kp.team_effort_eligible!==false&&String(kp.employment_type||"").toUpperCase()==="HPP"){
+      const hist=bandByPerson.get(pid);
+      if(hist){
+        band=hist.band;bandSource="nearest_confirmed_store_card_"+hist.month;
+      }else{
+        // Safe fallback for HPP when no historical decomposition exists.
+        band="40h";bandSource="hpp_default_40h";
+      }
+      teamAmount=band==="30h"?(Number.isFinite(selected30)?selected30:0):(Number.isFinite(selected40)?selected40:0);
+      eligible=true;
+    }
+
+    const amount=topAmount+teamAmount;
+    payouts.push({
+      person_id:pid,
+      email:null,
+      display_name:kp.full_name||kp.display_name||row.source_name,
+      source_name:row.source_name,
+      confirmed_bonus_czk:amount,
+      bonus_eligible:eligible,
+      eligibility_source:row.ineligible?"official_store_card_red_cell":eligible?"computed_store_card_formula":"not_team_bonus_eligible",
+      top_rank:rank,
+      payout_decomposition:{
+        top_rank:rank,
+        top_bonus_czk:topAmount,
+        team_bonus_czk:teamAmount,
+        hours_band:band,
+        team_tier:selectedTier,
+        rule_match:true,
+        hours_band_source:bandSource
+      },
+      payout_decomposition_candidates:[],
+      payout_rule_match:true,
+      payout_match_source:"store_card_formula_fallback"
+    });
+  }
+
+  return {
+    ...rewards,
+    payouts,
+    payout_match_count:payouts.length,
+    computed_formula_fallback:true,
+    reward_parse_source:"ranking+team_formula",
+    reward_text_diagnostics:{
+      ...(rewards.reward_text_diagnostics||{}),
+      formula_fallback:true,
+      formula_people:payouts.length,
+      formula_names:payouts.map((p:any)=>p.display_name),
+      ignored_inactive_people:rows.filter((x:any)=>kpById.get(String(x.person_id))?.active!==true).map((x:any)=>x.source_name)
+    }
+  };
+}
+
 function parseMaxima(layout:any[]){
   const page=layout.find((p:any)=>(p.items||[]).some((i:any)=>String(i.text).trim()==="AO-AS"));
   if(!page)return null;
@@ -969,7 +1078,7 @@ async function resolvePeople(db:any,people:any[]){
  const [{data:ea,error:ee},{data:pa,error:pe},{data:peopleRows,error:pde}]=await Promise.all([
   emails.length?db.from("person_aliases").select("person_id,alias_type,alias_value,normalized_value").eq("alias_type","email").in("normalized_value",emails):Promise.resolve({data:[],error:null}),
   pickers.length?db.from("person_aliases").select("person_id,alias_type,alias_value,normalized_value").eq("alias_type","picker_username").in("normalized_value",pickers):Promise.resolve({data:[],error:null}),
-  db.from("people").select("id,display_name,full_name")
+  db.from("people").select("id,display_name,full_name,active,employment_type,team_effort_eligible")
  ]);
  if(ee)throw new Error("Email alias lookup failed: "+ee.message);
  if(pe)throw new Error("Picker alias lookup failed: "+pe.message);
@@ -1092,11 +1201,12 @@ Deno.serve(async req=>{
 
   const rewardsLayout=parseRewards(layout,people,period,knownPeople||[]);
   const rewardsText=parseRewardsText(extractedText,people,knownPeople||[],rewardsLayout);
-  const rewards=mergeRewards(rewardsLayout,rewardsText);
+  let rewards=mergeRewards(rewardsLayout,rewardsText);
   const maxima=parseMaxima(layout);
   const stores=parseStoreMetrics(layout);
 
   const resolved=await resolvePeople(db,people);
+  rewards=await applyFormulaPayoutFallback(db,rewards,knownPeople||[],period);
   const conflicts=resolved.filter((x:any)=>x.identity_conflict).map((x:any)=>({email:x.email,picker_login:x.picker_login,display_name:x.display_name}));
   const matched=resolved.filter((x:any)=>x.identity_state==="matched").length;
   const newHistorical=resolved.filter((x:any)=>x.identity_state==="new_historical").map((x:any)=>({email:x.email,picker_login:x.picker_login,display_name:x.display_name}));
@@ -1137,7 +1247,7 @@ Deno.serve(async req=>{
   };
 
   if(mode==="preview"){
-   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v19",
+   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v20",
     note:"Preview only. Existing identities are resolved by email/picker login. New historical people are shown before commit."});
   }
 
@@ -1226,7 +1336,7 @@ Deno.serve(async req=>{
    team_bonus_30h_czk:rewards.team_bonus_30h,
    source_import_id:import_id,
    status:"official",
-   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v19",filename:imp.filename,bonus_rules:{top_bonus_czk:rewards.top_bonus_czk||[],team_bonus:rewards.team_bonus_rules||null}},
+   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v20",filename:imp.filename,bonus_rules:{top_bonus_czk:rewards.top_bonus_czk||[],team_bonus:rewards.team_bonus_rules||null}},
    updated_at:new Date().toISOString()
   };
   const {error:sce}=await db.from("store_card_months").upsert(monthRow,{onConflict:"month"});
@@ -1304,7 +1414,7 @@ Deno.serve(async req=>{
    status:"imported",
    period_start:period.period_start,
    period_end:period.period_end,
-   parser_version:"store-card-monthly-v19",
+   parser_version:"store-card-monthly-v20",
    record_count:totalRecords,
    metadata:{
     ...(imp.metadata||{}),
@@ -1322,7 +1432,7 @@ Deno.serve(async req=>{
    ...common,
    preview:false,
    committed:true,
-   parser_stage:"store-card-monthly-committed-v19",
+   parser_stage:"store-card-monthly-committed-v20",
    observations_attempted:obs.length,
    observations_inserted:obsWritten,
    store_metrics_attempted:storeRows.length,
