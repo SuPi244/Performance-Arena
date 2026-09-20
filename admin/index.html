@@ -682,27 +682,61 @@ document.addEventListener('click',async e=>{
   item.state='parsing';renderBatch();
   const src=await sourcePayload(item);
   const payload=Object.assign({import_id:item.import_id,mode:'preview'},src);
-  try{
-   item.preview=await edge(PARSERS[item.report_type],payload);
-  }catch(err){
-   const semanticParseFailure=Number(err&&err.status)===422;
-   const canFallback=semanticParseFailure&&item.report_type!=='universal_metrics'&&item.report_type!=='quinyx'&&item.report_type!=='team_rating'&&item.report_type!=='store_card_monthly';
-   if(!canFallback)throw err;
-   const from=item.report_type;
-   const originalError=err&&err.message||String(err);
-   const universalPreview=await edge(PARSERS.universal_metrics,payload);
-   item.fallback_from=from;
-   item.report_type='universal_metrics';
-   item.preview=universalPreview;
-   item.preview.fallback_from=from;
-   item.preview.fallback_reason=originalError;
-   const up=await sb.from('imports').update({report_type:'universal_metrics',parser_version:'universal-fallback-v1'}).eq('id',item.import_id);
-   if(up.error)throw up.error;
-  }
+  if(item.forced_date)payload.forced_date=item.forced_date;
+  item.preview=await edge(PARSERS[item.report_type],payload);
+  item.fallback_from=null;
   const pf=await status('preflight',{report_type:item.report_type,preview:item.preview});
   item.preflight=pf.preflight;
   item.state='ready';
   return item;
+ }
+ function dailySeq(name){
+  const m=String(name||'').match(/Daily Picking Data.*?\((\d+)\)\.pdf$/i);
+  return m?Number(m[1]):null;
+ }
+ function isoDayNumber(v){
+  const t=Date.parse(String(v||'')+'T12:00:00Z');return Number.isFinite(t)?Math.round(t/86400000):null;
+ }
+ function dayFromNumber(n){return new Date(n*86400000).toISOString().slice(0,10)}
+ async function retryMissingDailyDates(){
+  const good=batch.filter(function(x){return x.report_type==='daily_picking'&&x.preview&&x.preview.period_start&&dailySeq(x.file&&x.file.name)!=null});
+  let fixed=0;
+  for(const item of batch){
+   if(item.report_type!=='daily_picking'||item.state!=='error'||!/date could not be inferred|No explicit metric date/i.test(String(item.error||'')))continue;
+   const n=dailySeq(item.file&&item.file.name);if(n==null)continue;
+   const lo=good.find(function(x){return dailySeq(x.file&&x.file.name)===n-1});
+   const hi=good.find(function(x){return dailySeq(x.file&&x.file.name)===n+1});
+   if(!lo||!hi)continue;
+   const a=isoDayNumber(lo.preview.period_start),b=isoDayNumber(hi.preview.period_start);
+   if(a==null||b==null||Math.abs(a-b)!==2)continue;
+   item.forced_date=dayFromNumber((a+b)/2);
+   item.date_inferred_from_neighbors=true;
+   item.error=null;item.state='staged';
+   try{
+    await preview(item);
+    const s=item.preflight&&item.preflight.summary||{};
+    if(item.skipCommit&&Number(s.new||0)===0&&Number(s.changed||0)===0)item.state='duplicate';
+    else if(Number(s.new||0)>0||Number(s.changed||0)>0)item.skipCommit=false;
+    fixed++;
+   }catch(e){item.state='error';item.error=e.message||String(e)}
+   renderBatch();
+  }
+  return fixed;
+ }
+ async function applyDailyDate(btn){
+  const i=Number(btn.dataset.item),item=batch[i];
+  const root=btn.closest('.bulk-details')||btn.parentElement;
+  const input=root&&root.querySelector('.dailyDateInput');
+  const date=input&&input.value;
+  if(!item||!/^20\d{2}-\d{2}-\d{2}$/.test(String(date||'')))return msg($('#uploadStatus'),'Vyber platné datum Daily Picking reportu.','err');
+  const old=btn.textContent;btn.disabled=true;btn.textContent='Přepočítávám…';
+  try{
+   item.report_type='daily_picking';item.forced_date=date;item.error=null;item.state='staged';
+   await sb.from('imports').update({report_type:'daily_picking',parser_version:'datahub-v153-date-override'}).eq('id',item.import_id);
+   await preview(item);
+   msg($('#uploadStatus'),'Daily Picking datum nastaveno na '+date+' ✓ Preview je přepočítané.','ok');
+  }catch(e){item.state='error';item.error=e.message||String(e);msg($('#uploadStatus'),'Datum se nepodařilo použít: '+(e.message||e),'err')}
+  finally{btn.disabled=false;btn.textContent=old;renderBatch()}
  }
  async function ensureIdentityPeople(){
   if(identityPeople.length)return identityPeople;
@@ -736,13 +770,18 @@ document.addEventListener('click',async e=>{
   if(!item||!alias||!person_id)return msg($('#uploadStatus'),'Vyber člověka, ke kterému identita patří.','err');
   const old=btn.textContent;btn.disabled=true;btn.textContent='Ukládám…';
   try{
-   await status('resolve_identity',{alias:alias,alias_type:alias_type||undefined,person_id:person_id,report_type:item.report_type});
+   const resolved=await status('resolve_identity',{alias:alias,alias_type:alias_type||undefined,person_id:person_id,report_type:item.report_type});
    item.error=null;item.state='staged';
    await preview(item);
+   const still=(item.preflight&&item.preflight.conflict_details||[]).some(function(z){
+    const av=String(z.alias_value||String(z.key||'').replace(/^identity:/,'')||'');
+    return compactIdentity(av)===compactIdentity(alias);
+   });
+   if(still)throw new Error('Alias byl uložen, ale parser ho po přepočtu stále nevyřešil.');
    const s=item.preflight&&item.preflight.summary||{};
    if(item.skipCommit&&Number(s.new||0)===0&&Number(s.changed||0)===0)item.state='duplicate';
    else if(Number(s.new||0)>0||Number(s.changed||0)>0)item.skipCommit=false;
-   msg($('#uploadStatus'),'Identita potvrzena ✓ Alias je uložený trvale a preview se přepočítalo.','ok');
+   msg($('#uploadStatus'),'Identita potvrzena ✓ Preview ji už nehlásí jako konflikt'+(resolved&&resolved.resolved_rows?' · reconciliation '+resolved.resolved_rows+'×':'')+'.','ok');
   }catch(e){msg($('#uploadStatus'),'Potvrzení identity selhalo: '+(e.message||e),'err')}
   finally{btn.disabled=false;btn.textContent=old;renderBatch()}
  }
@@ -779,7 +818,12 @@ document.addEventListener('click',async e=>{
    let state=x.state==='loading'?'staging…':x.state==='staged'?'staged':x.state==='parsing'?'preview…':x.state==='committing'?'importuji…':x.state==='ready'?(s.conflicts?'blokováno':'připraveno ✓'):x.state==='done'?'importováno ✓':x.state==='duplicate'?'beze změny ✓':x.state==='skipped'?'vynecháno':'chyba';
    let cls=x.state==='error'||s.conflicts?'err':(x.state==='ready'||x.state==='done'||x.state==='duplicate'?'ok':'muted');
    let details='';
-   if(x.error)details='<div class="err">'+esc(x.error)+'</div>';
+   if(x.error){
+    details='<div class="err">'+esc(x.error)+'</div>';
+    if(x.report_type==='daily_picking'&&/date could not be inferred|No explicit metric date/i.test(String(x.error||''))){
+     details+='<div class="bulk-details" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="warn">Daily Picking nemá datum v PDF. Pokud ho nejde bezpečně dopočítat ze sousedních reportů, zadej ho ručně:</span><input class="dailyDateInput" type="date" value="'+esc(x.forced_date||'')+'"><button class="secondary dailyDateApply" data-item="'+batch.indexOf(x)+'">Použít datum</button></div>';
+    }
+   }
    else if(x.preflight){
     const changes=x.preflight.changes||[],conf=x.preflight.conflict_details||[],warn=x.preflight.warning_details||[];
     if(changes.length||conf.length||warn.length){
@@ -852,8 +896,9 @@ document.addEventListener('click',async e=>{
    if(seen.has(x.id))continue;seen.add(x.id);
    if(ext(x.filename)!=='pdf')continue;
    const file={name:x.filename,size:Number(x.metadata&&x.metadata.size||0),type:String(x.metadata&&x.metadata.mime||'application/pdf')};
-   let report_type=PARSERS[x.report_type]?x.report_type:null;
-   if(!report_type){try{report_type=supportedReport(file)}catch(_){report_type='universal_metrics'}}
+   let detected=null;try{detected=supportedReport(file)}catch(_){}
+   let report_type=PARSERS[x.report_type]?x.report_type:(detected||'universal_metrics');
+   if(x.parser_version==='universal-fallback-v1'&&detected&&detected!=='universal_metrics')report_type=detected;
    if(x.status==='imported'&&x.parser_version==='store-card-monthly-v2')report_type='store_card_monthly';
    loaded.push({
     file:file,hash:x.file_hash,report_type:report_type,import_id:x.id,storage_path:x.storage_path,
@@ -904,9 +949,10 @@ document.addEventListener('click',async e=>{
     }catch(e){item.state='error';item.error=e.message||String(e)}
     renderBatch();
    }
+   const inferredDates=await retryMissingDailyDates();
    const total=batchSummary(),hasErr=batch.some(function(x){return x.state==='error'});
-   if(hasErr||total.conflicts)msg($('#uploadStatus'),'Analýza hotová, ale některé soubory mají chybu/konflikt. Identity můžeš potvrdit přímo níže; import zůstává zablokovaný.','err');
-   else msg($('#uploadStatus'),'2/3 Analýza hotová ✓ Celý bulk je připravený k importu.','ok');
+   if(hasErr||total.conflicts)msg($('#uploadStatus'),'Analýza hotová'+(inferredDates?' · '+inferredDates+' Daily Picking datum bezpečně dopočítáno ze sousedních exportů':'')+', ale některé soubory mají chybu/konflikt. Oprav je přímo níže nebo soubor vynech.','err');
+   else msg($('#uploadStatus'),'2/3 Analýza hotová ✓'+(inferredDates?' '+inferredDates+' Daily Picking datum bylo dopočítáno ze sousedních exportů.':'')+' Celý bulk je připravený k importu.','ok');
   }finally{busy=false;renderBatch();await refresh()}
  }
  async function commitBatch(){
@@ -930,7 +976,9 @@ document.addEventListener('click',async e=>{
     item.state='committing';item.error=null;renderBatch();
     try{
      const src=await sourcePayload(item);
-     item.result=await edge(PARSERS[item.report_type],Object.assign({import_id:item.import_id,mode:'commit'},src));
+     const commitPayload=Object.assign({import_id:item.import_id,mode:'commit'},src);
+     if(item.forced_date)commitPayload.forced_date=item.forced_date;
+     item.result=await edge(PARSERS[item.report_type],commitPayload);
      try{item.result.audit=(await status('import_result',{import_id:item.import_id})).result}catch(_){}
      item.state='done';imported++;
     }catch(e){
@@ -976,6 +1024,7 @@ document.addEventListener('click',async e=>{
     }
     return;
    }
+   const dateBtn=e.target.closest('.dailyDateApply');if(dateBtn){applyDailyDate(dateBtn);return}
    const confirm=e.target.closest('.identityConfirm');if(confirm){confirmIdentity(confirm);return}
    const ignore=e.target.closest('.identityIgnore');if(ignore){ignoreIdentity(ignore);return}
   });
@@ -1017,14 +1066,14 @@ document.addEventListener('click',async e=>{
  }
  function setupCoverage(){
   const card=coverageCard();if(!card)return;
-  card.innerHTML='<div class="coverage-top"><div><h2 style="margin-bottom:4px">Data Coverage <span class="v152-badge">V153</span></h2><p class="muted" style="margin-bottom:0">% = skutečně zapsané časové pokrytí ve zvoleném měsíci. Pod každým zdrojem vidíš i pokrytí typů metrik, historii a staged soubory, které se ještě nepočítají.</p></div><div class="field"><label>Měsíc · detail</label><input id="coverageMonth" type="month" value="'+localMonth()+'"></div></div>'+
+  card.innerHTML='<div class="coverage-top"><div><h2 style="margin-bottom:4px">Data Coverage <span class="v152-badge">V154</span></h2><p class="muted" style="margin-bottom:0">% = skutečně zapsané časové pokrytí ve zvoleném měsíci. Pod každým zdrojem vidíš i pokrytí typů metrik, historii a staged soubory, které se ještě nepočítají.</p></div><div class="field"><label>Měsíc · detail</label><input id="coverageMonth" type="month" value="'+localMonth()+'"></div></div>'+
    '<div style="display:flex;align-items:baseline;gap:10px;margin:14px 0"><span id="coverageOverall" class="coverage-overall">—</span><span id="coverageThrough" class="muted"></span></div><div id="coverageSources"></div>';
   $('#coverageMonth').onchange=loadCoverage;
  }
  function setup(){
   if(window.__datahubV152)return;window.__datahubV152=true;
-  document.title='Performance Arena — Data Hub V153';
-  const small=document.querySelector('.brand small');if(small&&!/V15[23]/.test(small.textContent))small.innerHTML+= ' <span class="v152-badge">V153</span>';
+  document.title='Performance Arena — Data Hub V154';
+  const small=document.querySelector('.brand small');if(small&&!/V15[234]/.test(small.textContent))small.innerHTML+= ' <span class="v152-badge">V154</span>';
   setupUpload();setupCoverage();renderBatch();
   ensureIdentityPeople().then(renderBatch).catch(function(){});
   sb.auth.onAuthStateChange(function(_event,s){if(s)setTimeout(loadCoverage,50)});
