@@ -1472,12 +1472,54 @@ html[data-theme="light"] .admin-hero{background:linear-gradient(145deg,#f6fbf8,#
 </style>
 
 
-<style id="employee-team-pulse-v183">
-.employee-team-pulse-section{overflow:hidden}.employee-team-pulse-summary{display:flex;gap:7px;flex-wrap:wrap;margin:4px 0 10px}.employee-team-pulse-summary span{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:999px;padding:6px 8px;font-size:7.5px;font-weight:900;color:var(--muted);background:rgba(255,255,255,.018)}.employee-team-pulse-summary span.good{color:#86efac;border-color:rgba(34,197,94,.22);background:rgba(34,197,94,.07)}
-.employee-team-pulse-list{display:grid;gap:6px}.employee-pulse-row{display:grid;grid-template-columns:minmax(150px,1.3fr) repeat(4,minmax(75px,.65fr)) minmax(82px,.55fr);gap:7px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:9px 10px;background:rgba(255,255,255,.016);cursor:pointer;transition:.16s ease}.employee-pulse-row:hover{border-color:rgba(53,231,138,.25);transform:translateY(-1px)}.employee-pulse-row.me{border-color:rgba(53,231,138,.28);background:rgba(53,231,138,.045)}.employee-pulse-name strong{display:block;font-size:9px}.employee-pulse-name span{display:block;font-size:7px;color:var(--muted);margin-top:2px}.employee-pulse-kpi{display:flex;align-items:center;gap:5px;font-size:7.5px;font-weight:850;white-space:nowrap}.employee-pulse-kpi i{width:7px;height:7px;border-radius:50%;background:#64748b;box-shadow:0 0 0 3px rgba(100,116,139,.08)}.employee-pulse-kpi.good{color:#86efac}.employee-pulse-kpi.good i{background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.10)}.employee-pulse-kpi.bad{color:#fca5a5}.employee-pulse-kpi.bad i{background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.10)}.employee-pulse-score{justify-self:end;font-size:8px;font-weight:950;padding:5px 7px;border-radius:999px;border:1px solid var(--line);white-space:nowrap}.employee-pulse-score.full{color:#86efac;border-color:rgba(34,197,94,.22);background:rgba(34,197,94,.08)}.employee-pulse-score.mid{color:#fcd34d;border-color:rgba(245,158,11,.20);background:rgba(245,158,11,.07)}.employee-pulse-score.low{color:#fca5a5;border-color:rgba(239,68,68,.20);background:rgba(239,68,68,.07)}.employee-team-pulse-actions{text-align:center;margin-top:9px}.employee-team-pulse-actions .tool{min-width:150px}
+<style id="employee-team-pulse-v185">
+.employee-team-pulse-section{overflow:hidden}
+.employee-team-pulse-summary{display:flex;gap:7px;flex-wrap:wrap;margin:4px 0 12px}
+.employee-team-pulse-summary span{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:999px;padding:6px 8px;font-size:7.5px;font-weight:900;color:var(--muted);background:rgba(255,255,255,.018)}
+.employee-team-pulse-summary span.good{color:#86efac;border-color:rgba(34,197,94,.22);background:rgba(34,197,94,.07)}
+.employee-team-pulse-table{width:100%;max-width:1900px;margin:0 auto}
+.employee-pulse-header,.employee-pulse-row{display:grid;grid-template-columns:minmax(190px,1.25fr) repeat(4,minmax(120px,.72fr)) minmax(115px,.58fr);gap:10px;align-items:center}
+.employee-pulse-header{padding:0 14px 8px;color:var(--muted)}
+.employee-pulse-header>div{min-width:0}
+.employee-pulse-header strong{display:block;font-size:7.5px;font-weight:1000;letter-spacing:.08em;color:#c8d9cf}
+.employee-pulse-header small{display:block;font-size:6.5px;line-height:1.3;margin-top:3px;color:var(--muted)}
+.employee-pulse-header .score-head{text-align:right}
+.employee-team-pulse-list{display:grid;gap:7px}
+.employee-pulse-row{border:1px solid var(--line);border-radius:13px;padding:11px 14px;background:rgba(255,255,255,.016);cursor:pointer;transition:.16s ease}
+.employee-pulse-row:hover{border-color:rgba(53,231,138,.25);transform:translateY(-1px);background:rgba(53,231,138,.025)}
+.employee-pulse-row.me{border-color:rgba(53,231,138,.31);background:rgba(53,231,138,.05)}
+.employee-pulse-name strong{display:block;font-size:10px}.employee-pulse-name span{display:block;font-size:7px;color:var(--muted);margin-top:3px}
+.employee-pulse-kpi{display:flex;align-items:center;gap:7px;font-size:9px;font-weight:950;white-space:nowrap}
+.employee-pulse-kpi i{flex:0 0 auto;width:7px;height:7px;border-radius:50%;background:#64748b;box-shadow:0 0 0 3px rgba(100,116,139,.08)}
+.employee-pulse-kpi.good{color:#86efac}.employee-pulse-kpi.good i{background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.10)}
+.employee-pulse-kpi.bad{color:#fca5a5}.employee-pulse-kpi.bad i{background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.10)}
+.employee-pulse-score{justify-self:end;font-size:8px;font-weight:950;padding:6px 8px;border-radius:999px;border:1px solid var(--line);white-space:nowrap}
+.employee-pulse-score.full{color:#86efac;border-color:rgba(34,197,94,.22);background:rgba(34,197,94,.08)}
+.employee-pulse-score.mid{color:#fcd34d;border-color:rgba(245,158,11,.20);background:rgba(245,158,11,.07)}
+.employee-pulse-score.low{color:#fca5a5;border-color:rgba(239,68,68,.20);background:rgba(239,68,68,.07)}
+.employee-team-pulse-actions{text-align:center;margin-top:10px}.employee-team-pulse-actions .tool{min-width:150px}
 html[data-theme="light"] .employee-pulse-row{background:#f8fbf9}
-@media(max-width:900px){.employee-team-pulse-list{overflow-x:auto}.employee-pulse-row{min-width:760px}}
-@media(min-width:1800px){.employee-pulse-row{padding:12px 14px}.employee-pulse-name strong{font-size:11px}.employee-pulse-kpi{font-size:9px}.employee-pulse-score{font-size:9px}}
+html[data-theme="light"] .employee-pulse-header strong{color:#52665a}
+@media(max-width:1100px){
+ .employee-team-pulse-table{overflow-x:auto;padding-bottom:3px}
+ .employee-pulse-header,.employee-pulse-row{min-width:900px}
+}
+@media(max-width:700px){
+ .employee-pulse-header{display:none}
+ .employee-team-pulse-table{overflow:visible}
+ .employee-pulse-row{min-width:0;grid-template-columns:1fr 1fr;gap:9px;padding:12px}
+ .employee-pulse-name{grid-column:1/-1;padding-bottom:6px;border-bottom:1px solid var(--line)}
+ .employee-pulse-kpi{display:grid;grid-template-columns:auto 1fr;position:relative;padding-top:14px}
+ .employee-pulse-kpi:before{content:attr(data-label);position:absolute;top:0;left:0;font-size:6.5px;font-weight:900;letter-spacing:.06em;color:var(--muted)}
+ .employee-pulse-score{grid-column:1/-1;justify-self:start;margin-top:3px}
+}
+@media(min-width:1800px){
+ .employee-team-pulse-table{max-width:2100px}
+ .employee-pulse-header,.employee-pulse-row{grid-template-columns:minmax(240px,1.25fr) repeat(4,minmax(145px,.72fr)) minmax(140px,.58fr);gap:14px}
+ .employee-pulse-header strong{font-size:9px}.employee-pulse-header small{font-size:7.5px}
+ .employee-pulse-row{padding:14px 16px}.employee-pulse-name strong{font-size:12px}.employee-pulse-name span{font-size:8px}
+ .employee-pulse-kpi{font-size:11px}.employee-pulse-score{font-size:10px;padding:7px 9px}
+}
 </style>
 
 
@@ -1504,7 +1546,7 @@ html[data-theme="light"] .employee-pulse-row{background:#f8fbf9}
 <div class="hidden" id="seasonRecapOverlay"><div class="season-recap-card"><div class="rundown-head"><div><div class="rundown-kicker">NOVÁ SEZÓNA</div><div class="rundown-title" id="seasonRecapTitle">Season Recap</div><div class="rundown-sub" id="seasonRecapSub">Tvoje poslední sezóna</div></div><button aria-label="Zavřít" class="rundown-close" id="seasonRecapClose">×</button></div><div class="season-recap-grid" id="seasonRecapStats"></div><div class="season-recap-section"><h4>🏆 Nejdůležitější výsledky</h4><div class="rundown-list" id="seasonRecapWins"></div></div><div class="season-recap-section"><h4>📈 Posun</h4><div class="rundown-list" id="seasonRecapProgress"></div></div><div class="rundown-actions"><button class="rundown-btn" id="seasonRecapContinue">Jdeme na novou sezónu</button></div></div></div>
 <div class="hidden" id="rundownOverlay"><div class="rundown-card"><div class="rundown-head"><div><div class="rundown-kicker">Tvoje poslední výsledky</div><div class="rundown-title" id="rundownTitle">Dobrá práce.</div><div class="rundown-sub" id="rundownSub">Rychlé shrnutí toho, co se ti povedlo.</div></div><button aria-label="Zavřít" class="rundown-close" id="rundownClose">×</button></div><div class="rundown-grid" id="rundownStats"></div><div class="rundown-section"><h4>🔥 Co se ti povedlo</h4><div class="rundown-list" id="rundownWins"></div></div><div class="rundown-section"><h4>🏆 Co jsi odemkl</h4><div class="rundown-achievements" id="rundownAchievements"></div></div><div class="rundown-section"><h4>🎯 Na čem můžeš ještě zabrat</h4><div class="rundown-list" id="rundownFocus"></div></div><div class="rundown-actions"><button class="rundown-btn" id="rundownContinue">Pokračovat do profilu</button></div></div></div>
 <div class="shell">
-<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V184</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
+<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V185</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
 <div class="layout">
 <aside class="sidebar">
 <div class="label" id="profileLabel">Profil</div><select class="select" id="workerSelect"></select>
@@ -1658,7 +1700,17 @@ html[data-theme="light"] .employee-pulse-row{background:#f8fbf9}
     <span id="employeeTeamPulseMeta">Picking · Scanner · Missing · POFR</span>
   </div>
   <div class="employee-team-pulse-summary" id="employeeTeamPulseSummary"></div>
-  <div class="employee-team-pulse-list" id="employeeTeamPulseList"><div class="notice">Načítám týmový přehled…</div></div>
+  <div class="employee-team-pulse-table">
+    <div class="employee-pulse-header" aria-hidden="true">
+      <div><strong>ZAMĚSTNANEC</strong><small>Rank · ELO</small></div>
+      <div><strong>PICKING TIME</strong><small>cíl ≤ 2,57 min</small></div>
+      <div><strong>SCANNER</strong><small>cíl ≥ 98 %</small></div>
+      <div><strong>MISSING</strong><small>cíl ≤ 0,34 %</small></div>
+      <div><strong>POFR</strong><small>cíl ≥ 98 %</small></div>
+      <div class="score-head"><strong>KPI NA CÍLI</strong><small>ze známých KPI</small></div>
+    </div>
+    <div class="employee-team-pulse-list" id="employeeTeamPulseList"><div class="notice">Načítám týmový přehled…</div></div>
+  </div>
   <div class="employee-team-pulse-actions"><button class="tool" id="employeeTeamPulseToggle" onclick="toggleEmployeeTeamPulse()">Zobrazit celý tým</button></div>
 </div>
 
@@ -2874,10 +2926,17 @@ function renderHomeKpiTrends(){
 }
 
 let employeeTeamPulseExpanded=false;
-function employeePulseMetric(m){
- if(!m||m.value==null)return'<span class="employee-pulse-kpi"><i></i>—</span>';
- const cls=m.good===true?'good':m.good===false?'bad':'';
- return'<span class="employee-pulse-kpi '+cls+'"><i></i>'+esc(formatNormVal(m.value,m.name))+'</span>';
+function employeePulseMetric(m,key){
+ const labels={picking:'Picking Time',scanner:'Scanner',missing:'Missing',pofr:'POFR'};
+ if(!m||m.value==null)return'<span class="employee-pulse-kpi" data-label="'+esc(labels[key]||'KPI')+'"><i></i>—</span>';
+ const cls=m.good===true?'good':m.good===false?'bad':'',v=Number(m.value);
+ let display='—';
+ if(Number.isFinite(v)){
+   if(key==='picking')display=fmt(v,2)+' min';
+   else if(key==='scanner'||key==='missing'||key==='pofr')display=fmt(v,2)+' %';
+   else display=formatNormVal(v,m.name);
+ }
+ return'<span class="employee-pulse-kpi '+cls+'" data-label="'+esc(labels[key]||'KPI')+'"><i></i>'+esc(display)+'</span>';
 }
 function toggleEmployeeTeamPulse(){employeeTeamPulseExpanded=!employeeTeamPulseExpanded;renderEmployeeTeamPulse()}
 function renderEmployeeTeamPulse(){
@@ -2894,11 +2953,11 @@ function renderEmployeeTeamPulse(){
  const full=rows.filter(function(x){return x.known>0&&x.misses===0}).length;
  const almost=rows.filter(function(x){return x.known>0&&x.misses===1}).length;
  if(summary)summary.innerHTML='<span class="good">✓ '+full+' lidí · všechna známá KPI na cíli</span><span>'+almost+' lidí · 1 KPI mimo</span><span>'+rows.length+' aktivních lidí</span>';
- setText('employeeTeamPulseMeta','Picking · Scanner · Missing · POFR · poslední dostupný týden');
+ setText('employeeTeamPulseMeta','Poslední dostupný týden · kliknutím otevřeš profil');
  const shown=employeeTeamPulseExpanded?rows:rows.slice(0,8);
  box.innerHTML=shown.map(function(x){
    const good=Math.max(0,x.known-x.misses),score=x.known?good+'/'+x.known:'—',tone=x.known&&x.misses===0?'full':x.misses<=1?'mid':'low',me=x.name===state.worker;
-   return'<div class="employee-pulse-row'+(me?' me':'')+'" data-employee-pulse-person="'+esc(x.name)+'"><div class="employee-pulse-name"><strong>'+esc(x.name)+(me?' · TY':'')+'</strong><span>'+esc(x.lb.tier||tier(Number(x.lb.elo)||0)[0])+' · '+esc(x.lb.elo)+' ELO</span></div>'+employeePulseMetric(x.metrics.picking)+employeePulseMetric(x.metrics.scanner)+employeePulseMetric(x.metrics.missing)+employeePulseMetric(x.metrics.pofr)+'<span class="employee-pulse-score '+tone+'">'+score+' na cíli</span></div>';
+   return'<div class="employee-pulse-row'+(me?' me':'')+'" data-employee-pulse-person="'+esc(x.name)+'"><div class="employee-pulse-name"><strong>'+esc(x.name)+(me?' · TY':'')+'</strong><span>'+esc(x.lb.tier||tier(Number(x.lb.elo)||0)[0])+' · '+esc(x.lb.elo)+' ELO</span></div>'+employeePulseMetric(x.metrics.picking,'picking')+employeePulseMetric(x.metrics.scanner,'scanner')+employeePulseMetric(x.metrics.missing,'missing')+employeePulseMetric(x.metrics.pofr,'pofr')+'<span class="employee-pulse-score '+tone+'">'+score+' na cíli</span></div>';
  }).join('')||'<div class="notice">Týmová KPI zatím nejsou dostupná.</div>';
  box.querySelectorAll('[data-employee-pulse-person]').forEach(function(el){el.onclick=function(){openDetail(el.getAttribute('data-employee-pulse-person'))}});
  if(toggle){toggle.style.display=rows.length>8?'inline-flex':'none';toggle.textContent=employeeTeamPulseExpanded?'Zobrazit méně':'Zobrazit celý tým ('+rows.length+')'}
