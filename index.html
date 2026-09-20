@@ -1809,7 +1809,7 @@ tr.unknown .admin-status{color:var(--muted)!important;background:rgba(148,163,18
 
 <div class="section home-focus-grid">
   <section class="panel home-momentum-panel">
-    <div class="section-head"><div><span class="home-priority-kicker">PROGRESS</span><h3>📈 JDEŠ NAHORU?</h3></div><span id="homeMomentumMeta">live trend</span></div>
+    <div class="section-head"><div><span class="home-priority-kicker">PROGRESS · CURRENT SEASON</span><h3>📈 JDEŠ NAHORU?</h3></div><span id="homeMomentumMeta">aktuální sezóna</span></div>
     <div class="arena-chart-legend home-momentum-legend"><span class="player"><i></i>TY</span><span class="team"><i></i>TÝM</span><span class="trend"><i></i>TREND</span></div><div class="home-momentum-toolbar">
       <button class="home-momentum-preset active" data-home-momentum="efficiency" onclick="renderHomeMomentum('efficiency')">Efficiency</button>
       <button class="home-momentum-preset" data-home-momentum="output" onclick="renderHomeMomentum('output')">Output</button>
@@ -1863,7 +1863,7 @@ tr.unknown .admin-status{color:var(--muted)!important;background:rgba(148,163,18
 </div>
 
 <div class="section home-kpi-trends-section">
-  <div class="section-head home-priority-head arena-section-head"><div><span class="home-priority-kicker">KEY KPI TRENDS</span><h3>📊 HLAVNÍ KPI V ČASE</h3></div><div class="arena-chart-legend"><span class="player"><i></i>TY</span><span class="team"><i></i>TÝM</span><span class="trend"><i></i>TREND</span></div></div>
+  <div class="section-head home-priority-head arena-section-head"><div><span class="home-priority-kicker">KEY KPI TRENDS · CURRENT SEASON</span><h3>📊 HLAVNÍ KPI V ČASE</h3></div><div class="arena-chart-legend"><span class="player"><i></i>TY</span><span class="team"><i></i>TÝM</span><span class="trend"><i></i>TREND</span></div></div>
   <div class="home-kpi-trend-grid">
     <section class="home-kpi-trend-card"><div class="home-kpi-trend-head"><div><span>💚 POFR</span><strong id="homeKpiPofrValue">—</strong></div><div class="home-kpi-badges"><b id="homeKpiPofrMove" class="home-trend-move neutral">—</b><b id="homeKpiPofrStatus" class="home-kpi-status neutral">—</b></div></div><div class="home-kpi-mini-chart"><canvas id="homeKpiPofrChart"></canvas></div><small id="homeKpiPofrMeta">Cíl ≥ 98 %</small></section>
     <section class="home-kpi-trend-card"><div class="home-kpi-trend-head"><div><span>🛡️ MISSING</span><strong id="homeKpiMissingValue">—</strong></div><div class="home-kpi-badges"><b id="homeKpiMissingMove" class="home-trend-move neutral">—</b><b id="homeKpiMissingStatus" class="home-kpi-status neutral">—</b></div></div><div class="home-kpi-mini-chart"><canvas id="homeKpiMissingChart"></canvas></div><small id="homeKpiMissingMeta">Cíl ≤ 0,34 %</small></section>
@@ -2260,9 +2260,38 @@ const BADGE_DEFS=[
   {id:'refund',icon:'💰',title:'Refund Guardian',desc:'Refund je lepší než týmový průměr alespoň 6 z posledních 8 týdnů.',test:(p,name)=>relativeBetterWeeks(p,['refund'],8,6)}
 ];
 function badgeHeaders(p){return p?.headers||state.team?.headers||state.history?.headers||[]}
-function metricTargetWeeks(p,aliases,predicate,window){const defs=badgeHeaders(p);if(!p?.history||!defs.length)return 0;const idx=defs.findIndex(h=>aliases.some(a=>norm(h).includes(norm(a))));if(idx<0)return 0;const vals=(p.history[idx]||[]).slice(-window).map(v=>normalizeMetricValue(v,defs[idx])).filter(v=>v!=null);return vals.filter(predicate).length}
-function metricStreakCount(p,window){if(!p?.history)return 0;const defs=p.headers||state.team?.headers||[];const idxs=[['picking time',v=>v<=2.57],['scanner',v=>v>=98],['missing incorrect',v=>v<=.34],['pofr',v=>v>=98]].map(([a,fn])=>({i:defs.findIndex(h=>norm(h).includes(a)),fn}));let streak=0;for(let w=1;w<=13;w++){let good=0;for(const x of idxs){if(x.i<0)continue;const h=p.history[x.i]||[],v=normalizeMetricValue(h[h.length-w],defs[x.i]);if(v!=null&&x.fn(v))good++}if(good>=3)streak++;else break}return streak}
-function relativeBetterWeeks(p,aliases,window,needed){if(!p?.history||!state.team?.people)return false;const defs=p.headers||state.team?.headers||[];const idx=defs.findIndex(h=>aliases.some(a=>norm(h).includes(norm(a))));if(idx<0)return false;let good=0;for(let w=1;w<=window;w++){const mine=normalizeMetricValue((p.history[idx]||[]).at(-w),defs[idx]);if(mine==null)continue;const vals=Object.values(state.team.people).map(pp=>normalizeMetricValue((pp.history?.[idx]||[]).at(-w),defs[idx])).filter(v=>v!=null);if(vals.length&&mine<vals.reduce((a,b)=>a+b,0)/vals.length)good++}return good>=needed}
+function badgeSeasonIndexes(){
+ const team=state.team;if(!team?.labels?.length)return[];
+ return currentSeasonIndexes(team.labels,team.weekMeta||null);
+}
+function metricTargetWeeks(p,aliases,predicate,window){
+ const defs=badgeHeaders(p);if(!p?.history||!defs.length)return 0;
+ const idx=defs.findIndex(h=>aliases.some(a=>norm(h).includes(norm(a))));if(idx<0)return 0;
+ const seasonIdx=badgeSeasonIndexes(),vals=seasonIdx.map(i=>p.history[idx]?.[i]).slice(-window).map(v=>normalizeMetricValue(v,defs[idx])).filter(v=>v!=null);
+ return vals.filter(predicate).length;
+}
+function metricStreakCount(p,window){
+ if(!p?.history)return 0;const defs=p.headers||state.team?.headers||[],seasonIdx=badgeSeasonIndexes();
+ const idxs=[['picking time',v=>v<=2.57],['scanner',v=>v>=98],['missing incorrect',v=>v<=.34],['pofr',v=>v>=98]].map(([a,fn])=>({i:defs.findIndex(h=>norm(h).includes(a)),fn}));
+ let streak=0;
+ for(let w=1;w<=Math.min(13,seasonIdx.length);w++){
+   const wi=seasonIdx.at(-w);let good=0;
+   for(const x of idxs){if(x.i<0)continue;const v=normalizeMetricValue(p.history?.[x.i]?.[wi],defs[x.i]);if(v!=null&&x.fn(v))good++}
+   if(good>=3)streak++;else break;
+ }
+ return streak;
+}
+function relativeBetterWeeks(p,aliases,window,needed){
+ if(!p?.history||!state.team?.people)return false;
+ const defs=p.headers||state.team?.headers||[],idx=defs.findIndex(h=>aliases.some(a=>norm(h).includes(norm(a))));if(idx<0)return false;
+ const seasonIdx=badgeSeasonIndexes();let good=0;
+ for(let w=1;w<=Math.min(window,seasonIdx.length);w++){
+   const wi=seasonIdx.at(-w),mine=normalizeMetricValue(p.history?.[idx]?.[wi],defs[idx]);if(mine==null)continue;
+   const vals=Object.values(state.team.people).map(pp=>normalizeMetricValue(pp.history?.[idx]?.[wi],defs[idx])).filter(v=>v!=null);
+   if(vals.length&&mine<vals.reduce((a,b)=>a+b,0)/vals.length)good++;
+ }
+ return good>=needed;
+}
 function badges(name){const p=state.team?.people?.[name];const base=p?BADGE_DEFS.filter(b=>{try{return b.test(p,name)}catch(e){return false}}).map(b=>[b.icon,b.title]):[];if(name===state.worker&&state.storeCard)storeCardDynamicBadgeDefs().filter(b=>b.done).forEach(b=>base.push([b.icon,b.title]));return base}
 function badgeDefsWithState(name){const p=state.team?.people?.[name];const base=BADGE_DEFS.map(b=>{let done=false;try{done=!!p&&!!b.test(p,name)}catch(e){}return {...b,done}});if(name===state.worker&&state.storeCard)base.push(...storeCardDynamicBadgeDefs());return base}
 function renderBadgeLegend(name){const grid=document.getElementById('badgeLegendGrid');if(!grid)return;const rows=badgeDefsWithState(name);grid.innerHTML=rows.map(b=>`<div class="badge-legend-item ${b.done?'unlocked':'locked'}"><div class="badge-legend-icon">${b.icon}</div><div><div class="badge-legend-name">${esc(b.title)}</div><div class="badge-legend-desc">${esc(b.desc)}</div><div class="badge-legend-status">${b.done?'✓ ODEMČENO':'🔒 ZAMČENO'}</div></div></div>`).join('')}
@@ -2366,7 +2395,8 @@ function buildSeasonSnapshot(){
   const f=getSeasonFrame(); if(!f||!state.player)return null;
   const lb=playerSeasonData(state.worker), achievements=achievementDefinitions().filter(x=>x.done), latest=state.history?.weeks?.at(-1);
   const quests=latest?questDefsForWeek(latest).filter(q=>q.done):[];
-  return {key:f.key,label:`Season ${f.seasonIndex}`,worker:state.worker,elo:lb.elo,rank:lb.rank,level:Math.max(1,Math.floor((Math.max(0,(lb.elo-900))*20+Math.max(0,streak(state.history))*200)/1000)+1),streak:streak(state.history),quests:quests.length,achievements:achievements.length,endedAt:f.end.toISOString()};
+  const seasonHistory=currentSeasonHistory()||state.history,seasonStreak=streak(seasonHistory);
+  return {key:f.key,label:`Season ${f.seasonIndex}`,worker:state.worker,elo:lb.elo,rank:lb.rank,level:lifetimeProgressFor(state.worker).level,streak:seasonStreak,quests:quests.length,achievements:achievements.length,endedAt:f.end.toISOString()};
 }
 function renderSeasonRecap(prev){
   const overlay=document.getElementById('seasonRecapOverlay'); if(!overlay||!prev)return;
