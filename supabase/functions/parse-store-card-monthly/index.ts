@@ -91,20 +91,31 @@ function canonicalVenue(raw:any){
 }
 
 function parsePeople(layout:any[]){
-  const page=layout.find((p:any)=>{
-    const t=(p.items||[]).map((x:any)=>x.text).join(" ");
-    return /E-mail\s*\[3\]/i.test(t)&&/Total points per GA/i.test(t);
-  });
-  if(!page)return [];
-  const rows=groupRows(page,1.2),out:any[]=[];
+  // Store Card layouts have changed slightly between months. Do not depend on
+  // one exact header string; choose the page that actually contains GA emails.
+  const ranked=(layout||[]).map((p:any,idx:number)=>{
+    const texts=(p.items||[]).map((x:any)=>String(x.text||""));
+    const joined=texts.join(" ");
+    const emails=(joined.match(/[A-Z0-9._%+-]+@wolt\.com/ig)||[]);
+    let score=emails.length*10;
+    if(/Total points per GA/i.test(joined))score+=6;
+    if(/E-?mail/i.test(joined))score+=3;
+    if(/Orders picked|Total units picked|Scan to Pick/i.test(joined))score+=3;
+    return {p,idx,score,emailCount:emails.length};
+  }).sort((a:any,b:any)=>b.score-a.score);
+  const best=ranked[0];
+  if(!best||best.emailCount===0)return [];
+
+  const rows=groupRows(best.p,1.8),out:any[]=[];
   for(const r of rows){
-    const emailItem=r.items.find((i:any)=>/@wolt\.com$/i.test(String(i.text).trim()));
-    if(!emailItem)continue;
-    const email=String(emailItem.text).trim().toLowerCase();
+    const rowText=(r.items||[]).map((i:any)=>String(i.text||"")).join(" ").replace(/\s+/g," ").trim();
+    const em=rowText.match(/[A-Z0-9._%+-]+@wolt\.com/i);
+    if(!em)continue;
+    const email=String(em[0]).trim().toLowerCase();
     const row:any={
       email,
       picker_login:txt(r,122,151)||null,
-      display_name:txt(r,151,185)||null,
+      display_name:txt(r,151,195)||null,
       orders_picked:val(r,195,211),
       total_units_picked:val(r,214,231),
       missing_items_ratio:val(r,232,250),
@@ -128,7 +139,9 @@ function parsePeople(layout:any[]){
       score_people:val(r,702,716),
       total_points:val(r,730,746)
     };
-    out.push(row);
+    // Reject only obvious header/garbage rows; historical months legitimately
+    // contain many null KPI cells for people with little activity.
+    if(email.includes("@wolt.com"))out.push(row);
   }
   return out;
 }
@@ -450,7 +463,7 @@ Deno.serve(async req=>{
   };
 
   if(mode==="preview"){
-   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v7",
+   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v8",
     note:"Preview only. Existing identities are resolved by email/picker login. New historical people are shown before commit."});
   }
 
@@ -539,7 +552,7 @@ Deno.serve(async req=>{
    team_bonus_30h_czk:rewards.team_bonus_30h,
    source_import_id:import_id,
    status:"official",
-   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v7",filename:imp.filename},
+   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v8",filename:imp.filename},
    updated_at:new Date().toISOString()
   };
   const {error:sce}=await db.from("store_card_months").upsert(monthRow,{onConflict:"month"});
@@ -609,7 +622,7 @@ Deno.serve(async req=>{
    status:"imported",
    period_start:period.period_start,
    period_end:period.period_end,
-   parser_version:"store-card-monthly-v7",
+   parser_version:"store-card-monthly-v8",
    record_count:totalRecords,
    metadata:{
     ...(imp.metadata||{}),
