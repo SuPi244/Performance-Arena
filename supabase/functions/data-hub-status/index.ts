@@ -8,7 +8,7 @@ const cors={
 const J=(x:any,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{...cors,"content-type":"application/json"}});
 const norm=(v:any)=>String(v??"").trim().toLowerCase();
 const compactIdentity=(v:any)=>norm(v).replace(/[^a-z0-9]+/g,"");
-const isTechnicalIdentity=(v:any)=>compactIdentity(v).startsWith("woltmarketholesovice");
+const isTechnicalIdentity=(v:any)=>{const x=compactIdentity(v);return x==="woltmark"||x.startsWith("woltmarketholesovice")};
 const day=(v:any)=>String(v??"").slice(0,10);
 const addDays=(iso:string,n:number)=>{const d=new Date(iso+"T12:00:00Z");d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)};
 const daysInMonth=(y:number,m:number)=>new Date(Date.UTC(y,m,0)).getUTCDate();
