@@ -32,7 +32,7 @@ function parse(text:string){
  }
  return {period,rows};
 }
-function finite(v:any){const n=Number(v);return Number.isFinite(n)?n:null}
+function finite(v:any){if(v===null||v===undefined||v==="")return null;const n=Number(v);return Number.isFinite(n)?n:null}
 function weighted(rows:any[],metric:string,weightMetric:string){
  let num=0,den=0;const vals:number[]=[];
  for(const r of rows){
