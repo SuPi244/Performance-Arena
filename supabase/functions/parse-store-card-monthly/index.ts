@@ -584,9 +584,10 @@ function parseRewardsText(rawText:string,people:any[],knownPeople:any[],base:any
 
   const flat=cellRows.map(r=>r.join(" ")).join(" ");
   const flatFold=folded(flat);
+  const teamBonusExists=/team\s+bonus/i.test(flat)||/40h\s*\/\s*w/i.test(flat)||/30h\s*\/\s*w/i.test(flat);
 
   // Fallback when comparator glyphs or cell boundaries were lost.
-  if(high==null||mid==null){
+  if(teamBonusExists&&(high==null||mid==null)){
     const at=flatFold.indexOf("team bonus");
     const seg=at>=0?flat.slice(at,at+1600):flat;
     const ge=[...seg.matchAll(/(?:≥|>=|>)\s*(\d+(?:[.,]\d+)?)\s*%/g)]
@@ -601,8 +602,11 @@ function parseRewardsText(rawText:string,people:any[],knownPeople:any[],base:any
     const vals=(m[1].match(/\b\d{1,5}\b/g)||[]).map(Number).filter(v=>v>=0&&v<=20000);
     return vals.length>=3?vals.slice(0,3):null;
   };
-  if(!team40)team40=fallbackHours("40h");
-  if(!team30)team30=fallbackHours("30h");
+  if(teamBonusExists&&!team40)team40=fallbackHours("40h");
+  if(teamBonusExists&&!team30)team30=fallbackHours("30h");
+  if(!teamBonusExists){
+    high=null;mid=null;team40=null;team30=null;
+  }
 
   const top=Array.isArray(base?.top_bonus_czk)?base.top_bonus_czk.map(Number).filter(Number.isFinite):[];
   const tier=teamEffort!=null&&high!=null&&mid!=null?(teamEffort>=high?0:teamEffort>=mid?1:2):null;
@@ -704,10 +708,12 @@ function parseRewardsText(rawText:string,people:any[],knownPeople:any[],base:any
   }
 
   return {
+    team_bonus_exists:teamBonusExists,
     team_effort_pct:teamEffort,
     threshold_high:high,threshold_mid:mid,
     team40,team30,tier,selected40,selected30,payouts,
     diagnostics:{
+      team_bonus_exists:teamBonusExists,
       row_count:cellRows.length,
       threshold_high:high,threshold_mid:mid,
       team40,team30,
@@ -720,33 +726,48 @@ function parseRewardsText(rawText:string,people:any[],knownPeople:any[],base:any
 
 function mergeRewards(base:any,textParsed:any){
   if(!textParsed)return {...base,reward_parse_source:"layout_only"};
-  const useTextRules=textParsed.threshold_high!=null&&textParsed.threshold_mid!=null&&
+  const teamBonusExists=textParsed.team_bonus_exists!==false;
+  const useTextRules=teamBonusExists&&textParsed.threshold_high!=null&&textParsed.threshold_mid!=null&&
     Array.isArray(textParsed.team40)&&textParsed.team40.length>=3&&
     Array.isArray(textParsed.team30)&&textParsed.team30.length>=3;
   const teamEffort=textParsed.team_effort_pct??base.team_effort_pct??null;
-  const high=useTextRules?textParsed.threshold_high:base?.team_bonus_rules?.thresholds?.high_min_pct??null;
-  const mid=useTextRules?textParsed.threshold_mid:base?.team_bonus_rules?.thresholds?.mid_min_pct??null;
-  const team40=useTextRules?textParsed.team40:(base?.team_bonus_rules?.forty_h_czk||[]);
-  const team30=useTextRules?textParsed.team30:(base?.team_bonus_rules?.thirty_h_czk||[]);
-  const tier=teamEffort!=null&&high!=null&&mid!=null?(teamEffort>=high?0:teamEffort>=mid?1:2):null;
-  const selected40=tier!=null&&team40?.length?team40[tier]??null:null;
-  const selected30=tier!=null&&team30?.length?team30[tier]??null:null;
+
+  let high:any=null,mid:any=null,team40:any[]=[],team30:any[]=[],tier:any=null,selected40:any=null,selected30:any=null;
+  if(teamBonusExists){
+    high=useTextRules?textParsed.threshold_high:base?.team_bonus_rules?.thresholds?.high_min_pct??null;
+    mid=useTextRules?textParsed.threshold_mid:base?.team_bonus_rules?.thresholds?.mid_min_pct??null;
+    team40=useTextRules?textParsed.team40:(base?.team_bonus_rules?.forty_h_czk||[]);
+    team30=useTextRules?textParsed.team30:(base?.team_bonus_rules?.thirty_h_czk||[]);
+    tier=teamEffort!=null&&high!=null&&mid!=null?(teamEffort>=high?0:teamEffort>=mid?1:2):null;
+    selected40=tier!=null&&team40?.length?team40[tier]??null:null;
+    selected30=tier!=null&&team30?.length?team30[tier]??null:null;
+  }else{
+    selected40=0;selected30=0;
+  }
+
   const rules={
-    thresholds:{high_min_pct:high,mid_min_pct:mid,low_below_pct:mid},
-    columns:[
+    exists:teamBonusExists,
+    thresholds:teamBonusExists?{high_min_pct:high,mid_min_pct:mid,low_below_pct:mid}:null,
+    columns:teamBonusExists?[
       {key:"high",label:high!=null?`>= ${high}%`:"high",index:0},
       {key:"mid",label:mid!=null?`>= ${mid}%`:"mid",index:1},
       {key:"low",label:mid!=null?`< ${mid}%`:"low",index:2}
-    ],
-    forty_h_czk:team40||[],thirty_h_czk:team30||[],
-    selected_tier:tier==null?null:["high","mid","low"][tier],
-    selected_40h_czk:selected40,selected_30h_czk:selected30,team_effort_pct:teamEffort
+    ]:[],
+    forty_h_czk:teamBonusExists?(team40||[]):[],
+    thirty_h_czk:teamBonusExists?(team30||[]):[],
+    selected_tier:teamBonusExists?(tier==null?null:["high","mid","low"][tier]):null,
+    selected_40h_czk:selected40,
+    selected_30h_czk:selected30,
+    team_effort_pct:teamEffort
   };
+
   const payoutMap=new Map<string,any>();
   for(const p of base?.payouts||[])if(p.person_id)payoutMap.set(String(p.person_id),p);
   for(const p of textParsed.payouts||[])if(p.person_id)payoutMap.set(String(p.person_id),p);
+
   return {
     ...base,
+    team_bonus_exists:teamBonusExists,
     team_effort_pct:teamEffort,
     team_bonus_40h:selected40,
     team_bonus_30h:selected30,
@@ -754,7 +775,7 @@ function mergeRewards(base:any,textParsed:any){
     payouts:[...payoutMap.values()],
     ineligible_people:[...payoutMap.values()].filter((x:any)=>x.bonus_eligible===false).map((x:any)=>x.display_name),
     payout_match_count:payoutMap.size,
-    reward_parse_source:useTextRules?"layout+text":"layout_text_payout_fallback",
+    reward_parse_source:!teamBonusExists?"layout+text_no_team_bonus":useTextRules?"layout+text":"layout_text_payout_fallback",
     reward_text_diagnostics:textParsed.diagnostics
   };
 }
@@ -1036,6 +1057,7 @@ Deno.serve(async req=>{
    top_bonus_czk:rewards.top_bonus_czk,
    team_bonus_40h_czk:rewards.team_bonus_40h,
    team_bonus_30h_czk:rewards.team_bonus_30h,
+   team_bonus_exists:rewards.team_bonus_exists!==false,
    bonus_rules:{
     top_bonus_czk:rewards.top_bonus_czk||[],
     team_bonus:rewards.team_bonus_rules||null
@@ -1051,7 +1073,7 @@ Deno.serve(async req=>{
   };
 
   if(mode==="preview"){
-   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v15",
+   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v16",
     note:"Preview only. Existing identities are resolved by email/picker login. New historical people are shown before commit."});
   }
 
@@ -1140,7 +1162,7 @@ Deno.serve(async req=>{
    team_bonus_30h_czk:rewards.team_bonus_30h,
    source_import_id:import_id,
    status:"official",
-   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v15",filename:imp.filename,bonus_rules:{top_bonus_czk:rewards.top_bonus_czk||[],team_bonus:rewards.team_bonus_rules||null}},
+   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v16",filename:imp.filename,bonus_rules:{top_bonus_czk:rewards.top_bonus_czk||[],team_bonus:rewards.team_bonus_rules||null}},
    updated_at:new Date().toISOString()
   };
   const {error:sce}=await db.from("store_card_months").upsert(monthRow,{onConflict:"month"});
@@ -1214,7 +1236,7 @@ Deno.serve(async req=>{
    status:"imported",
    period_start:period.period_start,
    period_end:period.period_end,
-   parser_version:"store-card-monthly-v15",
+   parser_version:"store-card-monthly-v16",
    record_count:totalRecords,
    metadata:{
     ...(imp.metadata||{}),
@@ -1232,7 +1254,7 @@ Deno.serve(async req=>{
    ...common,
    preview:false,
    committed:true,
-   parser_stage:"store-card-monthly-committed-v15",
+   parser_stage:"store-card-monthly-committed-v16",
    observations_attempted:obs.length,
    observations_inserted:obsWritten,
    store_metrics_attempted:storeRows.length,
