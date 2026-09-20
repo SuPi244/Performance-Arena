@@ -819,7 +819,7 @@ document.addEventListener('click',async e=>{
       uw.slice(0,30).map(function(r){return '<div class="warn">△ '+esc(r.reason||String(r))+'</div>'}).join('')+
       '</div></details>';
    }
-   html+='<div class="bulk-item"><div><div class="bulk-name">'+esc(x.file.name)+'</div><div class="bulk-type">'+esc(LABELS[x.report_type]||x.report_type)+(x.skipCommit?' · exact duplicate':'')+'</div></div>'+
+   html+='<div class="bulk-item"><div><div class="bulk-name">'+esc(x.file.name)+'</div><div class="bulk-type">'+esc(LABELS[x.report_type]||x.report_type)+(x.legacyReparse?' · reparse starého Store Card v2':x.skipCommit?' · exact duplicate':'')+'</div></div>'+
     '<div class="'+cls+'">'+esc(state)+'</div><div class="bulk-counts">'+pill('nové',s.new||0,'ok')+pill('změněné',s.changed||0,'warn')+pill('stejné',s.unchanged||0,'')+pill('konflikty',s.conflicts||0,s.conflicts?'err':'')+'</div>'+details+'</div>';
   });
   host.innerHTML=html||'<div class="muted">Fronta je prázdná.</div>';
