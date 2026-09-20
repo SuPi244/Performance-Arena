@@ -353,12 +353,31 @@ function parse(pages:any[]){
    if(!old||score(r)>score(old))best.set(k,r);
  }
  const deduped=[...best.values()];
- const periodEnds=pagePeriods.map((p:any)=>p.period_end).filter(Boolean).sort();
- const targetMonth=periodEnds.length?String(periodEnds[periodEnds.length-1]).slice(0,7):null;
+ // A monthly export can include a partial week from the adjacent month at either edge.
+ // Never choose the target month from the latest page end date (that made Aug exports
+ // look like September when the final week was Aug 31 → Sep 6). Choose the month that
+ // contains the most unique parsed shift dates; row count is the tie-breaker.
+ const monthStats=new Map<string,{days:Set<string>,rows:number}>();
+ for(const r of deduped){
+   const date=String(r.date||"");
+   const month=date.slice(0,7);
+   if(!/^20\d{2}-\d{2}$/.test(month))continue;
+   if(!monthStats.has(month))monthStats.set(month,{days:new Set<string>(),rows:0});
+   const st=monthStats.get(month)!;st.days.add(date);st.rows++;
+ }
+ const rankedMonths=[...monthStats.entries()].sort((a,b)=>{
+   const dayDiff=b[1].days.size-a[1].days.size;
+   if(dayDiff)return dayDiff;
+   const rowDiff=b[1].rows-a[1].rows;
+   if(rowDiff)return rowDiff;
+   return a[0].localeCompare(b[0]);
+ });
+ const targetMonth=rankedMonths[0]?.[0]||null;
  const monthRows=targetMonth?deduped.filter((r:any)=>String(r.date||"").startsWith(targetMonth)):deduped;
  return {
    rows:monthRows,
    targetMonth,
+   month_candidates:rankedMonths.map(([month,st])=>({month,unique_days:st.days.size,rows:st.rows})),
    excluded_adjacent_month_rows:deduped.length-monthRows.length,
    missingDatePages:[...new Set(missingDatePages)].sort((a,b)=>a-b),
    pagePeriods,missingDateDebug,inferredDatePages,pageScan,
@@ -415,6 +434,11 @@ Deno.serve(async req=>{
       pages_with_usable_period:parsed.pages_with_usable_period||0,
       roster_bands_examined:parsed.roster_bands_examined||0,
       roles_inside_roster_bands:parsed.roles_inside_roster_bands||0,
+      target_month:parsed.targetMonth||null,
+      month_candidates:parsed.month_candidates||[],
+      candidate_row_count:parsed.candidate_row_count||0,
+      deduped_row_count:parsed.deduped_row_count||0,
+      excluded_adjacent_month_rows:parsed.excluded_adjacent_month_rows||0,
       skipped_michle_roles:parsed.skipped_michle_roles||0,
       page_scan:scan,missing_date_pages:parsed.missingDatePages,
       page_periods:parsed.pagePeriods,date_debug:parsed.missingDateDebug
@@ -450,9 +474,9 @@ Deno.serve(async req=>{
     date_debug:parsed.missingDateDebug
   };
 
-  if(mode==="preview")return J({ok:true,preview:true,parser_stage:"quinyx-layout-v30",shift_count:rows.length,
+  if(mode==="preview")return J({ok:true,preview:true,parser_stage:"quinyx-layout-v31",shift_count:rows.length,
     people_count:validation.people_count,period_start,period_end,validation,rows,
-    note:"Preview only. V30 opravuje diagnostický pád při nulovém počtu směn a zachovává V29 day-column parsing. Nic se ještě nezapisuje."});
+    note:"Preview only. V31 vybírá cílový měsíc podle většiny skutečně naparsovaných dnů, takže okrajový týden z vedlejšího měsíce nepřepne celý export na špatný měsíc. Nic se ještě nezapisuje."});
 
   if(mode!=="commit")return J({error:"Unsupported mode"},400);
   if(!import_id)return J({error:"Missing import_id"},400);
@@ -482,7 +506,7 @@ Deno.serve(async req=>{
     import_id,
     source_record_key:`shift|${pmap.get(r.person_key)}|${r.date}|${norm(r.role).replace(/\s+/g," ")}|${norm(r.shift_type).replace(/\s+/g," ")}`,
     metadata:{
-      source_type:"quinyx",parser_version:"quinyx-v30",source_name:r.name,page:r.page,
+      source_type:"quinyx",parser_version:"quinyx-v31",source_name:r.name,page:r.page,
       page_period_start:r.page_period_start,page_period_end:r.page_period_end,
       confidence:r.confidence,venue:"Holešovice, Prague",export_cutoff:new Date().toISOString().slice(0,10)
     }
@@ -493,7 +517,7 @@ Deno.serve(async req=>{
   if(we)return J({error:we.message},500);
 
   await db.from("imports").update({
-    status:"imported",period_start,period_end,parser_version:"quinyx-v30"
+    status:"imported",period_start,period_end,parser_version:"quinyx-v31"
   }).eq("id",import_id);
 
   return J({ok:true,committed:true,inserted_count:w?.length??0,attempted_count:payload.length,
