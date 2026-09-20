@@ -10,7 +10,7 @@ const J=(x:any,status=200)=>new Response(JSON.stringify(x),{status,headers:{...c
 
 type Def={
   id:string,label:string,unit:string,lower_is_better:boolean,category:string,
-  weekly:string[],daily:string[],aggregation:"sum"|"avg",legacy_names:string[]
+  weekly:string[],daily:string[],monthly?:string[],aggregation:"sum"|"avg",legacy_names:string[]
 };
 
 const defs:Def[]=[
@@ -39,10 +39,10 @@ const defs:Def[]=[
  {id:"start_collection_time",label:"Average Start Collection Time",unit:"number",lower_is_better:true,category:"speed",weekly:[],daily:["daily_avg_start_collection_time"],aggregation:"avg",legacy_names:["Average Start Collection Time"]},
  {id:"ready_pickup_time",label:"Average Ready for Pickup Time",unit:"number",lower_is_better:true,category:"speed",weekly:[],daily:["daily_avg_ready_for_pickup_time"],aggregation:"avg",legacy_names:["Average Ready for Pickup Time"]},
  {id:"production_time",label:"Total Production Time",unit:"number",lower_is_better:true,category:"speed",weekly:[],daily:["daily_total_production_time"],aggregation:"avg",legacy_names:["Total Production Time"]},
- {id:"inbound_normal",label:"Inbound Units",unit:"count",lower_is_better:false,category:"volume",weekly:[],daily:["inbound_normal_units"],aggregation:"sum",legacy_names:["Inbound Units"]},
- {id:"inbound_icy",label:"Inbound ICY Units",unit:"count",lower_is_better:false,category:"volume",weekly:[],daily:["inbound_icy_units"],aggregation:"sum",legacy_names:["Inbound ICY Units"]},
- {id:"inbound_freeze",label:"Inbound FREEZE Units",unit:"count",lower_is_better:false,category:"volume",weekly:[],daily:["inbound_freez_units"],aggregation:"sum",legacy_names:["Inbound FREEZE Units"]},
- {id:"stock_count",label:"Stock Count",unit:"count",lower_is_better:false,category:"volume",weekly:[],daily:["stock_count_adjustment_count"],aggregation:"sum",legacy_names:["Stock Count"]},
+ {id:"inbound_normal",label:"Inbound Units",unit:"count",lower_is_better:false,category:"volume",weekly:[],daily:["inbound_normal_units"],monthly:["store_card_inbound_total_units"],aggregation:"sum",legacy_names:["Inbound Units"]},
+ {id:"inbound_icy",label:"Inbound ICY Units",unit:"count",lower_is_better:false,category:"volume",weekly:[],daily:["inbound_icy_units"],monthly:["store_card_inbound_icy_units"],aggregation:"sum",legacy_names:["Inbound ICY Units"]},
+ {id:"inbound_freeze",label:"Inbound FREEZE Units",unit:"count",lower_is_better:false,category:"volume",weekly:[],daily:["inbound_freez_units"],monthly:["store_card_inbound_freeze_units"],aggregation:"sum",legacy_names:["Inbound FREEZE Units"]},
+ {id:"stock_count",label:"Stock Count",unit:"count",lower_is_better:false,category:"volume",weekly:[],daily:["stock_count_adjustment_count"],monthly:["store_card_stock_count"],aggregation:"sum",legacy_names:["Stock Count"]},
  {id:"worked_hours",label:"Worked Hours",unit:"hours",lower_is_better:false,category:"efficiency",weekly:[],daily:[],aggregation:"sum",legacy_names:["Quinyx Hours"]},
  {id:"orders_per_hour",label:"Orders / h",unit:"number",lower_is_better:false,category:"efficiency",weekly:[],daily:[],aggregation:"avg",legacy_names:[]},
  {id:"outbound_units_per_hour",label:"Outbound Units / h",unit:"number",lower_is_better:false,category:"efficiency",weekly:[],daily:[],aggregation:"avg",legacy_names:[]},
@@ -81,7 +81,7 @@ Deno.serve(async(req)=>{
  if(req.method!=="POST")return J({error:"POST required"},405);
  try{
   const body=await req.json().catch(()=>({}));
-  const since=String(body.since||"2026-08-01").slice(0,10);
+  const since=String(body.since||"2026-03-30").slice(0,10);
   const db=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
   const {data:people,error:pe}=await db.from("people")
@@ -94,7 +94,7 @@ Deno.serve(async(req)=>{
    ids.length?db.from("metric_observations")
      .select("person_id,metric_id,value,period_start,period_end,source_type")
      .in("person_id",ids).gte("period_start",since)
-     .in("source_type",["daily_picking","ga_metrics","inbound","stock_count"]):Promise.resolve({data:[],error:null}),
+     .in("source_type",["daily_picking","ga_metrics","inbound","stock_count","store_card_monthly"]):Promise.resolve({data:[],error:null}),
    ids.length?db.from("shifts")
      .select("person_id,shift_date,scheduled_start,scheduled_end,scheduled_hours,worked_hours,updated_at")
      .in("person_id",ids).gte("shift_date",since):Promise.resolve({data:[],error:null}),
@@ -122,7 +122,7 @@ Deno.serve(async(req)=>{
   const team:any={};
   for(const p of people||[]){
    const rows=byPersonObs.get(p.id)||[], ps=byPersonShifts.get(p.id)||[];
-   const daily:any={},weekly:any={};
+   const daily:any={},weekly:any={},monthly:any={};
 
    // Index values by source metric id.
    const byMetric=new Map<string,any[]>();
@@ -145,6 +145,33 @@ Deno.serve(async(req)=>{
     if(dg.size){
       const labels=[...dg.keys()].sort();
       daily[d.id]={labels,values:labels.map(k=>aggregate(dg.get(k)!,d.aggregation)),source:"data_hub"};
+    }
+
+    // Closed Store Card fallback. Keep this as one monthly observation instead of
+    // copying a monthly total into every week. Frontend can display it as a monthly
+    // fallback point and always prefer the more granular Data Hub rows when available.
+    if(d.monthly?.length){
+      const mg=new Map<string,{values:number[],period_end:string}>();
+      for(const id of d.monthly){
+        for(const r of byMetric.get(id)||[]){
+          if(r.source_type!=="store_card_monthly")continue;
+          const v=num(r.value),k=day(r.period_start),pe=day(r.period_end||r.period_start);
+          if(v===null||!k)continue;
+          if(!mg.has(k))mg.set(k,{values:[],period_end:pe||k});
+          const g=mg.get(k)!;g.values.push(v);
+          if(pe&&pe>g.period_end)g.period_end=pe;
+        }
+      }
+      if(mg.size){
+        const labels=[...mg.keys()].sort();
+        monthly[d.id]={
+          labels,
+          period_ends:labels.map(k=>mg.get(k)!.period_end),
+          values:labels.map(k=>aggregate(mg.get(k)!.values,d.aggregation)),
+          source:"store_card_monthly",
+          granularity:"month"
+        };
+      }
     }
 
     // Prefer explicit weekly GA rows; fill missing newer weeks from daily rows.
@@ -199,7 +226,7 @@ Deno.serve(async(req)=>{
    team[p.id]={
     id:p.id,name:p.full_name||p.display_name||p.person_key,person_key:p.person_key,
     employment_type:p.employment_type,team_effort_eligible:p.team_effort_eligible===true,
-    daily,weekly
+    daily,weekly,monthly
    };
   }
 
@@ -215,8 +242,8 @@ Deno.serve(async(req)=>{
   }
 
   return J({
-    ok:true,version:"arena-unified-data-v2",since,
-    metrics:defs.map(d=>({id:d.id,label:d.label,unit:d.unit,lower_is_better:d.lower_is_better,category:d.category,legacy_names:d.legacy_names,daily_available:Object.values(team).some((p:any)=>!!p.daily[d.id]),weekly_available:Object.values(team).some((p:any)=>!!p.weekly[d.id])})),
+    ok:true,version:"arena-unified-data-v3",since,
+    metrics:defs.map(d=>({id:d.id,label:d.label,unit:d.unit,lower_is_better:d.lower_is_better,category:d.category,legacy_names:d.legacy_names,daily_available:Object.values(team).some((p:any)=>!!p.daily[d.id]),weekly_available:Object.values(team).some((p:any)=>!!p.weekly[d.id]),monthly_available:Object.values(team).some((p:any)=>!!p.monthly?.[d.id]),monthly_source_ids:d.monthly||[]})),
     people:team,
     store:{metrics:Object.entries(storeDefs).map(([id,d]:any)=>({id,...d})),stores:storeMap}
   });
