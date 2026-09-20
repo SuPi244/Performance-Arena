@@ -383,22 +383,27 @@ function parseRewards(layout:any[],people:any[],period:any,knownPeople:any[]=[])
 
   // The result table itself marks TOP 1-5 with medals. Use that as the
   // authoritative rank so bonus decomposition does not depend on amount ordering.
-  // The visible Results table is already sorted by score. Red/struck rows are
-  // disqualified for rewards and must not consume a TOP rank slot.
-  const resultRows:any[]=[];
-  for(const r of rows){
-    const sourceName=txt(r,75,185);
-    const score=val(r,185,215);
-    if(!sourceName||score==null)continue;
-    if(/GA name|Venue Name|Team effort|tablet|Exter\d*|restaurant-api/i.test(sourceName))continue;
-    const pid=resolveName(sourceName);
-    const red=(r.items||[]).some((i:any)=>{
-      const x=center(i);
-      return x>=75&&x<185&&i.red_bg===true;
-    });
-    resultRows.push({source_name:sourceName,person_id:pid,total_points:Number(score),ineligible:red});
-  }
+  // Build reward ranking from the parsed GA metrics table (page 2+), where total_points
+  // is explicit and reliable. Page 1 is used only for red/disqualified status.
+  // This avoids coordinate drift on April-style cards.
+  const resultRows:any[]=(people||[])
+    .map((pp:any,idx:number)=>{
+      const pid=pp.hint_person_id||pp.person_id||null;
+      const score=pp.total_points;
+      if(!pid||score==null||!Number.isFinite(Number(score)))return null;
+      return {
+        source_name:pp.display_name||pp.picker_login||pp.email||String(pid),
+        person_id:String(pid),
+        total_points:Number(score),
+        ineligible:ineligiblePersonIds.has(String(pid)),
+        source_order:idx
+      };
+    })
+    .filter(Boolean)
+    .sort((a:any,b:any)=>Number(b.total_points)-Number(a.total_points)||Number(a.source_order)-Number(b.source_order));
 
+  // Red/disqualified rows do not consume a TOP slot. Everyone else, including historical
+  // inactive people, keeps their real ranking position so current employees are not shifted.
   const eligibleRanking=resultRows.filter((x:any)=>!x.ineligible).slice(0,5);
   const rankingTop5=eligibleRanking.map((x:any,i:number)=>({...x,rank:i+1}));
   const topRankByPerson=new Map<string,number>();
@@ -1247,7 +1252,7 @@ Deno.serve(async req=>{
   };
 
   if(mode==="preview"){
-   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v20",
+   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v21",
     note:"Preview only. Existing identities are resolved by email/picker login. New historical people are shown before commit."});
   }
 
@@ -1336,7 +1341,7 @@ Deno.serve(async req=>{
    team_bonus_30h_czk:rewards.team_bonus_30h,
    source_import_id:import_id,
    status:"official",
-   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v20",filename:imp.filename,bonus_rules:{top_bonus_czk:rewards.top_bonus_czk||[],team_bonus:rewards.team_bonus_rules||null}},
+   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v21",filename:imp.filename,bonus_rules:{top_bonus_czk:rewards.top_bonus_czk||[],team_bonus:rewards.team_bonus_rules||null}},
    updated_at:new Date().toISOString()
   };
   const {error:sce}=await db.from("store_card_months").upsert(monthRow,{onConflict:"month"});
@@ -1414,7 +1419,7 @@ Deno.serve(async req=>{
    status:"imported",
    period_start:period.period_start,
    period_end:period.period_end,
-   parser_version:"store-card-monthly-v20",
+   parser_version:"store-card-monthly-v21",
    record_count:totalRecords,
    metadata:{
     ...(imp.metadata||{}),
@@ -1432,7 +1437,7 @@ Deno.serve(async req=>{
    ...common,
    preview:false,
    committed:true,
-   parser_stage:"store-card-monthly-committed-v20",
+   parser_stage:"store-card-monthly-committed-v21",
    observations_attempted:obs.length,
    observations_inserted:obsWritten,
    store_metrics_attempted:storeRows.length,
