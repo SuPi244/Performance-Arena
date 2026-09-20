@@ -396,8 +396,7 @@ async function ignoreIdentity(db:any,body:any){
   },{onConflict:"source_type,alias_type,normalized_value"});
   if(error)throw error;
   await db.from("unresolved_identities")
-    .update({status:"ignored",resolved_person_id:null,resolved_at:new Date().toISOString(),
-      metadata:{ignored_reason:String(body.reason||"burner_or_technical_account"),ignored_via:"data_hub"}})
+    .update({status:"ignored",resolved_person_id:null,resolved_at:new Date().toISOString()})
     .eq("status","unresolved").eq("source_type",reportType).eq("alias_value",alias);
   return {ignored:true,alias,alias_type:aliasType,normalized_value:normalizedValue,report_type:reportType};
 }
