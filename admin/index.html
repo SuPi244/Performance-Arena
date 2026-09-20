@@ -835,14 +835,16 @@ document.addEventListener('click',async e=>{
     }
    }
    if(x.report_type==='quinyx'&&x.preview){
-    const pp=(x.preview.validation&&x.preview.validation.page_periods)||x.preview.page_periods||[];
-    const miss=(x.preview.validation&&x.preview.validation.missing_date_pages)||[];
-    details+='<details class="bulk-details" open><summary>🗓️ Quinyx období · '+esc(x.preview.period_start||'—')+' → '+esc(x.preview.period_end||'—')+'</summary><div style="margin-top:8px;font-size:12px">'+
-      pp.map(function(p){return '<div><span class="ok">page '+esc(p.page)+'</span> · '+esc(p.period_start)+' → '+esc(p.period_end)+'</div>'}).join('')+
-      (miss.length?'<div class="err" style="margin-top:6px">Chybí datumová hlavička na page: '+esc(miss.join(', '))+' · import je zablokovaný.</div>':'')+
-      (((x.preview.validation&&x.preview.validation.date_debug)||[]).map(function(d){
-       return '<div class="warn" style="margin-top:5px">page '+esc(d.page)+' parser vidí: '+esc((d.header_candidates||[]).join(' | ')||'žádný date/header text')+'</div>';
-      }).join(''))+
+    const v=x.preview.validation||{},pp=v.page_periods||x.preview.page_periods||[],miss=v.missing_date_pages||[],mp=v.missing_planned_rows||[],fa=v.future_actual_rows||[],inf=v.inferred_date_pages||[];
+    const problems=Number(v.missing_planned||0)+Number(v.future_actuals||0)+miss.length;
+    details+='<details class="bulk-details" open><summary>🗓️ Quinyx období · '+esc(x.preview.period_start||'—')+' → '+esc(x.preview.period_end||'—')+(problems?' · ⚠ '+esc(problems)+' validačních problémů':' · validace OK')+'</summary><div style="margin-top:8px;font-size:12px">'+
+      '<div class="'+(problems?'warn':'ok')+'">Řádky '+esc(v.row_count||0)+' · lidí '+esc(v.people_count||0)+' · missing planned '+esc(v.missing_planned||0)+' · future actual '+esc(v.future_actuals||0)+' · page bez data '+esc(miss.length)+'</div>'+
+      pp.map(function(p){return '<div><span class="ok">page '+esc(p.page)+'</span> · '+esc(p.period_start)+' → '+esc(p.period_end)+(p.source==='matched_day_signature'?' · datum dopočítáno bezpečně':'')+'</div>'}).join('')+
+      inf.map(function(p){return '<div class="ok">↳ page '+esc(p.page)+' období doplněno podle stejné sady dnů: '+esc(p.period_start)+' → '+esc(p.period_end)+'</div>'}).join('')+
+      (miss.length?'<div class="err" style="margin-top:6px">Page bez bezpečného období: '+esc(miss.join(', '))+' · import je zablokovaný.</div>':'')+
+      mp.map(function(r){return '<div class="err">Chybí plán: '+esc(r.person||'—')+' · '+esc(r.date||'—')+' · '+esc(r.role||'')+' '+esc(r.shift_type||'')+' · page '+esc(r.page||'—')+'</div>'}).join('')+
+      fa.map(function(r){return '<div class="err">Budoucí actual: '+esc(r.person||'—')+' · '+esc(r.date||'—')+' · '+esc(r.role||'')+' '+esc(r.shift_type||'')+' · page '+esc(r.page||'—')+'</div>'}).join('')+
+      ((v.date_debug||[]).map(function(d){return '<div class="warn" style="margin-top:5px">page '+esc(d.page)+' parser vidí: '+esc((d.header_candidates||[]).join(' | ')||'žádný date/header text')+'</div>'}).join(''))+
       '</div></details>';
    }
    if(x.report_type==='team_rating'&&x.preview){
@@ -983,7 +985,11 @@ document.addEventListener('click',async e=>{
      item.state='done';imported++;
     }catch(e){
      item.state='error';
-     item.error='Commit selhal: '+(e.message||e);
+     if(item.report_type==='quinyx'&&e&&e.payload&&e.payload.validation){
+      const v=e.payload.validation||{};
+      item.error='Commit selhal: Quinyx validace · chybí plán '+Number(v.missing_planned||0)+' · budoucí actual '+Number(v.future_actuals||0)+' · page bez data '+Number((v.missing_date_pages||[]).length||0);
+      item.preview=item.preview||{};item.preview.validation=v;
+     }else item.error='Commit selhal: '+(e.message||e);
      failed++;
     }
     renderBatch();
@@ -1066,14 +1072,14 @@ document.addEventListener('click',async e=>{
  }
  function setupCoverage(){
   const card=coverageCard();if(!card)return;
-  card.innerHTML='<div class="coverage-top"><div><h2 style="margin-bottom:4px">Data Coverage <span class="v152-badge">V154</span></h2><p class="muted" style="margin-bottom:0">% = skutečně zapsané časové pokrytí ve zvoleném měsíci. Pod každým zdrojem vidíš i pokrytí typů metrik, historii a staged soubory, které se ještě nepočítají.</p></div><div class="field"><label>Měsíc · detail</label><input id="coverageMonth" type="month" value="'+localMonth()+'"></div></div>'+
+  card.innerHTML='<div class="coverage-top"><div><h2 style="margin-bottom:4px">Data Coverage <span class="v152-badge">V155</span></h2><p class="muted" style="margin-bottom:0">% = skutečně zapsané časové pokrytí ve zvoleném měsíci. Pod každým zdrojem vidíš i pokrytí typů metrik, historii a staged soubory, které se ještě nepočítají.</p></div><div class="field"><label>Měsíc · detail</label><input id="coverageMonth" type="month" value="'+localMonth()+'"></div></div>'+
    '<div style="display:flex;align-items:baseline;gap:10px;margin:14px 0"><span id="coverageOverall" class="coverage-overall">—</span><span id="coverageThrough" class="muted"></span></div><div id="coverageSources"></div>';
   $('#coverageMonth').onchange=loadCoverage;
  }
  function setup(){
   if(window.__datahubV152)return;window.__datahubV152=true;
-  document.title='Performance Arena — Data Hub V154';
-  const small=document.querySelector('.brand small');if(small&&!/V15[234]/.test(small.textContent))small.innerHTML+= ' <span class="v152-badge">V154</span>';
+  document.title='Performance Arena — Data Hub V155';
+  const small=document.querySelector('.brand small');if(small&&!/V15[2345]/.test(small.textContent))small.innerHTML+= ' <span class="v152-badge">V155</span>';
   setupUpload();setupCoverage();renderBatch();
   ensureIdentityPeople().then(renderBatch).catch(function(){});
   sb.auth.onAuthStateChange(function(_event,s){if(s)setTimeout(loadCoverage,50)});
