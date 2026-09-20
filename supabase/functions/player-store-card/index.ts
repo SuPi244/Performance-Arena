@@ -1151,7 +1151,7 @@ Deno.serve(async req=>{
     const topBonus=Array.isArray(latestMonth?.top_bonus_czk)?latestMonth.top_bonus_czk.map(Number):[3500,2500,1800,1200,500];
     const priorBonus=priorBonuses.find((x:any)=>x.person_id===person.id);
     let contractClass:string|null=null;
-    const priorTeamEffort=finite(latestMonth?.team_effort_percent);
+    const priorTeamEffort=finite(priorBonus?.metadata?.team_effort_percent)??finite(latestMonth?.team_effort_percent);
     const priorBonusEligible=priorBonus?.metadata?.bonus_eligible!==false;
     if(priorBonus&&priorBonusEligible&&priorTeamEffort!==null&&priorTeamEffort>=65){
       const amount=Number(priorBonus.amount||0);
