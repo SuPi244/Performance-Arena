@@ -47,21 +47,27 @@ Deno.serve(async(req)=>{
   const p=parse(text); if(!p.rows.length)return J({error:"No Daily Picking rows parsed"},422);
   const compact=(s:any)=>norm(String(s||"")).replace(/[^a-z0-9]+/g,"");
   const isTechnicalIdentity=(s:any)=>{const x=compact(s);return x==="woltmark"||x.startsWith("woltmarketholesovice")};
-  const ignored=p.rows.filter((r:any)=>isTechnicalIdentity(r.alias));
-  const humanRows=p.rows.filter((r:any)=>!isTechnicalIdentity(r.alias));
+  const technicalRows=p.rows.filter((r:any)=>isTechnicalIdentity(r.alias));
+  const candidateRows=p.rows.filter((r:any)=>!isTechnicalIdentity(r.alias));
+  const {data:persistentIgnored,error:ignoreErr}=await db.from("ignored_identities").select("normalized_value").eq("source_type","daily_picking");
+  if(ignoreErr)return J({error:ignoreErr.message},500);
+  const ignoredSet=new Set((persistentIgnored||[]).map((x:any)=>norm(x.normalized_value)));
+  const burnerRows=candidateRows.filter((r:any)=>ignoredSet.has(norm(r.alias)));
+  const ignored=[...technicalRows,...burnerRows];
+  const humanRows=candidateRows.filter((r:any)=>!ignoredSet.has(norm(r.alias)));
   const names=humanRows.map((r:any)=>norm(r.alias));
   const aliasLookup=names.length?await db.from("person_aliases").select("person_id,normalized_value,confirmed").in("normalized_value",names):{data:[],error:null};
   const aliases=aliasLookup.data,ae=aliasLookup.error;if(ae)return J({error:ae.message},500);
   const amap=new Map((aliases||[]).filter((a:any)=>a.confirmed!==false).map((a:any)=>[a.normalized_value,a.person_id]));
   const people=humanRows.map((r:any)=>({source_identity:r.alias,person_id:amap.get(norm(r.alias))||null,values:r.values}));
   const unresolved=people.filter((x:any)=>!x.person_id).map((x:any)=>x.source_identity);
-  if(mode==="preview")return J({ok:true,preview:true,parser_stage:"daily_picking_parsed_v1",import_id,filename:imp.filename,period_start:p.period,period_end:p.period,parsed_row_count:p.rows.length,people_count:people.length,matched_count:people.length-unresolved.length,metric_count:defs.length,observation_count:people.length*defs.length,unresolved,ignored_identities:ignored.map((r:any)=>r.alias),people});
+  if(mode==="preview")return J({ok:true,preview:true,parser_stage:"daily_picking_parsed_v2",import_id,filename:imp.filename,period_start:p.period,period_end:p.period,parsed_row_count:p.rows.length,people_count:people.length,matched_count:people.length-unresolved.length,metric_count:defs.length,observation_count:people.length*defs.length,unresolved,ignored_identities:ignored.map((r:any)=>r.alias),people});
   if(unresolved.length)return J({error:"Unresolved identities",detail:unresolved.join(", "),unresolved},409);
   await db.from("metric_definitions").upsert(defs.map(d=>({metric_id:d[0],label:d[1],unit:d[2],category:d[3],lower_is_better:d[4],default_granularity:"day"})),{onConflict:"metric_id"});
   const obs:any[]=[];
   for(const r of humanRows){const pid=amap.get(norm(r.alias));for(const d of defs){const v=r.values[d[0]];if(v===null)continue;obs.push({person_id:pid,metric_id:d[0],value:v,period_start:p.period,period_end:p.period,granularity:"day",source_type:"daily_picking",import_id,source_record_key:`mo|daily_picking|${pid}|${d[0]}|${p.period}|${p.period}|day`,metadata:{source_identity:r.alias,unit:d[2]}})}}
   const {data:w,error:we}=await db.from("metric_observations").upsert(obs,{onConflict:"source_record_key"}).select("id"); if(we)return J({error:we.message},500);
-  await db.from("imports").update({status:"imported",period_start:p.period,period_end:p.period,parser_version:"daily-picking-v3"}).eq("id",import_id);
+  await db.from("imports").update({status:"imported",period_start:p.period,period_end:p.period,parser_version:"daily-picking-v4"}).eq("id",import_id);
   return J({ok:true,preview:false,parser_stage:"daily_picking_committed_v2",attempted_count:obs.length,inserted_count:w?.length??0,merge_guard:"canonical-v152"});
  }catch(e){return J({error:String(e?.message||e)},500)}
 });
