@@ -216,6 +216,16 @@ async function preflight(db:any,reportType:string,p:any){
       key:`identity:${x.email||x.picker_login}`,label:x.display_name||x.email||x.picker_login,
       alias_value:x.email||x.picker_login,alias_type:x.email?"email":"picker_username",reason:"Konflikt identity blokuje potvrzení"
     });
+    const br=p.bonus_rules||{},tb=br.team_bonus||{},thr=tb.thresholds||{};
+    if(!Array.isArray(br.top_bonus_czk)||br.top_bonus_czk.length<5)conflicts.push({
+      key:"store-card:top-bonus-rules",label:"TOP 1–5",reason:"Z PDF se nepodařilo spolehlivě přečíst všech 5 TOP bonusů"
+    });
+    if(thr.high_min_pct==null||thr.mid_min_pct==null||(tb.forty_h_czk||[]).length<3||(tb.thirty_h_czk||[]).length<3)conflicts.push({
+      key:"store-card:team-bonus-rules",label:"Team Bonus",reason:"Chybí hranice nebo částky 40h/30h z bonusové tabulky"
+    });
+    if(!(p.payouts||[]).length)conflicts.push({
+      key:"store-card:payout-table",label:"Payout tabulka",reason:"Nebyl spolehlivě napárován ani jeden oficiální payout — commit je blokovaný"
+    });
   }
   if(reportType==="team_rating"){
     for(const x of p.conflicts||[])conflicts.push({key:"team-rating:"+String(x),label:String(x),reason:"Konflikt Team Rating parseru"});
