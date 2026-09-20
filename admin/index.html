@@ -1061,8 +1061,13 @@ document.addEventListener('click',async e=>{
       mainMeta='Časové pokrytí: '+esc(s.scheduled_days||0)+' / '+esc(s.expected_days||0)+' dní s plánem · actual '+esc(s.actual_shifts||0)+' / '+esc(s.due_shifts||0)+' směn';
     }else if(s.id==='team_rating'){
       mainMeta='Pokrytí: '+esc(s.covered)+' / '+esc(s.expected)+' lidí · '+esc(s.received||0)+' odpovědí'+(s.disqualified?' · '+esc(s.disqualified)+' DQ':'');
+    }else if(s.cadence==='day'){
+      const loaded=(s.loaded_days||[]).map(function(d){return String(d).slice(8)}).join(', ');
+      mainMeta='Časové pokrytí: <b>'+esc(s.covered)+' / '+esc(s.expected)+' dní</b>'+
+        (s.imported_files_in_month!=null?' · '+esc(s.imported_files_in_month)+' importovaných souborů':'')+
+        (loaded?' · načtené dny: '+esc(loaded):'');
     }else{
-      mainMeta='Časové pokrytí: '+esc(s.covered)+' / '+esc(s.expected)+' '+esc(s.cadence==='day'?'dní':s.cadence==='week'?'období':s.cadence==='month'?'měsíců':'záznamů');
+      mainMeta='Časové pokrytí: '+esc(s.covered)+' / '+esc(s.expected)+' '+esc(s.cadence==='week'?'období':s.cadence==='month'?'měsíců':'záznamů');
     }
     return '<div class="coverage-source"><div class="coverage-head"><b>'+esc(s.label)+'</b><span class="pill '+(s.state==='complete'?'ok':s.state==='missing'?'err':'warn')+'">'+esc(stateLabel(s.state))+' · '+esc(s.percentage)+' %</span></div>'+
      '<div class="coverage-bar"><span style="width:'+Math.max(0,Math.min(100,Number(s.percentage||0)))+'%"></span></div><div class="coverage-segments">'+seg+'</div>'+
@@ -1072,14 +1077,14 @@ document.addEventListener('click',async e=>{
  }
  function setupCoverage(){
   const card=coverageCard();if(!card)return;
-  card.innerHTML='<div class="coverage-top"><div><h2 style="margin-bottom:4px">Data Coverage <span class="v152-badge">V156</span></h2><p class="muted" style="margin-bottom:0">% = skutečně zapsané časové pokrytí ve zvoleném měsíci. Pod každým zdrojem vidíš i pokrytí typů metrik, historii a staged soubory, které se ještě nepočítají.</p></div><div class="field"><label>Měsíc · detail</label><input id="coverageMonth" type="month" value="'+localMonth()+'"></div></div>'+
+  card.innerHTML='<div class="coverage-top"><div><h2 style="margin-bottom:4px">Data Coverage <span class="v152-badge">V157</span></h2><p class="muted" style="margin-bottom:0">% = skutečně zapsané časové pokrytí ve zvoleném měsíci. Pod každým zdrojem vidíš i pokrytí typů metrik, historii a staged soubory, které se ještě nepočítají.</p></div><div class="field"><label>Měsíc · detail</label><input id="coverageMonth" type="month" value="'+localMonth()+'"></div></div>'+
    '<div style="display:flex;align-items:baseline;gap:10px;margin:14px 0"><span id="coverageOverall" class="coverage-overall">—</span><span id="coverageThrough" class="muted"></span></div><div id="coverageSources"></div>';
   $('#coverageMonth').onchange=loadCoverage;
  }
  function setup(){
   if(window.__datahubV152)return;window.__datahubV152=true;
-  document.title='Performance Arena — Data Hub V156';
-  const small=document.querySelector('.brand small');if(small&&!/V15[23456]/.test(small.textContent))small.innerHTML+= ' <span class="v152-badge">V156</span>';
+  document.title='Performance Arena — Data Hub V157';
+  const small=document.querySelector('.brand small');if(small&&!/V15[234567]/.test(small.textContent))small.innerHTML+= ' <span class="v152-badge">V157</span>';
   setupUpload();setupCoverage();renderBatch();
   ensureIdentityPeople().then(renderBatch).catch(function(){});
   sb.auth.onAuthStateChange(function(_event,s){if(s)setTimeout(loadCoverage,50)});
