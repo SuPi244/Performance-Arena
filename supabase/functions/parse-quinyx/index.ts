@@ -398,6 +398,12 @@ Deno.serve(async req=>{
   const db=createClient(url,service),{data:adm}=await db.from("admin_users").select("user_id").eq("user_id",user.id).maybeSingle();if(!adm)return J({error:"Forbidden"},403);
 
   const b=await req.json(),mode=b.mode||"preview",import_id=b.import_id||null,parsed=parse(b.layout_json||[]),rows=parsed.rows;
+  let imp:any=null;
+  if(import_id){
+    const {data:impRow,error:impErr}=await db.from("imports").select("id,filename,status,report_type,metadata").eq("id",import_id).maybeSingle();
+    if(impErr)return J({error:impErr.message},500);
+    imp=impRow||null;
+  }
   if(!rows.length){
     const scan=parsed.pageScan||[];
     const ds=scan.reduce((a:number,x:any)=>a+Number(x.day_anchors||0),0);
@@ -444,17 +450,16 @@ Deno.serve(async req=>{
     date_debug:parsed.missingDateDebug
   };
 
-  if(mode==="preview")return J({ok:true,preview:true,parser_stage:"quinyx-layout-v29",shift_count:rows.length,
+  if(mode==="preview")return J({ok:true,preview:true,parser_stage:"quinyx-layout-v30",shift_count:rows.length,
     people_count:validation.people_count,period_start,period_end,validation,rows,
-    note:"Preview only. V29 skládá rozdělené GA/SL role po jednotlivých denních sloupcích, takže Michle text z jiné buňky nemůže zahodit Holešovice směnu. Nic se ještě nezapisuje."});
+    note:"Preview only. V30 opravuje diagnostický pád při nulovém počtu směn a zachovává V29 day-column parsing. Nic se ještě nezapisuje."});
 
   if(mode!=="commit")return J({error:"Unsupported mode"},400);
   if(!import_id)return J({error:"Missing import_id"},400);
   if(!period_start||!period_end||!rows.length||!validation.people_count||missingPlan.length||duplicateKeys.length||validation.future_actuals||parsed.missingDatePages.length)
     return J({error:"Quinyx validation failed; commit blocked",validation},409);
 
-  const {data:imp,error:ie}=await db.from("imports").select("id,filename,status,report_type").eq("id",import_id).single();
-  if(ie||!imp)return J({error:ie?.message||"Import not found"},400);
+  if(!imp)return J({error:"Import not found"},400);
 
   const keys=[...new Set(rows.map((r:any)=>r.person_key))];
   const {data:people,error:pe}=await db.from("people").select("id,person_key").in("person_key",keys);
@@ -477,7 +482,7 @@ Deno.serve(async req=>{
     import_id,
     source_record_key:`shift|${pmap.get(r.person_key)}|${r.date}|${norm(r.role).replace(/\s+/g," ")}|${norm(r.shift_type).replace(/\s+/g," ")}`,
     metadata:{
-      source_type:"quinyx",parser_version:"quinyx-v29",source_name:r.name,page:r.page,
+      source_type:"quinyx",parser_version:"quinyx-v30",source_name:r.name,page:r.page,
       page_period_start:r.page_period_start,page_period_end:r.page_period_end,
       confidence:r.confidence,venue:"Holešovice, Prague",export_cutoff:new Date().toISOString().slice(0,10)
     }
@@ -488,7 +493,7 @@ Deno.serve(async req=>{
   if(we)return J({error:we.message},500);
 
   await db.from("imports").update({
-    status:"imported",period_start,period_end,parser_version:"quinyx-v29"
+    status:"imported",period_start,period_end,parser_version:"quinyx-v30"
   }).eq("id",import_id);
 
   return J({ok:true,committed:true,inserted_count:w?.length??0,attempted_count:payload.length,
