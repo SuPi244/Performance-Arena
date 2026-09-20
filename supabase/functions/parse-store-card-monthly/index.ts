@@ -856,14 +856,24 @@ async function applyFormulaPayoutFallback(db:any,rewards:any,knownPeople:any[],p
   if(textMatches>=3)return rewards;
 
   const rows=(rewards?.result_rows||[]).filter((x:any)=>x.person_id);
-  if(!rows.length)return rewards;
+  if(!rows.length)return {
+    ...rewards,
+    reward_text_diagnostics:{...(rewards.reward_text_diagnostics||{}),formula_fallback_skipped:"no_result_rows"}
+  };
 
   const kpById=new Map((knownPeople||[]).map((p:any)=>[String(p.id),p]));
   const activeRows=rows.filter((x:any)=>{
     const kp=kpById.get(String(x.person_id));
     return kp&&kp.active===true;
   });
-  if(!activeRows.length)return rewards;
+  if(!activeRows.length)return {
+    ...rewards,
+    reward_text_diagnostics:{
+      ...(rewards.reward_text_diagnostics||{}),
+      formula_fallback_skipped:"no_active_rows",
+      known_people_fields:(knownPeople||[]).slice(0,3).map((p:any)=>({id:p.id,active:p.active,employment_type:p.employment_type,team_effort_eligible:p.team_effort_eligible}))
+    }
+  };
 
   const ids=[...new Set(activeRows.map((x:any)=>String(x.person_id)))];
   const {data:history,error:he}=await db.from("bonus_ledger")
@@ -1178,7 +1188,7 @@ Deno.serve(async req=>{
 
   const [{data:pickerHints,error:phErr},{data:knownPeople,error:kpErr}]=await Promise.all([
     db.from("person_aliases").select("person_id,alias_value").eq("alias_type","picker_username").eq("confirmed",true),
-    db.from("people").select("id,display_name,full_name")
+    db.from("people").select("id,display_name,full_name,active,employment_type,team_effort_eligible")
   ]);
   if(phErr)return J({error:"Picker hint lookup failed",detail:phErr.message},500);
   if(kpErr)return J({error:"People hint lookup failed",detail:kpErr.message},500);
@@ -1252,7 +1262,7 @@ Deno.serve(async req=>{
   };
 
   if(mode==="preview"){
-   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v21",
+   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v22",
     note:"Preview only. Existing identities are resolved by email/picker login. New historical people are shown before commit."});
   }
 
@@ -1341,7 +1351,7 @@ Deno.serve(async req=>{
    team_bonus_30h_czk:rewards.team_bonus_30h,
    source_import_id:import_id,
    status:"official",
-   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v21",filename:imp.filename,bonus_rules:{top_bonus_czk:rewards.top_bonus_czk||[],team_bonus:rewards.team_bonus_rules||null}},
+   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v22",filename:imp.filename,bonus_rules:{top_bonus_czk:rewards.top_bonus_czk||[],team_bonus:rewards.team_bonus_rules||null}},
    updated_at:new Date().toISOString()
   };
   const {error:sce}=await db.from("store_card_months").upsert(monthRow,{onConflict:"month"});
@@ -1419,7 +1429,7 @@ Deno.serve(async req=>{
    status:"imported",
    period_start:period.period_start,
    period_end:period.period_end,
-   parser_version:"store-card-monthly-v21",
+   parser_version:"store-card-monthly-v22",
    record_count:totalRecords,
    metadata:{
     ...(imp.metadata||{}),
@@ -1437,7 +1447,7 @@ Deno.serve(async req=>{
    ...common,
    preview:false,
    committed:true,
-   parser_stage:"store-card-monthly-committed-v21",
+   parser_stage:"store-card-monthly-committed-v22",
    observations_attempted:obs.length,
    observations_inserted:obsWritten,
    store_metrics_attempted:storeRows.length,
