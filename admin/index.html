@@ -53,7 +53,18 @@ let currentPreview=null;
 const sb=supabase.createClient('https://yhpgqkklnymfiacrztqf.supabase.co','sb_publishable_EA9Sbn8ayjr0eHaI2m0s6A_Yct2lL8a'),$=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function msg(e,t,c=''){e.textContent=t;e.className='status '+c}async function hash(f){let b=await f.arrayBuffer(),h=await crypto.subtle.digest('SHA-256',b);return[...new Uint8Array(h)].map(x=>x.toString(16).padStart(2,'0')).join('')}
-function type(n){n=n.toLowerCase();if((n.includes('team')&&n.includes('rating'))||(n.includes('form')&&n.includes('response')))return'team_rating';if((n.includes('store card')||n.includes('store_card')||n.includes('store-card'))&&(n.includes('month')||/leden|unor|únor|brezen|březen|duben|kveten|květen|cerven|červen|cervenec|červenec|srpen|zari|září|rijen|říjen|listopad|prosinec|january|february|march|april|may|june|july|august|september|october|november|december/.test(n)))return'month_end_reconciliation';if(n.includes('metric')&&n.includes('ga'))return'ga_metrics';if(n.includes('daily')&&n.includes('picking'))return'daily_picking';if(n.includes('inbound'))return'inbound';if(n.includes('quinyx'))return'quinyx';if(n.includes('stock'))return'stock_count';if(n.includes('store'))return'store_metrics';return'unknown'}
+function type(n){
+ n=String(n||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ if((n.includes('team')&&n.includes('rating'))||(n.includes('form')&&n.includes('response')))return'team_rating';
+ if((n.includes('store card')||n.includes('store_card')||n.includes('store-card'))&&(n.includes('month')||/leden|unor|brezen|duben|kveten|cerven|cervenec|srpen|zari|rijen|listopad|prosinec|january|february|march|april|may|june|july|august|september|october|november|december/.test(n)))return'store_card_monthly';
+ if(n.includes('metric')&&n.includes('ga'))return'ga_metrics';
+ if(n.includes('daily')&&n.includes('picking'))return'daily_picking';
+ if(n.includes('inbound'))return'inbound';
+ if(n.includes('quinyx'))return'quinyx';
+ if(n.includes('stock'))return'stock_count';
+ if(n.includes('store'))return'store_metrics';
+ return'unknown'
+}
 async function admin(){let{data:{user}}=await sb.auth.getUser();if(!user)return false;let{data}=await sb.from('admin_users').select('user_id').eq('user_id',user.id).maybeSingle();return!!data}
 async function route(){let{data:{session}}=await sb.auth.getSession();if(!session)return;if(!(await admin())){await sb.auth.signOut();return msg($('#loginStatus'),'Účet není Arena admin.','err')}$('#loginView').classList.add('hidden');$('#appView').classList.remove('hidden');$('#who').textContent=session.user.email;refresh();setTimeout(()=>{if(typeof loadReconciliation==='function')loadReconciliation();if(typeof loadMonthEnd==='function')loadMonthEnd()},0)}
 $('#loginForm').onsubmit=async e=>{e.preventDefault();let{error}=await sb.auth.signInWithPassword({email:$('#email').value.trim(),password:$('#password').value});if(error)msg($('#loginStatus'),'Přihlášení selhalo: '+error.message,'err');else route()}
@@ -582,8 +593,8 @@ document.addEventListener('click',async e=>{
 (function(){
  const API_ROOT='https://yhpgqkklnymfiacrztqf.supabase.co/functions/v1';
  const API_KEY='sb_publishable_EA9Sbn8ayjr0eHaI2m0s6A_Yct2lL8a';
- const PARSERS={ga_metrics:'parse-ga-metrics',daily_picking:'parse-daily-picking',inbound:'parse-inbound',quinyx:'parse-quinyx',stock_count:'parse-stock-count',store_metrics:'parse-store-metrics',team_rating:'parse-team-rating',universal_metrics:'parse-universal-metrics'};
- const LABELS={ga_metrics:'GA Metrics',daily_picking:'Daily Picking',inbound:'Inbound',quinyx:'Quinyx',stock_count:'Stock Count',store_metrics:'Store Metrics',team_rating:'Team Rating Form',universal_metrics:'Universal Metric Import'};
+ const PARSERS={ga_metrics:'parse-ga-metrics',daily_picking:'parse-daily-picking',inbound:'parse-inbound',quinyx:'parse-quinyx',stock_count:'parse-stock-count',store_metrics:'parse-store-metrics',store_card_monthly:'parse-store-card-monthly',team_rating:'parse-team-rating',universal_metrics:'parse-universal-metrics'};
+ const LABELS={ga_metrics:'GA Metrics',daily_picking:'Daily Picking',inbound:'Inbound',quinyx:'Quinyx',stock_count:'Stock Count',store_metrics:'Store Metrics',store_card_monthly:'Monthly Store Card',team_rating:'Team Rating Form',universal_metrics:'Universal Metric Import'};
  let batch=[];
  let busy=false;
  let identityPeople=[];
@@ -608,7 +619,6 @@ document.addEventListener('click',async e=>{
  function ext(name){const m=String(name||'').toLowerCase().match(/\.([a-z0-9]+)$/);return m?m[1]:''}
  function supportedReport(file){
   const detected=type(file.name);
-  if(detected==='month_end_reconciliation')throw new Error('Monthly Store Card patří do sekce Měsíční uzávěrka.');
   const r=PARSERS[detected]?detected:'universal_metrics';
   if(r==='quinyx'&&ext(file.name)!=='pdf')throw new Error('Quinyx bulk preview zatím vyžaduje PDF export.');
   return r;
@@ -635,6 +645,10 @@ document.addEventListener('click',async e=>{
   if(item.report_type==='quinyx'){
    if(!item.layout_json)item.layout_json=await extractPdfLayoutClient(item.storage_path);
    return {layout_json:item.layout_json};
+  }
+  if(item.report_type==='store_card_monthly'){
+   if(!item.layout_json)item.layout_json=await extractPdfLayoutClient(item.storage_path,true);
+   return {layout_json:item.layout_json,filename:item.file.name};
   }
   if(item.extracted_text)return {extracted_text:item.extracted_text};
   if(e==='pdf'){
@@ -668,7 +682,7 @@ document.addEventListener('click',async e=>{
   try{
    item.preview=await edge(PARSERS[item.report_type],payload);
   }catch(err){
-   const canFallback=item.report_type!=='universal_metrics'&&item.report_type!=='quinyx'&&item.report_type!=='team_rating'&&item.report_type!=='month_end_reconciliation';
+   const canFallback=item.report_type!=='universal_metrics'&&item.report_type!=='quinyx'&&item.report_type!=='team_rating'&&item.report_type!=='store_card_monthly';
    if(!canFallback)throw err;
    const from=item.report_type;
    const universalPreview=await edge(PARSERS.universal_metrics,payload);
@@ -857,7 +871,8 @@ document.addEventListener('click',async e=>{
   try{
    for(const item of batch){
     if(item.state==='done'||item.state==='duplicate'||item.skipCommit){item.state='done';renderBatch();continue}
-    const src=item.report_type==='quinyx'?{layout_json:item.layout_json}:{extracted_text:item.extracted_text};
+    const src=item.report_type==='quinyx'?{layout_json:item.layout_json}:
+      item.report_type==='store_card_monthly'?{layout_json:item.layout_json,filename:item.file.name}:{extracted_text:item.extracted_text};
     await edge(PARSERS[item.report_type],Object.assign({import_id:item.import_id,mode:'commit'},src));
     try{item.result=(await status('import_result',{import_id:item.import_id})).result}catch(_){}
     item.state='done';renderBatch();
