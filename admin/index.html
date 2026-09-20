@@ -753,6 +753,14 @@ document.addEventListener('click',async e=>{
       '</div></details>';
     }
    }
+   if(x.report_type==='quinyx'&&x.preview){
+    const pp=(x.preview.validation&&x.preview.validation.page_periods)||x.preview.page_periods||[];
+    const miss=(x.preview.validation&&x.preview.validation.missing_date_pages)||[];
+    details+='<details class="bulk-details" open><summary>🗓️ Quinyx období · '+esc(x.preview.period_start||'—')+' → '+esc(x.preview.period_end||'—')+'</summary><div style="margin-top:8px;font-size:12px">'+
+      pp.map(function(p){return '<div><span class="ok">page '+esc(p.page)+'</span> · '+esc(p.period_start)+' → '+esc(p.period_end)+'</div>'}).join('')+
+      (miss.length?'<div class="err" style="margin-top:6px">Chybí datumová hlavička na page: '+esc(miss.join(', '))+' · import je zablokovaný.</div>':'')+
+      '</div></details>';
+   }
    if(x.report_type==='team_rating'&&x.preview){
     const reps=x.preview.responses||[],sc=x.preview.scoring||{};
     details+='<details class="bulk-details"><summary>Team Rating · '+esc(x.preview.valid_response_count||0)+' platných / '+esc(x.preview.response_count||0)+' odpovědí</summary><div style="margin-top:8px;font-size:12px">'+
