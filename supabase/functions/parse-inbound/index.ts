@@ -4,6 +4,7 @@ const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"au
 const J=(x:any,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{...cors,"content-type":"application/json"}});
 const norm=(s:string)=>String(s||"").trim().toLowerCase();
 const metric=(bucket:string)=>`inbound_${bucket.toLowerCase()}_units`;
+const cleanId=(s:string)=>norm(s).replace(/[….]+$/g,"");
 
 const emailHints=[
  ["tereza.chylova@wolt.c","tereza.chylova@wolt.com"],
@@ -20,7 +21,7 @@ const canonical=(s:string)=>{
 };
 
 function csvCells(line:string){
- const out:string[]=[];let value="",quoted=false;
+ const out:string[]= [];let value="",quoted=false;
  for(let i=0;i<line.length;i++){
   const ch=line[i];
   if(ch==='"'){
@@ -117,17 +118,34 @@ Deno.serve(async req=>{
 
   const [{data:emailAliases,error:emailErr},{data:idAliases,error:idErr}]=await Promise.all([
    emailNames.length
-    ? db.from("person_aliases").select("person_id,normalized_value,confirmed,alias_type").in("normalized_value",emailNames)
+    ? db.from("person_aliases").select("person_id,normalized_value,confirmed,alias_type,alias_value").in("normalized_value",emailNames)
     : Promise.resolve({data:[],error:null}),
    unknownIds.length
-    ? db.from("person_aliases").select("person_id,normalized_value,confirmed,alias_type").eq("alias_type","wolt_user_id").in("normalized_value",unknownIds)
+    ? db.from("person_aliases").select("person_id,normalized_value,confirmed,alias_type,alias_value").eq("alias_type","wolt_user_id").eq("confirmed",true)
     : Promise.resolve({data:[],error:null})
   ]);
   if(emailErr)return J({error:emailErr.message},500);
   if(idErr)return J({error:idErr.message},500);
 
   const emailMap=new Map((emailAliases||[]).filter((x:any)=>x.confirmed!==false).map((x:any)=>[x.normalized_value,x.person_id]));
-  const idMap=new Map((idAliases||[]).filter((x:any)=>x.confirmed!==false).map((x:any)=>[x.normalized_value,x.person_id]));
+  const confirmedIds=(idAliases||[]).filter((x:any)=>x.confirmed!==false);
+  const idResolution=new Map<string,any>();
+  for(const uid of unknownIds){
+    const raw=norm(uid),prefix=cleanId(uid);
+    const exact=confirmedIds.filter((x:any)=>norm(x.normalized_value)===raw || norm(x.normalized_value)===prefix);
+    if(exact.length===1){
+      idResolution.set(raw,{person_id:exact[0].person_id,full_id:exact[0].alias_value,mode:"wolt_user_id_exact"});
+      continue;
+    }
+    if(prefix.length>=12){
+      const prefixMatches=confirmedIds.filter((x:any)=>norm(x.normalized_value).startsWith(prefix));
+      const people=[...new Set(prefixMatches.map((x:any)=>x.person_id))];
+      if(people.length===1){
+        const hit=prefixMatches.find((x:any)=>x.person_id===people[0]);
+        idResolution.set(raw,{person_id:people[0],full_id:hit?.alias_value||uid,mode:"wolt_user_id_unique_prefix"});
+      }
+    }
+  }
 
   const unresolvedKnown=[...new Set(
    knownRows.filter(r=>!emailMap.has(canonical(r.alias))).map(r=>r.alias)
@@ -135,8 +153,9 @@ Deno.serve(async req=>{
 
   const summary=activeRows.map(r=>{
    const isUnknown=canonical(r.alias)==="unknow_userid";
-   const person_id=isUnknown ? (idMap.get(norm(r.user_id))||null) : (emailMap.get(canonical(r.alias))||null);
-   return {...r,person_id,metric_id:metric(r.bucket)};
+   const resolution=isUnknown ? (idResolution.get(norm(r.user_id))||null) : null;
+   const person_id=isUnknown ? (resolution?.person_id||null) : (emailMap.get(canonical(r.alias))||null);
+   return {...r,person_id,metric_id:metric(r.bucket),id_resolution:resolution};
   });
 
   const unresolvedUnknownIds=[...new Set(
@@ -148,7 +167,7 @@ Deno.serve(async req=>{
 
   const dates=activeRows.map(r=>r.date).sort();
   if(mode==="preview")return J({
-   ok:true,preview:true,parser_stage:"inbound_parsed_v7",
+   ok:true,preview:true,parser_stage:"inbound_parsed_v8",
    period_start:dates[0],period_end:dates.at(-1),
    row_count:activeRows.length,
    parsed_row_count:rows.length,
@@ -180,7 +199,6 @@ Deno.serve(async req=>{
   const matched=summary.filter(r=>r.person_id);
   const obs=matched.map(r=>{
    const isUnknown=canonical(r.alias)==="unknow_userid";
-   const sourceIdentity=isUnknown?`wolt:${norm(r.user_id)}`:canonical(r.alias);
    return {
     person_id:r.person_id,
     metric_id:r.metric_id,
@@ -193,9 +211,10 @@ Deno.serve(async req=>{
     source_record_key:`mo|inbound|${r.person_id}|${r.metric_id}|${r.date}|${r.date}|day`,
     metadata:{
      source_identity:r.alias,
-     wolt_user_id:r.user_id,
+     wolt_user_id:r.id_resolution?.full_id||r.user_id,
+     source_wolt_user_id:r.user_id,
      bucket:r.bucket,
-     identity_resolution:isUnknown?"wolt_user_id_alias":"known_identity"
+     identity_resolution:isUnknown?(r.id_resolution?.mode||"unresolved"):"known_identity"
     }
    };
   });
@@ -204,9 +223,6 @@ Deno.serve(async req=>{
    .upsert(obs,{onConflict:"source_record_key"}).select("id");
   if(we)return J({error:we.message},500);
 
-  // Persist every still-unknown Wolt ID as one durable reconciliation record per import.
-  // Store the complete observed day/bucket activity in metadata so month-end matching
-  // can compare it against Quinyx and other monthly GA sources.
   for(const uid of unresolvedUnknownIds){
    const activity=summary
     .filter(r=>canonical(r.alias)==="unknow_userid"&&norm(r.user_id)===norm(uid))
@@ -215,7 +231,6 @@ Deno.serve(async req=>{
 
    const totals:any={normal:0,icy:0,freez:0};
    for(const a of activity)totals[a.bucket]=(totals[a.bucket]||0)+a.value;
-
    const activeDays=[...new Set(activity.map(a=>a.date))].sort();
 
    const {data:existing}=await db.from("unresolved_identities")
@@ -238,7 +253,7 @@ Deno.serve(async req=>{
      active_days:activeDays,
      activity,
      bucket_totals:totals,
-     parser_version:"inbound-v7"
+     parser_version:"inbound-v8"
     }
    };
 
@@ -253,7 +268,7 @@ Deno.serve(async req=>{
    status:"imported",
    period_start:dates[0],
    period_end:dates.at(-1),
-   parser_version:"inbound-v7"
+   parser_version:"inbound-v8"
   }).eq("id",id);
 
   return J({
@@ -263,7 +278,7 @@ Deno.serve(async req=>{
    reconciliation_written:unresolvedUnknownIds.length,
    unresolved_unknown_user_ids:unresolvedUnknownIds,
    resolved_unknown_user_ids:resolvedUnknownIds,
-   merge_guard:"canonical-v152"
+   merge_guard:"canonical-v153-identity"
   });
  }catch(e){
   return J({error:String((e as any)?.message||e)},500)
