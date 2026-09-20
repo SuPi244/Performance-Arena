@@ -366,7 +366,7 @@ Deno.serve(async req=>{
       average_start_collection_time:weightedByPeriod(personalRows||[],"daily_avg_start_collection_time","daily_picking_app_task_count"),
       total_production_time:metricAvg(by,"daily_total_production_time"),
 
-      inbound_total_units:metricSum(by,"inbound_normal_units"),
+      inbound_normal_units:metricSum(by,"inbound_normal_units"),
       inbound_icy_units:metricSum(by,"inbound_icy_units"),
       inbound_freeze_units:metricSum(by,"inbound_freez_units"),
       stock_count:metricSum(by,"stock_count_adjustment_count"),
@@ -375,12 +375,13 @@ Deno.serve(async req=>{
       total_points:null,
       projected_bonus_czk:null
     };
-    live.inbound_all_units=sum([live.inbound_total_units,live.inbound_icy_units,live.inbound_freeze_units]);
+    live.inbound_total_units=sum([live.inbound_normal_units,live.inbound_icy_units,live.inbound_freeze_units]);
+    live.inbound_all_units=live.inbound_total_units; // compatibility alias
 
     const liveFields=[
       "orders_picked","total_units_picked","missing_items_ratio","undelivered_items_ratio","scan_to_pick_ratio",
       "bad_goods_rating_ratio","avg_goods_rating","venue_related_cs_tickets_ratio","average_accepted_time",
-      "average_collection_time","average_start_collection_time","inbound_total_units","inbound_icy_units",
+      "average_collection_time","average_start_collection_time","inbound_total_units","inbound_normal_units","inbound_icy_units",
       "inbound_freeze_units","stock_count","team_rating"
     ];
     live.coverage_total=liveFields.length;
@@ -450,6 +451,37 @@ Deno.serve(async req=>{
     const official_metrics=Object.entries(officialMetricLabels).map(([metric_id,def]:any)=>({
       metric_id,label:def[0],unit:def[1],value:officialMap[metric_id]??null
     })).filter((x:any)=>x.value!==null);
+
+    // Full closed-month history for historical Store Card panels, benchmarks and
+    // lifetime achievements. This does NOT affect the current-month projection.
+    const officialHistoryMap=new Map<string,any>();
+    for(const r of officialRows||[]){
+      const ps=String(r.period_start||"").slice(0,10);if(!ps)continue;
+      if(!officialHistoryMap.has(ps))officialHistoryMap.set(ps,{period_start:ps,period_end:String(r.period_end||ps).slice(0,10),metrics:{}});
+      const row=officialHistoryMap.get(ps);
+      const v=finite(r.value);
+      if(v!==null)row.metrics[r.metric_id]=v;
+      if(r.period_end)row.period_end=String(r.period_end).slice(0,10);
+    }
+    const official_history=[...officialHistoryMap.values()].map((row:any)=>{
+      const m=row.metrics||{};
+      const total=finite(m.store_card_inbound_total_units);
+      const icy=finite(m.store_card_inbound_icy_units)||0;
+      const freeze=finite(m.store_card_inbound_freeze_units)||0;
+      const normal=total!==null?Math.max(0,total-icy-freeze):null;
+      return {
+        period_start:row.period_start,
+        period_end:row.period_end,
+        inbound_total_units:total,
+        inbound_normal_units:normal,
+        inbound_icy_units:finite(m.store_card_inbound_icy_units),
+        inbound_freeze_units:finite(m.store_card_inbound_freeze_units),
+        stock_count:finite(m.store_card_stock_count),
+        score_inbound_stock:finite(m.store_card_score_inbound_stock),
+        total_points:finite(m.store_card_total_points),
+        metrics:m
+      };
+    }).sort((a:any,b:any)=>String(a.period_start).localeCompare(String(b.period_start)));
 
     // Dynamic raw metric catalog for all current-month observations.
     const metricIds=[...new Set((personalRows||[]).map((r:any)=>r.metric_id))];
@@ -1373,7 +1405,7 @@ Deno.serve(async req=>{
 
     return J({
       ok:true,
-      version:"player-store-card-v18",
+      version:"player-store-card-v19",
       person:{
         person_key:person.person_key,
         display_name:person.display_name,
@@ -1386,6 +1418,7 @@ Deno.serve(async req=>{
       latest_official_store_card:latestMonth,
       latest_official_points:latestOfficialPoints,
       official_metrics,
+      official_history,
       live_personal:live,
       live_store:liveStore,
       raw_metrics,
