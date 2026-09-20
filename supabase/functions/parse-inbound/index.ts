@@ -116,34 +116,48 @@ Deno.serve(async req=>{
   const unknownRows=activeRows.filter(r=>canonical(r.alias)==="unknow_userid");
   const unknownIds=[...new Set(unknownRows.map(r=>norm(r.user_id)).filter(Boolean))];
 
-  const [{data:emailAliases,error:emailErr},{data:idAliases,error:idErr}]=await Promise.all([
+  const [{data:emailAliases,error:emailErr},{data:idAliases,error:idErr},{data:resolvedQueue,error:resolvedErr}]=await Promise.all([
    emailNames.length
     ? db.from("person_aliases").select("person_id,normalized_value,confirmed,alias_type,alias_value").in("normalized_value",emailNames)
     : Promise.resolve({data:[],error:null}),
    unknownIds.length
     ? db.from("person_aliases").select("person_id,normalized_value,confirmed,alias_type,alias_value").eq("alias_type","wolt_user_id").eq("confirmed",true)
+    : Promise.resolve({data:[],error:null}),
+   unknownIds.length
+    ? db.from("unresolved_identities").select("alias_value,resolved_person_id,status").eq("source_type","inbound").eq("alias_type","wolt_user_id").eq("status","resolved")
     : Promise.resolve({data:[],error:null})
   ]);
   if(emailErr)return J({error:emailErr.message},500);
   if(idErr)return J({error:idErr.message},500);
+  if(resolvedErr)return J({error:resolvedErr.message},500);
 
   const emailMap=new Map((emailAliases||[]).filter((x:any)=>x.confirmed!==false).map((x:any)=>[x.normalized_value,x.person_id]));
-  const confirmedIds=(idAliases||[]).filter((x:any)=>x.confirmed!==false);
+  const confirmedIds=[
+   ...(idAliases||[]).filter((x:any)=>x.confirmed!==false).map((x:any)=>({person_id:x.person_id,alias_value:x.alias_value,normalized_value:x.normalized_value,source:"person_alias"})),
+   ...(resolvedQueue||[]).filter((x:any)=>x.resolved_person_id).map((x:any)=>({person_id:x.resolved_person_id,alias_value:x.alias_value,normalized_value:norm(x.alias_value),source:"resolved_queue"}))
+  ];
   const idResolution=new Map<string,any>();
+  const candidateMatch=(candidate:any,raw:string,prefix:string)=>{
+    const cv=norm(candidate.normalized_value||candidate.alias_value||"");
+    const cp=cleanId(cv);
+    return cv===raw||cv===prefix||cp===raw||cp===prefix||
+      (prefix.length>=12&&(cv.startsWith(prefix)||prefix.startsWith(cp)||cp.startsWith(prefix)));
+  };
   for(const uid of unknownIds){
     const raw=norm(uid),prefix=cleanId(uid);
-    const exact=confirmedIds.filter((x:any)=>norm(x.normalized_value)===raw || norm(x.normalized_value)===prefix);
-    if(exact.length===1){
-      idResolution.set(raw,{person_id:exact[0].person_id,full_id:exact[0].alias_value,mode:"wolt_user_id_exact"});
-      continue;
-    }
-    if(prefix.length>=12){
-      const prefixMatches=confirmedIds.filter((x:any)=>norm(x.normalized_value).startsWith(prefix));
-      const people=[...new Set(prefixMatches.map((x:any)=>x.person_id))];
-      if(people.length===1){
-        const hit=prefixMatches.find((x:any)=>x.person_id===people[0]);
-        idResolution.set(raw,{person_id:people[0],full_id:hit?.alias_value||uid,mode:"wolt_user_id_unique_prefix"});
-      }
+    const matches=confirmedIds.filter((x:any)=>candidateMatch(x,raw,prefix));
+    const people=[...new Set(matches.map((x:any)=>x.person_id).filter(Boolean))];
+    if(people.length===1){
+      const hit=matches.find((x:any)=>x.person_id===people[0]);
+      const exact=matches.some((x:any)=>{
+        const cv=norm(x.normalized_value||x.alias_value||"");
+        return cv===raw||cleanId(cv)===prefix;
+      });
+      idResolution.set(raw,{
+        person_id:people[0],
+        full_id:hit?.alias_value||uid,
+        mode:exact?"wolt_user_id_exact_or_manual":"wolt_user_id_unique_prefix"
+      });
     }
   }
 
@@ -167,7 +181,7 @@ Deno.serve(async req=>{
 
   const dates=activeRows.map(r=>r.date).sort();
   if(mode==="preview")return J({
-   ok:true,preview:true,parser_stage:"inbound_parsed_v8",
+   ok:true,preview:true,parser_stage:"inbound_parsed_v9",
    period_start:dates[0],period_end:dates.at(-1),
    row_count:activeRows.length,
    parsed_row_count:rows.length,
@@ -253,7 +267,7 @@ Deno.serve(async req=>{
      active_days:activeDays,
      activity,
      bucket_totals:totals,
-     parser_version:"inbound-v8"
+     parser_version:"inbound-v9"
     }
    };
 
@@ -268,7 +282,7 @@ Deno.serve(async req=>{
    status:"imported",
    period_start:dates[0],
    period_end:dates.at(-1),
-   parser_version:"inbound-v8"
+   parser_version:"inbound-v9"
   }).eq("id",id);
 
   return J({
