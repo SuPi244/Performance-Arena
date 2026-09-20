@@ -246,21 +246,103 @@ function parseRewards(layout:any[],people:any[],period:any,knownPeople:any[]=[])
     }
   }
 
+  // Monetary rules are read from each PDF itself. Historical cards changed both
+  // TOP amounts and Team Bonus thresholds/amounts, so nothing here is hard-coded by month.
   let top_bonus_czk:number[]=[];
   for(const r of rows){
-    const vals=r.items.filter((i:any)=>center(i)>=385&&center(i)<590).map((i:any)=>n(i.text)).filter((x:any)=>x!=null);
-    if(vals.length>=5&&vals[0]>=500){top_bonus_czk=vals.slice(0,5);break}
+    const all=r.items.map((i:any)=>String(i.text||"")).join(" ");
+    const vals=r.items
+      .filter((i:any)=>center(i)>=385&&center(i)<590)
+      .map((i:any)=>n(i.text)).filter((x:any)=>x!=null&&Number.isFinite(Number(x)));
+    if(vals.length>=5 && (/TOP\s*1/i.test(all)||vals[0]>=500)){
+      top_bonus_czk=vals.slice(0,5).map((x:any)=>Number(x));
+      if(top_bonus_czk.every((x:any)=>x>=0))break;
+    }
   }
 
-  let team_effort_pct:number|null=null,team_bonus_40h:number|null=null,team_bonus_30h:number|null=null;
+  let team_effort_pct:number|null=null;
+  let team40:number[]|null=null,team30:number[]|null=null;
+  let thresholdHigh:number|null=null,thresholdMid:number|null=null;
   for(const r of rows){
-    const all=r.items.map((i:any)=>i.text).join(" ");
+    const all=r.items.map((i:any)=>String(i.text||"")).join(" ").replace(/\s+/g," ").trim();
     if(/Team effort AVG/i.test(all)){
-      const perc=r.items.map((i:any)=>String(i.text)).find((s:string)=>/%/.test(s));
+      const perc=(all.match(/-?\d+(?:[.,]\d+)?\s*%/)||[])[0];
       team_effort_pct=perc?n(perc):null;
     }
-    if(/40h\/w/i.test(txt(r,385,445))){team_bonus_40h=val(r,450,510)}
-    if(/30h\/w/i.test(txt(r,385,445))){team_bonus_30h=val(r,450,510)}
+
+    // Threshold header: ">= 70 % | >= 65 % | < 65 %".
+    if(/[≥>]\s*\d+\s*%/.test(all)&&/[<]\s*\d+\s*%/.test(all)){
+      const nums=(all.match(/\d+(?:[.,]\d+)?/g)||[]).map(n).filter((x:any)=>x!=null);
+      if(nums.length>=2){
+        thresholdHigh=Number(nums[0]);
+        thresholdMid=Number(nums[1]);
+      }
+    }
+
+    if(/40h\/w/i.test(all)){
+      const vals=r.items.filter((i:any)=>center(i)>=420&&center(i)<540)
+        .map((i:any)=>n(i.text)).filter((x:any)=>x!=null&&Number.isFinite(Number(x)));
+      if(vals.length>=3)team40=vals.slice(0,3).map((x:any)=>Number(x));
+    }
+    if(/30h\/w/i.test(all)){
+      const vals=r.items.filter((i:any)=>center(i)>=420&&center(i)<540)
+        .map((i:any)=>n(i.text)).filter((x:any)=>x!=null&&Number.isFinite(Number(x)));
+      if(vals.length>=3)team30=vals.slice(0,3).map((x:any)=>Number(x));
+    }
+  }
+
+  // Fallback to the visible column positions if PDF text grouping split the threshold header.
+  if(thresholdHigh==null||thresholdMid==null){
+    for(const r of rows){
+      const left=txt(r,425,465),mid=txt(r,465,505),right=txt(r,505,540);
+      if(/[≥>]/.test(left)&&/%/.test(left)&&/[≥>]/.test(mid)&&/%/.test(mid)&&/</.test(right)&&/%/.test(right)){
+        thresholdHigh=n(left);thresholdMid=n(mid);break;
+      }
+    }
+  }
+
+  let teamTier:number|null=null;
+  if(team_effort_pct!=null&&thresholdHigh!=null&&thresholdMid!=null){
+    teamTier=team_effort_pct>=thresholdHigh?0:team_effort_pct>=thresholdMid?1:2;
+  }
+  const team_bonus_40h=teamTier!=null&&team40?team40[teamTier]??null:null;
+  const team_bonus_30h=teamTier!=null&&team30?team30[teamTier]??null:null;
+  const team_bonus_rules={
+    thresholds:{
+      high_min_pct:thresholdHigh,
+      mid_min_pct:thresholdMid,
+      low_below_pct:thresholdMid
+    },
+    columns:[
+      {key:"high",label:thresholdHigh!=null?`>= ${thresholdHigh}%`:"high",index:0},
+      {key:"mid",label:thresholdMid!=null?`>= ${thresholdMid}%`:"mid",index:1},
+      {key:"low",label:thresholdMid!=null?`< ${thresholdMid}%`:"low",index:2}
+    ],
+    forty_h_czk:team40||[],
+    thirty_h_czk:team30||[],
+    selected_tier:teamTier==null?null:["high","mid","low"][teamTier],
+    selected_40h_czk:team_bonus_40h,
+    selected_30h_czk:team_bonus_30h,
+    team_effort_pct
+  };
+
+  // The result table itself marks TOP 1-5 with medals. Use that as the
+  // authoritative rank so bonus decomposition does not depend on amount ordering.
+  const topRankByPerson=new Map<string,number>();
+  for(const r of rows){
+    const pid=resolveName(txt(r,75,185));
+    if(!pid)continue;
+    const medal=txt(r,200,230);
+    let rank:number|null=null;
+    if(/🥇/.test(medal))rank=1;
+    else if(/🥈/.test(medal))rank=2;
+    else if(/🥉/.test(medal))rank=3;
+    else {
+      const badges=(medal.match(/🏅/g)||[]).length;
+      if(badges>=2)rank=4;
+      else if(badges===1)rank=5;
+    }
+    if(rank)topRankByPerson.set(String(pid),rank);
   }
 
   // Official payout table on page 1. Match payout names to canonical person_id.
@@ -293,14 +375,53 @@ function parseRewards(layout:any[],people:any[],period:any,knownPeople:any[]=[])
 
     const pp=personById.get(String(pid))||{};
     const eligible=colorAware?!ineligiblePersonIds.has(String(pid)):null;
+    const amount=Number(plausible);
+    const knownRank=topRankByPerson.get(String(pid))||null;
+    const topComponent=knownRank?Number(top_bonus_czk[knownRank-1]||0):0;
+    const selectedTeam=[
+      {hours_band:"40h",tier:teamTier,value:Number(team_bonus_40h??NaN)},
+      {hours_band:"30h",tier:teamTier,value:Number(team_bonus_30h??NaN)},
+      {hours_band:"none",tier:null,value:0}
+    ].filter((x:any)=>Number.isFinite(x.value));
+    const residual=amount-topComponent;
+    const teamMatches=selectedTeam.filter((x:any)=>x.value===residual);
+    const directDecomposition=teamMatches.length===1?{
+      top_rank:knownRank,
+      top_bonus_czk:topComponent,
+      team_bonus_czk:teamMatches[0].value,
+      hours_band:teamMatches[0].hours_band,
+      team_tier:teamMatches[0].tier,
+      rule_match:true
+    }:null;
+
+    const decomposition:any[]=[];
+    if(directDecomposition)decomposition.push(directDecomposition);
+    if(!knownRank){
+      // Fallback for historical PDFs whose medal glyph was not extractable.
+      for(let rank=0;rank<Math.min(5,top_bonus_czk.length);rank++){
+        for(const tb of selectedTeam){
+          if(Number(top_bonus_czk[rank]||0)+tb.value===amount){
+            decomposition.push({top_rank:rank+1,top_bonus_czk:Number(top_bonus_czk[rank]||0),team_bonus_czk:tb.value,hours_band:tb.hours_band,team_tier:tb.tier,rule_match:true});
+          }
+        }
+      }
+      for(const tb of selectedTeam){
+        if(tb.value===amount)decomposition.push({top_rank:null,top_bonus_czk:0,team_bonus_czk:tb.value,hours_band:tb.hours_band,team_tier:tb.tier,rule_match:true});
+      }
+    }
+
     payouts.push({
       person_id:String(pid),
       email:pp.email||null,
       display_name:(knownPeople||[]).find((x:any)=>String(x.id)===String(pid))?.full_name||pp.display_name||sourceName,
       source_name:sourceName,
-      confirmed_bonus_czk:Number(plausible),
+      confirmed_bonus_czk:amount,
       bonus_eligible:eligible,
-      eligibility_source:eligible===false?"official_store_card_red_cell":eligible===true?"official_store_card_color":"unknown"
+      eligibility_source:eligible===false?"official_store_card_red_cell":eligible===true?"official_store_card_color":"unknown",
+      top_rank:knownRank,
+      payout_decomposition:directDecomposition||(decomposition.length===1?decomposition[0]:null),
+      payout_decomposition_candidates:decomposition,
+      payout_rule_match:!!directDecomposition||decomposition.length>0
     });
   }
 
@@ -316,7 +437,7 @@ function parseRewards(layout:any[],people:any[],period:any,knownPeople:any[]=[])
   }
 
   return {
-    top_bonus_czk,team_effort_pct,team_bonus_40h,team_bonus_30h,monthly_threshold_points,payouts,
+    top_bonus_czk,team_effort_pct,team_bonus_40h,team_bonus_30h,team_bonus_rules,monthly_threshold_points,payouts,
     color_eligibility_detected:colorAware,
     ineligible_people:payouts.filter((x:any)=>x.bonus_eligible===false).map((x:any)=>x.display_name),
     payout_match_count:payouts.length
@@ -598,6 +719,10 @@ Deno.serve(async req=>{
    top_bonus_czk:rewards.top_bonus_czk,
    team_bonus_40h_czk:rewards.team_bonus_40h,
    team_bonus_30h_czk:rewards.team_bonus_30h,
+   bonus_rules:{
+    top_bonus_czk:rewards.top_bonus_czk||[],
+    team_bonus:rewards.team_bonus_rules||null
+   },
    confirmed_bonus_total_czk:(rewards.payouts||[]).reduce((a:number,x:any)=>a+(x.confirmed_bonus_czk||0),0),
    bonus_color_eligibility_detected:rewards.color_eligibility_detected===true,
    bonus_ineligible_people:rewards.ineligible_people||[],
@@ -607,7 +732,7 @@ Deno.serve(async req=>{
   };
 
   if(mode==="preview"){
-   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v10",
+   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v11",
     note:"Preview only. Existing identities are resolved by email/picker login. New historical people are shown before commit."});
   }
 
@@ -696,7 +821,7 @@ Deno.serve(async req=>{
    team_bonus_30h_czk:rewards.team_bonus_30h,
    source_import_id:import_id,
    status:"official",
-   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v10",filename:imp.filename},
+   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v11",filename:imp.filename,bonus_rules:{top_bonus_czk:rewards.top_bonus_czk||[],team_bonus:rewards.team_bonus_rules||null}},
    updated_at:new Date().toISOString()
   };
   const {error:sce}=await db.from("store_card_months").upsert(monthRow,{onConflict:"month"});
@@ -724,6 +849,9 @@ Deno.serve(async req=>{
     official_payout_czk:payout?Number(payout.confirmed_bonus_czk):null,
     bonus_eligible:payout?.bonus_eligible??null,
     eligibility_source:payout?.eligibility_source??"unknown",
+    payout_decomposition:payout?.payout_decomposition??null,
+    payout_decomposition_candidates:payout?.payout_decomposition_candidates??[],
+    bonus_rules_snapshot:{top_bonus_czk:rewards.top_bonus_czk||[],team_bonus:rewards.team_bonus_rules||null},
     official:true
    },
    updated_at:new Date().toISOString()
@@ -767,7 +895,7 @@ Deno.serve(async req=>{
    status:"imported",
    period_start:period.period_start,
    period_end:period.period_end,
-   parser_version:"store-card-monthly-v10",
+   parser_version:"store-card-monthly-v11",
    record_count:totalRecords,
    metadata:{
     ...(imp.metadata||{}),
@@ -785,7 +913,7 @@ Deno.serve(async req=>{
    ...common,
    preview:false,
    committed:true,
-   parser_stage:"store-card-monthly-committed-v10",
+   parser_stage:"store-card-monthly-committed-v11",
    observations_attempted:obs.length,
    observations_inserted:obsWritten,
    store_metrics_attempted:storeRows.length,
