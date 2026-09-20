@@ -506,6 +506,176 @@ function parseRewards(layout:any[],people:any[],period:any,knownPeople:any[]=[])
   };
 }
 
+function parseRewardsText(rawText:string,people:any[],knownPeople:any[],base:any){
+  const raw=String(rawText||"");
+  if(!raw.trim())return null;
+  const page1=raw.split(/\n\s*--- PAGE ---\s*\n/i)[0]||raw;
+  const lines=page1.split(/\r?\n/).map(x=>x.replace(/\s*\|\s*/g," | ").replace(/\s+/g," ").trim()).filter(Boolean);
+  const folded=(s:any)=>String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+  const clean=(s:any)=>String(s||"").replace(/\|/g," ").replace(/\s+/g," ").trim();
+  const cleanLines=lines.map(clean);
+  const flat=cleanLines.join(" \n ");
+
+  let teamEffort:number|null=null,high:number|null=null,mid:number|null=null;
+  let team40:number[]|null=null,team30:number[]|null=null;
+
+  for(const line of cleanLines){
+    if(/team effort avg/i.test(line)){
+      const m=line.match(/team effort avg[^\d-]*(-?\d+(?:[.,]\d+)?)\s*%/i)||line.match(/(-?\d+(?:[.,]\d+)?)\s*%/);
+      if(m){const v=n(m[1]);if(v!=null)teamEffort=Number(v)}
+    }
+    if(/%/.test(line)&&(/[≥>]/.test(line)||/>=/.test(line))&&/</.test(line)){
+      const hi=[...line.matchAll(/(?:≥|>=|>)\s*(\d+(?:[.,]\d+)?)\s*%/g)].map(m=>n(m[1])).filter((x:any)=>x!=null) as number[];
+      const lo=line.match(/<\s*(\d+(?:[.,]\d+)?)\s*%/);
+      if(hi.length>=2&&lo){
+        high=Number(hi[0]);mid=Number(hi[1]);
+      }
+    }
+    if(/40h\s*\/\s*w/i.test(line)){
+      const tail=line.replace(/^.*?40h\s*\/\s*w/i," ");
+      const vals=(tail.match(/-?\d+(?:[.,]\d+)?/g)||[]).map(x=>n(x)).filter((x:any)=>x!=null&&x>=0&&x<=20000) as number[];
+      if(vals.length>=3)team40=vals.slice(0,3).map(Number);
+    }
+    if(/30h\s*\/\s*w/i.test(line)){
+      const tail=line.replace(/^.*?30h\s*\/\s*w/i," ");
+      const vals=(tail.match(/-?\d+(?:[.,]\d+)?/g)||[]).map(x=>n(x)).filter((x:any)=>x!=null&&x>=0&&x<=20000) as number[];
+      if(vals.length>=3)team30=vals.slice(0,3).map(Number);
+    }
+  }
+
+  const top=Array.isArray(base?.top_bonus_czk)?base.top_bonus_czk.map(Number).filter(Number.isFinite):[];
+  const tier=teamEffort!=null&&high!=null&&mid!=null?(teamEffort>=high?0:teamEffort>=mid?1:2):null;
+  const selected40=tier!=null&&team40?team40[tier]??null:null;
+  const selected30=tier!=null&&team30?team30[tier]??null:null;
+
+  const ids=new Map<string,any>();
+  const addName=(pid:any,name:any,extra:any={})=>{
+    const id=String(pid||"");const nm=String(name||"").trim();if(!id||!nm)return;
+    if(!ids.has(id))ids.set(id,{person_id:id,names:[],...extra});
+    const rec=ids.get(id);if(!rec.names.includes(nm))rec.names.push(nm);
+    for(const [k,v] of Object.entries(extra||{})){if(rec[k]==null&&v!=null)rec[k]=v}
+  };
+  for(const kp of knownPeople||[]){addName(kp.id,kp.full_name,{display_name:kp.full_name||kp.display_name});addName(kp.id,kp.display_name,{display_name:kp.full_name||kp.display_name})}
+  for(const pp of people||[]){
+    const pid=pp.hint_person_id||pp.person_id||null;
+    addName(pid,pp.display_name,{display_name:pp.display_name,email:pp.email,picker_login:pp.picker_login});
+    addName(pid,pp.picker_login,{display_name:pp.display_name,email:pp.email,picker_login:pp.picker_login});
+    if(pp.email)addName(pid,String(pp.email).split("@")[0].replace(/[._-]+/g," "),{display_name:pp.display_name,email:pp.email,picker_login:pp.picker_login});
+  }
+
+  const possible=new Set<number>([0]);
+  for(const v of [selected40,selected30])if(v!=null&&Number.isFinite(Number(v)))possible.add(Number(v));
+  for(const b of top){
+    possible.add(Number(b));
+    for(const t of [selected40,selected30,0])if(t!=null&&Number.isFinite(Number(t)))possible.add(Number(b)+Number(t));
+  }
+
+  const flatFold=folded(flat);
+  const geomByPerson=new Map((base?.payouts||[]).filter((x:any)=>x.person_id).map((x:any)=>[String(x.person_id),x]));
+  const payouts:any[]=[];
+  for(const rec of ids.values()){
+    let best:any=null;
+    for(const name of rec.names.sort((a:string,b:string)=>b.length-a.length)){
+      const fn=folded(name).replace(/\s+/g," ").trim();if(fn.length<5)continue;
+      let pos=0;
+      while((pos=flatFold.indexOf(fn,pos))>=0){
+        const after=flatFold.slice(pos+fn.length,pos+fn.length+34);
+        const ms=[...after.matchAll(/(?<![\d.,])(\d{1,5})(?![\d.,])/g)];
+        for(const m of ms){
+          const amount=Number(m[1]);if(!possible.has(amount))continue;
+          const distance=Number(m.index||0);
+          if(!best||distance<best.distance)best={amount,distance,source_name:name,position:pos};
+        }
+        pos+=Math.max(1,fn.length);
+      }
+    }
+    if(!best)continue;
+
+    const amount=Number(best.amount),decomp:any[]=[];
+    for(let rank=0;rank<Math.min(5,top.length);rank++){
+      for(const tb of [
+        {hours_band:"40h",value:selected40,tier},
+        {hours_band:"30h",value:selected30,tier},
+        {hours_band:"none",value:0,tier:null}
+      ]){
+        if(tb.value==null)continue;
+        if(Number(top[rank])+Number(tb.value)===amount)decomp.push({top_rank:rank+1,top_bonus_czk:Number(top[rank]),team_bonus_czk:Number(tb.value),hours_band:tb.hours_band,team_tier:tb.tier,rule_match:true});
+      }
+    }
+    for(const tb of [
+      {hours_band:"40h",value:selected40,tier},
+      {hours_band:"30h",value:selected30,tier},
+      {hours_band:"none",value:0,tier:null}
+    ]){
+      if(tb.value!=null&&Number(tb.value)===amount)decomp.push({top_rank:null,top_bonus_czk:0,team_bonus_czk:Number(tb.value),hours_band:tb.hours_band,team_tier:tb.tier,rule_match:true});
+    }
+    const geom=geomByPerson.get(String(rec.person_id))||null;
+    payouts.push({
+      person_id:String(rec.person_id),
+      email:rec.email||geom?.email||null,
+      display_name:rec.display_name||geom?.display_name||best.source_name,
+      source_name:best.source_name,
+      confirmed_bonus_czk:amount,
+      bonus_eligible:geom?.bonus_eligible??null,
+      eligibility_source:geom?.eligibility_source||"text_layer_match",
+      top_rank:decomp.length===1?decomp[0].top_rank:null,
+      payout_decomposition:decomp.length===1?decomp[0]:null,
+      payout_decomposition_candidates:decomp,
+      payout_rule_match:decomp.length>0,
+      payout_match_source:"pdf_text_layer"
+    });
+  }
+
+  return {
+    team_effort_pct:teamEffort,
+    threshold_high:high,
+    threshold_mid:mid,
+    team40,team30,tier,selected40,selected30,payouts,
+    diagnostics:{lines:cleanLines.length,possible_amounts:[...possible].sort((a,b)=>a-b),matched_payouts:payouts.length}
+  };
+}
+
+function mergeRewards(base:any,textParsed:any){
+  if(!textParsed)return {...base,reward_parse_source:"layout_only"};
+  const useTextRules=textParsed.threshold_high!=null&&textParsed.threshold_mid!=null&&
+    Array.isArray(textParsed.team40)&&textParsed.team40.length>=3&&
+    Array.isArray(textParsed.team30)&&textParsed.team30.length>=3;
+  const teamEffort=textParsed.team_effort_pct??base.team_effort_pct??null;
+  const high=useTextRules?textParsed.threshold_high:base?.team_bonus_rules?.thresholds?.high_min_pct??null;
+  const mid=useTextRules?textParsed.threshold_mid:base?.team_bonus_rules?.thresholds?.mid_min_pct??null;
+  const team40=useTextRules?textParsed.team40:(base?.team_bonus_rules?.forty_h_czk||[]);
+  const team30=useTextRules?textParsed.team30:(base?.team_bonus_rules?.thirty_h_czk||[]);
+  const tier=teamEffort!=null&&high!=null&&mid!=null?(teamEffort>=high?0:teamEffort>=mid?1:2):null;
+  const selected40=tier!=null&&team40?.length?team40[tier]??null:null;
+  const selected30=tier!=null&&team30?.length?team30[tier]??null:null;
+  const rules={
+    thresholds:{high_min_pct:high,mid_min_pct:mid,low_below_pct:mid},
+    columns:[
+      {key:"high",label:high!=null?`>= ${high}%`:"high",index:0},
+      {key:"mid",label:mid!=null?`>= ${mid}%`:"mid",index:1},
+      {key:"low",label:mid!=null?`< ${mid}%`:"low",index:2}
+    ],
+    forty_h_czk:team40||[],thirty_h_czk:team30||[],
+    selected_tier:tier==null?null:["high","mid","low"][tier],
+    selected_40h_czk:selected40,selected_30h_czk:selected30,team_effort_pct:teamEffort
+  };
+  const payoutMap=new Map<string,any>();
+  for(const p of base?.payouts||[])if(p.person_id)payoutMap.set(String(p.person_id),p);
+  for(const p of textParsed.payouts||[])if(p.person_id)payoutMap.set(String(p.person_id),p);
+  return {
+    ...base,
+    team_effort_pct:teamEffort,
+    team_bonus_40h:selected40,
+    team_bonus_30h:selected30,
+    team_bonus_rules:rules,
+    payouts:[...payoutMap.values()],
+    ineligible_people:[...payoutMap.values()].filter((x:any)=>x.bonus_eligible===false).map((x:any)=>x.display_name),
+    payout_match_count:payoutMap.size,
+    reward_parse_source:useTextRules?"layout+text":"layout_text_payout_fallback",
+    reward_text_diagnostics:textParsed.diagnostics
+  };
+}
+
 function parseMaxima(layout:any[]){
   const page=layout.find((p:any)=>(p.items||[]).some((i:any)=>String(i.text).trim()==="AO-AS"));
   if(!page)return null;
@@ -718,7 +888,7 @@ Deno.serve(async req=>{
   const {data:admin}=await db.from("admin_users").select("user_id").eq("user_id",user.id).maybeSingle();
   if(!admin)return J({error:"Forbidden"},403);
 
-  const b=await req.json(),layout=b.layout_json||[],filename=b.filename||"",mode=b.mode||"preview",import_id=b.import_id;
+  const b=await req.json(),layout=b.layout_json||[],filename=b.filename||"",mode=b.mode||"preview",import_id=b.import_id,extractedText=String(b.extracted_text||"");
   if(!import_id)return J({error:"import_id is required"},400);
   if(!Array.isArray(layout)||!layout.length)return J({error:"layout_json is required"},400);
 
@@ -756,7 +926,9 @@ Deno.serve(async req=>{
     return J({error:"No Store Card people rows parsed",diagnostics:{parser:"v9",pages:layout.length,period_start:period.period_start,period_end:period.period_end,page_samples:diagnosticPages}},422);
   }
 
-  const rewards=parseRewards(layout,people,period,knownPeople||[]);
+  const rewardsLayout=parseRewards(layout,people,period,knownPeople||[]);
+  const rewardsText=parseRewardsText(extractedText,people,knownPeople||[],rewardsLayout);
+  const rewards=mergeRewards(rewardsLayout,rewardsText);
   const maxima=parseMaxima(layout);
   const stores=parseStoreMetrics(layout);
 
@@ -789,12 +961,14 @@ Deno.serve(async req=>{
    bonus_color_eligibility_detected:rewards.color_eligibility_detected===true,
    bonus_ineligible_people:rewards.ineligible_people||[],
    payouts:rewards.payouts,
+   reward_parse_source:rewards.reward_parse_source||"layout_only",
+   reward_text_diagnostics:rewards.reward_text_diagnostics||null,
    people:resolved,
    store_metrics:stores
   };
 
   if(mode==="preview"){
-   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v12",
+   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v13",
     note:"Preview only. Existing identities are resolved by email/picker login. New historical people are shown before commit."});
   }
 
@@ -883,7 +1057,7 @@ Deno.serve(async req=>{
    team_bonus_30h_czk:rewards.team_bonus_30h,
    source_import_id:import_id,
    status:"official",
-   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v12",filename:imp.filename,bonus_rules:{top_bonus_czk:rewards.top_bonus_czk||[],team_bonus:rewards.team_bonus_rules||null}},
+   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v13",filename:imp.filename,bonus_rules:{top_bonus_czk:rewards.top_bonus_czk||[],team_bonus:rewards.team_bonus_rules||null}},
    updated_at:new Date().toISOString()
   };
   const {error:sce}=await db.from("store_card_months").upsert(monthRow,{onConflict:"month"});
@@ -957,7 +1131,7 @@ Deno.serve(async req=>{
    status:"imported",
    period_start:period.period_start,
    period_end:period.period_end,
-   parser_version:"store-card-monthly-v12",
+   parser_version:"store-card-monthly-v13",
    record_count:totalRecords,
    metadata:{
     ...(imp.metadata||{}),
@@ -975,7 +1149,7 @@ Deno.serve(async req=>{
    ...common,
    preview:false,
    committed:true,
-   parser_stage:"store-card-monthly-committed-v12",
+   parser_stage:"store-card-monthly-committed-v13",
    observations_attempted:obs.length,
    observations_inserted:obsWritten,
    store_metrics_attempted:storeRows.length,
