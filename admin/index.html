@@ -78,7 +78,7 @@ async function extractPdfClient(path){
  const pdf=await mod.getDocument({data:new Uint8Array(await blob.arrayBuffer())}).promise, pages=[];
  for(let n=1;n<=pdf.numPages;n++){const pg=await pdf.getPage(n),tc=await pg.getTextContent(),items=tc.items.filter(x=>x.str&&x.str.trim());
   const rows=new Map(); for(const it of items){const y=Math.round((it.transform?.[5]||0)*2)/2;(rows.get(y)||rows.set(y,[]).get(y)).push(it)}
-  pages.push([...rows.entries()].sort((a,b)=>b[0]-a[0]).map(([,r])=>r.sort((a,b)=>(a.transform?.[4]||0)-(b.transform?.[4]||0)).map(x=>x.str.replace(/\s+/g,' ').trim()).join(' | ')).join('\n'));
+  pages.push([...rows.entries()].sort((a,b)=>b[0]-a[0]).map(([,r])=>r.sort((a,b)=>(a.transform?.[4]||0)-(b.transform?.[4]||0)).map(x=>String(x.str||'').replace(/\s+/g,' ').trim()).join(' | ')).join('\n'));
  }
  return pages.join('\n\n--- PAGE ---\n\n');
 }
@@ -240,7 +240,7 @@ async function extractPdfLayoutClient(path,withColor=false){
    return total>0&&red/total>=.18;
   }
   pages.push({page:n,items:tc.items.filter(x=>x.str&&x.str.trim()).map(x=>({
-   text:x.str.replace(/\s+/g,' ').trim(),
+   text:String(x.str||'').replace(/\s+/g,' ').trim(),
    x:Math.round((x.transform?.[4]||0)*10)/10,
    y:Math.round((x.transform?.[5]||0)*10)/10,
    w:Math.round((x.width||0)*10)/10,
@@ -560,7 +560,8 @@ document.addEventListener('click',async e=>{
 .bulk-name{font-weight:800;word-break:break-word}.bulk-type{color:var(--muted);font-size:12px;margin-top:3px}
 .bulk-counts{display:flex;gap:6px;flex-wrap:wrap}.bulk-counts .pill{white-space:nowrap}
 .bulk-details{grid-column:1/-1;margin-top:2px}.bulk-details summary{cursor:pointer;color:var(--muted)}
-.identity-fix{display:grid;grid-template-columns:minmax(140px,.8fr) minmax(180px,1fr) auto;gap:8px;align-items:center;margin:7px 0;padding:8px;border:1px solid #5f4030;border-radius:10px;background:#21150f}
+.identity-fix{display:grid;grid-template-columns:minmax(140px,.8fr) minmax(180px,1fr) minmax(210px,auto);gap:8px;align-items:center;margin:7px 0;padding:8px;border:1px solid #5f4030;border-radius:10px;background:#21150f}
+.identity-actions{display:flex;gap:6px;flex-wrap:wrap}
 .identity-fix .identity-alias{font-weight:900;color:#ffcf8d;word-break:break-word}
 .identity-fix select{width:100%;min-width:0}
 .identity-fix button{white-space:nowrap}
@@ -697,29 +698,44 @@ document.addEventListener('click',async e=>{
  }
  function identityFixHtml(z,itemIndex){
   const alias=String(z.label||String(z.key||'').replace(/^identity:/,''));
+  const aliasType=String(z.alias_type||'');
   const suggested=suggestedPersonId(alias);
   const opts=['<option value="">Vyber člověka…</option>'].concat(identityPeople.map(function(p){
    return '<option value="'+esc(p.id)+'" '+(p.id===suggested?'selected':'')+'>'+esc(p.display_name)+(p.full_name?' — '+esc(p.full_name):'')+(p.active?'':' · inactive')+'</option>';
   })).join('');
-  return '<div class="identity-fix"><div><div class="identity-alias">'+esc(alias)+'</div><div class="muted">Nerozpoznaná identita</div></div>'+
-    '<select class="identityPerson" data-item="'+itemIndex+'" data-alias="'+encodeURIComponent(alias)+'">'+opts+'</select>'+
-    '<button class="secondary identityConfirm" data-item="'+itemIndex+'" data-alias="'+encodeURIComponent(alias)+'">Potvrdit identitu</button></div>';
+  const data=' data-item="'+itemIndex+'" data-alias="'+encodeURIComponent(alias)+'" data-alias-type="'+encodeURIComponent(aliasType)+'"';
+  return '<div class="identity-fix"><div><div class="identity-alias">'+esc(alias)+'</div><div class="muted">Nerozpoznaná identita'+(aliasType?' · '+esc(aliasType):'')+'</div></div>'+
+    '<select class="identityPerson"'+data+'>'+opts+'</select>'+
+    '<div class="identity-actions"><button class="secondary identityConfirm"'+data+'>Potvrdit identitu</button>'+
+    '<button class="secondary identityIgnore"'+data+'>Ignorovat · burner</button></div></div>';
  }
  async function confirmIdentity(btn){
-  const itemIndex=Number(btn.dataset.item),item=batch[itemIndex],alias=decodeURIComponent(btn.dataset.alias||'');
-  const select=btn.parentElement&&btn.parentElement.querySelector('.identityPerson');
+  const itemIndex=Number(btn.dataset.item),item=batch[itemIndex],alias=decodeURIComponent(btn.dataset.alias||''),alias_type=decodeURIComponent(btn.dataset.aliasType||'');
+  const root=btn.closest('.identity-fix'),select=root&&root.querySelector('.identityPerson');
   const person_id=select&&select.value;
   if(!item||!alias||!person_id)return msg($('#uploadStatus'),'Vyber člověka, ke kterému identita patří.','err');
   const old=btn.textContent;btn.disabled=true;btn.textContent='Ukládám…';
   try{
-   await status('resolve_identity',{alias:alias,person_id:person_id,report_type:item.report_type});
+   await status('resolve_identity',{alias:alias,alias_type:alias_type||undefined,person_id:person_id,report_type:item.report_type});
    item.error=null;item.state='staged';
    await preview(item);
    const s=item.preflight&&item.preflight.summary||{};
    if(item.skipCommit&&Number(s.new||0)===0&&Number(s.changed||0)===0)item.state='duplicate';
    else if(Number(s.new||0)>0||Number(s.changed||0)>0)item.skipCommit=false;
-   msg($('#uploadStatus'),'Identita potvrzena ✓ Preview souboru bylo přepočítáno.','ok');
+   msg($('#uploadStatus'),'Identita potvrzena ✓ Alias je uložený trvale a preview se přepočítalo.','ok');
   }catch(e){msg($('#uploadStatus'),'Potvrzení identity selhalo: '+(e.message||e),'err')}
+  finally{btn.disabled=false;btn.textContent=old;renderBatch()}
+ }
+ async function ignoreIdentity(btn){
+  const itemIndex=Number(btn.dataset.item),item=batch[itemIndex],alias=decodeURIComponent(btn.dataset.alias||''),alias_type=decodeURIComponent(btn.dataset.aliasType||'');
+  if(!item||!alias)return;
+  const old=btn.textContent;btn.disabled=true;btn.textContent='Ignoruji…';
+  try{
+   await status('ignore_identity',{alias:alias,alias_type:alias_type||undefined,report_type:item.report_type,reason:'burner_or_technical_account'});
+   item.error=null;item.state='staged';
+   await preview(item);
+   msg($('#uploadStatus'),'Burner identita ignorována ✓ Pro tento typ reportu se nebude počítat ani blokovat import.','ok');
+  }catch(e){msg($('#uploadStatus'),'Ignorování identity selhalo: '+(e.message||e),'err')}
   finally{btn.disabled=false;btn.textContent=old;renderBatch()}
  }
  function batchSummary(){
@@ -867,7 +883,10 @@ document.addEventListener('click',async e=>{
   newPicker.onchange=function(e){processFiles([].slice.call(e.target.files));newPicker.value=''};
   $('#bulkAnalyze').onclick=analyzeBatch;
   $('#bulkCommit').onclick=commitBatch;
-  files.addEventListener('click',function(e){const b=e.target.closest('.identityConfirm');if(b)confirmIdentity(b)});
+  files.addEventListener('click',function(e){
+   const confirm=e.target.closest('.identityConfirm');if(confirm){confirmIdentity(confirm);return}
+   const ignore=e.target.closest('.identityIgnore');if(ignore){ignoreIdentity(ignore);return}
+  });
  }
  function coverageCard(){
   return [].slice.call(document.querySelectorAll('.card')).find(function(x){const h=x.querySelector('h2');return h&&h.textContent.trim()==='Data Coverage'});
