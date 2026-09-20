@@ -15,19 +15,75 @@ const boundaryNames=[
  "David Doležel","Viktorie Elizabeth Truclová","Daniel Třeček","Kristína Szilvási","Markéta Weinertová","Šimon Císař"
 ];
 const isTime=(s:string)=>/^\d{1,2}:\d{2}$/.test(s);
-const MONTHS:any={january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12,
- jan:1,feb:2,mar:3,apr:4,jun:6,jul:7,aug:8,sep:9,sept:9,oct:10,nov:11,dec:12};
+const MONTHS:any={
+ january:1,jan:1,leden:1,ledna:1,
+ february:2,feb:2,unor:2,unora:2,
+ march:3,mar:3,brezen:3,brezna:3,
+ april:4,apr:4,duben:4,dubna:4,
+ may:5,kveten:5,kvetna:5,
+ june:6,jun:6,cerven:6,cervna:6,
+ july:7,jul:7,cervenec:7,cervence:7,
+ august:8,aug:8,srpen:8,srpna:8,
+ september:9,sep:9,sept:9,zari:9,
+ october:10,oct:10,rijen:10,rijna:10,
+ november:11,nov:11,listopad:11,listopadu:11,
+ december:12,dec:12,prosinec:12,prosince:12
+};
 function isoDate(y:number,m:number,d:number){return `${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`}
-function pagePeriod(items:any[]){
- const text=items.map((x:any)=>String(x.text||"")).join(" ").replace(/\s+/g," ");
- const re=/(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\s+(20\d{2})\s*[-–—]\s*(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)(?:\s+(20\d{2}))?/i;
- const m=text.match(re);if(!m)return null;
- const sm=MONTHS[String(m[2]).toLowerCase()],em=MONTHS[String(m[5]).toLowerCase()];
- if(!sm||!em)return null;
- const sy=Number(m[3]),ey=m[6]?Number(m[6]):(em<sm?sy+1:sy);
+function isoWeekStart(year:number,week:number){
+ const jan4=new Date(Date.UTC(year,0,4)),dow=jan4.getUTCDay()||7;
+ jan4.setUTCDate(jan4.getUTCDate()-(dow-1)+(week-1)*7);
+ return jan4.toISOString().slice(0,10);
+}
+function headerLines(items:any[]){
+ const sorted=[...(items||[])].filter((x:any)=>String(x.text||"").trim()).sort((a:any,b:any)=>b.y-a.y||a.x-b.x);
+ const rows:any[]=[];
+ for(const it of sorted){
+  let r=rows.find((x:any)=>Math.abs(x.y-it.y)<1.8);
+  if(!r){r={y:it.y,items:[]};rows.push(r)}
+  r.items.push(it);
+ }
+ return rows.sort((a:any,b:any)=>b.y-a.y).map((r:any)=>r.items.sort((a:any,b:any)=>a.x-b.x).map((x:any)=>String(x.text||"").trim()).join(" ").replace(/\s+/g," ").trim()).filter(Boolean);
+}
+function parseNamedRange(raw:string){
+ const s=norm(raw),names=Object.keys(MONTHS).sort((a,b)=>b.length-a.length).join("|");
+ let m=s.match(new RegExp(`\\b(\\d{1,2})\\s+(${names})\\s+(20\\d{2})\\s+(?:to\\s+)?(\\d{1,2})\\s+(${names})(?:\\s+(20\\d{2}))?\\b`,"i"));
+ if(!m)return null;
+ const sm=MONTHS[m[2]],em=MONTHS[m[5]],sy=Number(m[3]),ey=m[6]?Number(m[6]):(em<sm?sy+1:sy);
  const start=isoDate(sy,sm,Number(m[1])),end=isoDate(ey,em,Number(m[4]));
- if(end<start)return null;
- return {start,end,raw:m[0]};
+ return end>=start?{start,end,raw}:null;
+}
+function parseNumericRange(raw:string){
+ const s=String(raw||"").replace(/[–—]/g,"-");
+ let m=s.match(/\b(\d{1,2})[.\/-](\d{1,2})[.\/-](20\d{2})\s*-\s*(\d{1,2})[.\/-](\d{1,2})[.\/-](20\d{2})\b/);
+ if(m){
+  const start=isoDate(Number(m[3]),Number(m[2]),Number(m[1])),end=isoDate(Number(m[6]),Number(m[5]),Number(m[4]));
+  return end>=start?{start,end,raw:m[0]}:null;
+ }
+ m=s.match(/\b(20\d{2})-(\d{1,2})-(\d{1,2})\s*-\s*(20\d{2})-(\d{1,2})-(\d{1,2})\b/);
+ if(m){
+  const start=isoDate(Number(m[1]),Number(m[2]),Number(m[3])),end=isoDate(Number(m[4]),Number(m[5]),Number(m[6]));
+  return end>=start?{start,end,raw:m[0]}:null;
+ }
+ return null;
+}
+function weekFallback(raw:string){
+ const s=norm(raw),wm=s.match(/\b(?:w|week)\s*(\d{1,2})\b/),ym=s.match(/\b(20\d{2})\b/);
+ if(!wm||!ym)return null;
+ const week=Number(wm[1]),year=Number(ym[1]);if(week<1||week>53)return null;
+ const start=isoWeekStart(year,week);
+ return {start,end:addDays(start,6),raw:`W ${week} / ${year}`};
+}
+function pagePeriod(items:any[]){
+ const lines=headerLines(items);
+ const candidates=[...lines,lines.slice(0,12).join(" "),items.map((x:any)=>String(x.text||"")).join(" ")];
+ for(const s of candidates){const p=parseNamedRange(s)||parseNumericRange(s);if(p)return {...p,source:"range"}}
+ for(const s of candidates){const p=weekFallback(s);if(p)return {...p,source:"iso_week"}}
+ return null;
+}
+function dateDebug(items:any[]){
+ const lines=headerLines(items);
+ return lines.filter((s:string)=>/20\d{2}|\bW\s*\d{1,2}\b|\bWeek\s*\d{1,2}\b|Mon|Tue|Wed|Thu|Fri|Sat|Sun|Hole|Prague/i.test(s)).slice(0,12);
 }
 function dateForDay(period:any,day:number){
  if(!period)return null;
@@ -96,7 +152,7 @@ function parse(pages:any[]){
   const it=pg.items||[],baseDays=days(it),ps=personAnchors(it),cutoff=reportCutoff(it);
   if(!baseDays.length||!ps.length)continue;
   const period=pagePeriod(it);
-  if(!period){missingDatePages.push(Number(pg.page));continue}
+  if(!period){missingDatePages.push(Number(pg.page));missingDateDebug.push({page:Number(pg.page),header_candidates:dateDebug(it)});continue}
   const ds=baseDays.map((d:any)=>({...d,date:dateForDay(period,d.day)}));
   if(ds.some((d:any)=>!d.date)){missingDatePages.push(Number(pg.page));continue}
   pagePeriods.push({page:Number(pg.page),period_start:period.start,period_end:period.end,header:period.raw});
@@ -163,7 +219,7 @@ function parse(pages:any[]){
  }
  const seen=new Set();
  const deduped=rows.filter(r=>{const k=`${r.person_key}|${r.date}|${r.role}|${r.shift_type}`;if(seen.has(k))return false;seen.add(k);return true});
- return {rows:deduped,missingDatePages:[...new Set(missingDatePages)].sort((a,b)=>a-b),pagePeriods};
+ return {rows:deduped,missingDatePages:[...new Set(missingDatePages)].sort((a,b)=>a-b),pagePeriods,missingDateDebug};
 }
 function addDays(date:string,n:number){
  const d=new Date(date+"T12:00:00Z"); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10);
@@ -194,7 +250,7 @@ Deno.serve(async req=>{
   const db=createClient(url,service),{data:adm}=await db.from("admin_users").select("user_id").eq("user_id",user.id).maybeSingle();if(!adm)return J({error:"Forbidden"},403);
 
   const b=await req.json(),mode=b.mode||"preview",import_id=b.import_id||null,parsed=parse(b.layout_json||[]),rows=parsed.rows;
-  if(!rows.length)return J({error:"No Quinyx shifts parsed from layout",diagnostics:{pages:b.layout_json?.length||0,missing_date_pages:parsed.missingDatePages,page_periods:parsed.pagePeriods}},422);
+  if(!rows.length)return J({error:"No Quinyx shifts parsed from layout",diagnostics:{pages:b.layout_json?.length||0,missing_date_pages:parsed.missingDatePages,page_periods:parsed.pagePeriods,date_debug:parsed.missingDateDebug}},422);
   const dates=rows.map((r:any)=>r.date).sort(),period_start=dates[0],period_end=dates[dates.length-1];
   const missingPlan=rows.filter((r:any)=>!r.scheduled_start||!r.scheduled_end);
   const dup=new Map<string,number>();
@@ -206,12 +262,13 @@ Deno.serve(async req=>{
     missing_planned:missingPlan.length,duplicate_keys:duplicateKeys.length,
     future_actuals:rows.filter((r:any)=>r.date>new Date().toISOString().slice(0,10)&&r.actual_start).length,
     missing_date_pages:parsed.missingDatePages,
-    page_periods:parsed.pagePeriods
+    page_periods:parsed.pagePeriods,
+    date_debug:parsed.missingDateDebug
   };
 
-  if(mode==="preview")return J({ok:true,preview:true,parser_stage:"quinyx-layout-v21",shift_count:rows.length,
+  if(mode==="preview")return J({ok:true,preview:true,parser_stage:"quinyx-layout-v23",shift_count:rows.length,
     people_count:validation.people_count,period_start,period_end,validation,rows,
-    note:"Preview only. V21 čte datum z Quinyx hlavičky každého týdenního bloku, včetně přechodu mezi měsíci. Nic se ještě nezapisuje."});
+    note:"Preview only. V23 čte datum z Quinyx range, českých/anglických měsíců, číselného range nebo ISO week fallbacku. Nic se ještě nezapisuje."});
 
   if(mode!=="commit")return J({error:"Unsupported mode"},400);
   if(!import_id)return J({error:"Missing import_id"},400);
@@ -242,7 +299,7 @@ Deno.serve(async req=>{
     import_id,
     source_record_key:`shift|${pmap.get(r.person_key)}|${r.date}|${norm(r.role).replace(/\s+/g," ")}|${norm(r.shift_type).replace(/\s+/g," ")}`,
     metadata:{
-      source_type:"quinyx",parser_version:"quinyx-v21",source_name:r.name,page:r.page,
+      source_type:"quinyx",parser_version:"quinyx-v23",source_name:r.name,page:r.page,
       page_period_start:r.page_period_start,page_period_end:r.page_period_end,
       confidence:r.confidence,venue:"Holešovice, Prague",export_cutoff:new Date().toISOString().slice(0,10)
     }
@@ -253,7 +310,7 @@ Deno.serve(async req=>{
   if(we)return J({error:we.message},500);
 
   await db.from("imports").update({
-    status:"imported",period_start,period_end,parser_version:"quinyx-v21"
+    status:"imported",period_start,period_end,parser_version:"quinyx-v23"
   }).eq("id",import_id);
 
   return J({ok:true,committed:true,inserted_count:w?.length??0,attempted_count:payload.length,
