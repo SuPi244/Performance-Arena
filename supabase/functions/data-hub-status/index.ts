@@ -229,6 +229,21 @@ async function preflight(db:any,reportType:string,p:any){
     const resolved=new Set(raw.map((x:any)=>x.record?.person_key).filter(Boolean));
     const missing=[...new Set((p.rows||[]).map((x:any)=>x.person_key).filter((x:any)=>x&&!resolved.has(x)))];
     for(const identity of missing)conflicts.push({key:`identity:${identity}`,label:String(identity),alias_value:String(identity),alias_type:"quinyx_name",reason:"Quinyx osoba není napojená na profil"});
+    const v=p.validation||{};
+    if(Number(v.missing_planned||0)>0)conflicts.push({
+      key:"quinyx:missing_planned",label:String(v.missing_planned)+" směn",
+      reason:"Quinyx parser u některých směn nenašel plánovaný začátek/konec",
+      details:v.missing_planned_rows||[]
+    });
+    if(Number(v.future_actuals||0)>0)conflicts.push({
+      key:"quinyx:future_actuals",label:String(v.future_actuals)+" směn",
+      reason:"Actual clock je na budoucím datu — pravděpodobně chybně rozpoznané období",
+      details:v.future_actual_rows||[]
+    });
+    if((v.missing_date_pages||[]).length)conflicts.push({
+      key:"quinyx:missing_date_pages",label:"page "+(v.missing_date_pages||[]).join(", "),
+      reason:"Na těchto stránkách se nepodařilo bezpečně určit datumové období"
+    });
   }
   for(const r of raw){
     const prev=byKey.get(r.key);
