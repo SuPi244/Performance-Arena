@@ -1,0 +1,262 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type"};
+const J=(x:any,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{...cors,"content-type":"application/json"}});
+const norm=(s:string)=>String(s||"").normalize("NFD").replace(/\p{Diacritic}/gu,"").toLowerCase().replace(/[^\p{L}\p{N}]+/gu," ").replace(/\s+/g," ").trim();
+const roster=[
+ ["Jakub Vostradovský","jakub-v"],["Nataliia Hadiatska","nataliia-ha"],["Ondřej Chovanec","ondra"],
+ ["Stanislav Masis","stanislav-m"],["Tereza Chýlová","tereza-ch"],["Stanislav Ganea","stanislav-g"],["Adam Maršík","adam-ma"],
+ ["Martin Potoniec","martin-po"],["Michal Gajdoš","michal-g"],["Tomáš Palán","tomas-p"],["Filip Sochor","filip-s"],
+ ["Pavel Kyselka","pavel-k"],["Daniel Sláma","daniel-s"],["Amir Uteshev","amir-u"]
+];
+const boundaryNames=[
+ "Miroslava Jaworská","Daniel Pešek","Proplusko Marketa","Adéla Růžičková","Alexandr Viola",
+ "Danil Externí","Julie Husáková","Kateřina Bocková","Klára Absolonová","Kryštof Balhar",
+ "Ladislav Čermák","Mia Traplová","Natália Rechtoríková","Patrik Dokladal","Sára Bendová",
+ "David Doležel","Viktorie Elizabeth Truclová","Daniel Třeček","Kristína Szilvási","Markéta Weinertová","Šimon Císař"
+];
+const isTime=(s:string)=>/^\d{1,2}:\d{2}$/.test(s);
+const MONTHS:any={january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12,
+ jan:1,feb:2,mar:3,apr:4,jun:6,jul:7,aug:8,sep:9,sept:9,oct:10,nov:11,dec:12};
+function isoDate(y:number,m:number,d:number){return `${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`}
+function pagePeriod(items:any[]){
+ const text=items.map((x:any)=>String(x.text||"")).join(" ").replace(/\s+/g," ");
+ const re=/(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\s+(20\d{2})\s*[-–—]\s*(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)(?:\s+(20\d{2}))?/i;
+ const m=text.match(re);if(!m)return null;
+ const sm=MONTHS[String(m[2]).toLowerCase()],em=MONTHS[String(m[5]).toLowerCase()];
+ if(!sm||!em)return null;
+ const sy=Number(m[3]),ey=m[6]?Number(m[6]):(em<sm?sy+1:sy);
+ const start=isoDate(sy,sm,Number(m[1])),end=isoDate(ey,em,Number(m[4]));
+ if(end<start)return null;
+ return {start,end,raw:m[0]};
+}
+function dateForDay(period:any,day:number){
+ if(!period)return null;
+ const hits:string[]=[];
+ for(let d=period.start;d<=period.end;d=addDays(d,1)){
+  if(Number(d.slice(8,10))===Number(day))hits.push(d);
+  if(hits.length>1)break;
+ }
+ return hits.length===1?hits[0]:null;
+}
+function days(items:any[]){
+ return items.filter((x:any)=>/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+\d{1,2}$/i.test(x.text))
+   .map((x:any)=>({day:+x.text.match(/(\d{1,2})$/)![1],x:x.x})).sort((a:any,b:any)=>a.x-b.x);
+}
+function findNameAnchor(items:any[], name:string){
+ const nn=norm(name), parts=nn.split(" "), first=parts[0], last=parts[parts.length-1];
+ const candidates=items.filter((a:any)=>a.x<110);
+ for(const a of candidates){ const na=norm(a.text); if(na===nn||na.includes(nn)) return a; }
+ for(const a of candidates){
+   const na=norm(a.text);
+   if(!(na===first||na.endsWith(" "+first)||na.includes(first)))continue;
+   const nearby=candidates.filter((b:any)=>Math.abs(b.y-a.y)<28).map((b:any)=>norm(b.text)).join(" ");
+   if(nearby.includes(first)&&nearby.includes(last))return a;
+ }
+ return null;
+}
+function personAnchors(items:any[]){
+ const out:any[]=[];
+ for(const [name,key] of roster){const hit=findNameAnchor(items,name);if(hit)out.push({name,key,y:hit.y,roster:true});}
+ // Non-roster workers must still terminate the previous roster person's vertical band.
+ for(const name of boundaryNames){const hit=findNameAnchor(items,name);if(hit)out.push({name,key:null,y:hit.y,roster:false});}
+ // Also use obvious contingent/new-worker labels as blockers when present.
+ for(const a of items.filter((z:any)=>z.x<110)){
+   if(/^(?:C\d\s*)?Contingent Worker|^New GA\b|^Quinix Bot\b/i.test(String(a.text||"")))
+     out.push({name:String(a.text),key:null,y:a.y,roster:false});
+ }
+ const uniq=new Map<string,any>(); for(const x of out)uniq.set(`${x.y.toFixed(1)}|${x.name}`,x);
+ return [...uniq.values()].sort((a:any,b:any)=>b.y-a.y);
+}
+function nearestDay(ds:any[],x:number){return ds.reduce((a:any,b:any)=>Math.abs(b.x-x)<Math.abs(a.x-x)?b:a)}
+function colBounds(ds:any[],d:any){
+ const i=ds.indexOf(d);
+ // Use half of the neighbouring day-column spacing also at the outer edges.
+ // The shortened 28–30 Sep block has much wider columns: header Mon 28 is at x≈212.7
+ // while its cell content starts around x≈160.7. The old fixed ±42 edge clipped it.
+ const left=i ? (ds[i-1].x+d.x)/2
+   : d.x-(ds.length>1 ? (ds[1].x-d.x)/2 : 60);
+ const right=i<ds.length-1 ? (d.x+ds[i+1].x)/2
+   : d.x+(ds.length>1 ? (d.x-ds[i-1].x)/2 : 60);
+ return [left,right];
+}
+function pairAtY(items:any[], y:number){
+ const ts=items.filter((z:any)=>isTime(z.text)&&Math.abs(z.y-y)<1.1).sort((a:any,b:any)=>a.x-b.x);
+ return ts.length>=2?[ts[0].text,ts[ts.length-1].text]:null;
+}
+function reportCutoff(items:any[]){
+ for(const z of items){
+   const m=String(z.text||"").match(/^(\d{2})\.(\d{2})\.(\d{2})(?:\s|$)/);
+   if(m)return `20${m[3]}-${m[2]}-${m[1]}`;
+ }
+ return null;
+}
+function parse(pages:any[]){
+ const rows:any[]=[],missingDatePages:number[]=[],pagePeriods:any[]=[];
+ for(const pg of pages||[]){
+  const it=pg.items||[],baseDays=days(it),ps=personAnchors(it),cutoff=reportCutoff(it);
+  if(!baseDays.length||!ps.length)continue;
+  const period=pagePeriod(it);
+  if(!period){missingDatePages.push(Number(pg.page));continue}
+  const ds=baseDays.map((d:any)=>({...d,date:dateForDay(period,d.day)}));
+  if(ds.some((d:any)=>!d.date)){missingDatePages.push(Number(pg.page));continue}
+  pagePeriods.push({page:Number(pg.page),period_start:period.start,period_end:period.end,header:period.raw});
+
+  for(let pi=0;pi<ps.length;pi++){
+   const p=ps[pi]; if(!p.roster)continue;
+   const bottom=pi+1<ps.length?ps[pi+1].y:p.y-95,band=it.filter((z:any)=>z.y<=p.y+5&&z.y>bottom+1);
+   for(const role of band.filter((z:any)=>/^(GA|SL)\s+(Morning|Afternoon|Shift Middle)$/i.test(z.text))){
+    const d=nearestDay(ds,role.x),[left,right]=colBounds(ds,d),c=band.filter((z:any)=>z.x>=left&&z.x<right);
+    const pageCol=it.filter((z:any)=>z.x>=left&&z.x<right);
+    // Quinyx may print the venue as a separate item beside the role.
+    if(pageCol.some((z:any)=>norm(z.text).includes("michle prague")&&Math.abs(z.y-role.y)<2.2))continue;
+    const ys=[...new Set(c.filter((z:any)=>isTime(z.text)).map((z:any)=>z.y))].sort((x:any,y:any)=>y-x);
+    const pairs=ys.map((y:any)=>({y,pair:pairAtY(c,y)})).filter((q:any)=>q.pair);
+    const above=pairs.filter((q:any)=>q.y>role.y+2).sort((x:any,y:any)=>x.y-y.y);
+    const below=pairs.filter((q:any)=>q.y<role.y-3).sort((x:any,y:any)=>y.y-x.y);
+    const breakPairs=below.filter((q:any)=>["11:00-11:30","20:00-20:30","18:00-18:30","14:15-14:45"].includes(q.pair.join("-")));
+    const actualPairs=below.filter((q:any)=>!breakPairs.includes(q)&&!(q.pair[0]==="00:00"&&q.pair[1]==="00:00")).sort((x:any,y:any)=>x.y-y.y);
+    // Planned block: on wide columns both times share Y; on narrow columns end time wraps to next line.
+    // Take the two nearest time tokens ABOVE the full role label (max 32 pt), excluding 00:00 absence.
+    const plannedTokens=pageCol.filter((z:any)=>isTime(z.text)&&z.y>role.y+1.5&&z.y-role.y<24)
+      .sort((a:any,b:any)=>(a.y-role.y)-(b.y-role.y)||a.x-b.x);
+    let planned:any=null, scheduledPaidHours:any=null, plannedPicked:any[]=[];
+    if(plannedTokens.length>=2){
+      let picked=plannedTokens.slice(0,2);
+      picked=Math.abs(picked[0].y-picked[1].y)<1.1
+        ? picked.sort((a:any,b:any)=>a.x-b.x)
+        : picked.sort((a:any,b:any)=>b.y-a.y);
+      const a=picked[0].text,b=picked[1].text;
+      const k=`${a}-${b}`;
+      if(!(a==="00:00"&&b==="00:00") &&
+         !["11:00-11:30","20:00-20:30","18:00-18:30","14:15-14:45"].includes(k)){
+        planned=[a,b]; plannedPicked=picked;
+        const py=Math.min(...picked.map((z:any)=>z.y));
+        const nums=pageCol.filter((z:any)=>/^\d+(?:\.\d+)?$/.test(z.text)&&Math.abs(z.y-py)<1.1)
+          .sort((x:any,y:any)=>x.x-y.x);
+        if(nums.length)scheduledPaidHours=+nums[nums.length-1].text;
+      }
+    }
+    // Actual clock row is the FIRST non-break pair below the role, not the lowest pair in the person's band.
+    const breakY=breakPairs.length?Math.min(...breakPairs.map((q:any)=>q.y)):null;
+    const actualCandidates=actualPairs.filter((q:any)=>breakY==null?q.y<role.y-3:q.y<breakY-1.5)
+      .sort((x:any,y:any)=>y.y-x.y);
+    let actualCandidate:any=null, worked:any=null;
+    for(const q of actualCandidates){
+      const nums=c.filter((z:any)=>/^\d+(?:\.\d+)?$/.test(z.text)&&Math.abs(z.y-q.y)<1.1).sort((x:any,y:any)=>x.x-y.x);
+      if(nums.length){actualCandidate=q;worked=+nums[nums.length-1].text;break;}
+    }
+    let actual=actualCandidate?.pair||null;
+    const actualY=actualCandidate?.y;
+    const m=role.text.match(/^(GA|SL)\s+(.+)$/i)!;
+    const rowDate=d.date;
+    if(cutoff&&rowDate>cutoff){actual=null;worked=null;}
+    // Only call it verified when both scheduled and actual are present in the expected geometry.
+    rows.push({person_key:p.key,name:p.name,date:rowDate,
+      scheduled_start:planned?.[0]||null,scheduled_end:planned?.[1]||null,scheduled_hours:scheduledPaidHours,
+      actual_start:actual?.[0]||null,actual_end:actual?.[1]||null,actual_worked_hours:worked,
+      role:m[1].toUpperCase(),shift_type:m[2],page:pg.page,
+      page_period_start:period.start,page_period_end:period.end,
+      confidence:planned&&actual&&worked!=null?"verified_geometry":planned?"scheduled_only":"needs_review",
+      observed_pairs:pairs.map((q:any)=>({y:q.y,start:q.pair[0],end:q.pair[1]}))});
+   }
+  }
+ }
+ const seen=new Set();
+ const deduped=rows.filter(r=>{const k=`${r.person_key}|${r.date}|${r.role}|${r.shift_type}`;if(seen.has(k))return false;seen.add(k);return true});
+ return {rows:deduped,missingDatePages:[...new Set(missingDatePages)].sort((a,b)=>a-b),pagePeriods};
+}
+function addDays(date:string,n:number){
+ const d=new Date(date+"T12:00:00Z"); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10);
+}
+function ts(date:string,time:string|null,endOf:string|null=null){
+ if(!time)return null;
+ let dd=date;
+ if(endOf){
+   const [sh,sm]=endOf.split(":").map(Number),[eh,em]=time.split(":").map(Number);
+   if(eh*60+em<=sh*60+sm)dd=addDays(date,1);
+ }
+ const [y,m,d]=dd.split("-").map(Number),[hh,mi]=time.split(":").map(Number);
+ const wanted=Date.UTC(y,m-1,d,hh,mi,0);
+ let utc=wanted;
+ const fmt=new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Prague",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"});
+ for(let i=0;i<2;i++){
+  const p:any={};for(const x of fmt.formatToParts(new Date(utc)))p[x.type]=x.value;
+  const seen=Date.UTC(Number(p.year),Number(p.month)-1,Number(p.day),Number(p.hour),Number(p.minute),Number(p.second));
+  utc+=wanted-seen;
+ }
+ return new Date(utc).toISOString();
+}
+Deno.serve(async req=>{
+ if(req.method==="OPTIONS")return new Response("ok",{headers:cors});
+ try{
+  const auth=req.headers.get("authorization")||"",url=Deno.env.get("SUPABASE_URL")!,anon=Deno.env.get("SUPABASE_ANON_KEY")!,service=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const uc=createClient(url,anon,{global:{headers:{Authorization:auth}}}),{data:{user}}=await uc.auth.getUser();if(!user)return J({error:"Unauthorized"},401);
+  const db=createClient(url,service),{data:adm}=await db.from("admin_users").select("user_id").eq("user_id",user.id).maybeSingle();if(!adm)return J({error:"Forbidden"},403);
+
+  const b=await req.json(),mode=b.mode||"preview",import_id=b.import_id||null,parsed=parse(b.layout_json||[]),rows=parsed.rows;
+  if(!rows.length)return J({error:"No Quinyx shifts parsed from layout",diagnostics:{pages:b.layout_json?.length||0,missing_date_pages:parsed.missingDatePages,page_periods:parsed.pagePeriods}},422);
+  const dates=rows.map((r:any)=>r.date).sort(),period_start=dates[0],period_end=dates[dates.length-1];
+  const missingPlan=rows.filter((r:any)=>!r.scheduled_start||!r.scheduled_end);
+  const dup=new Map<string,number>();
+  for(const r of rows){const k=`${r.person_key}|${r.date}|${r.role}|${r.shift_type}`;dup.set(k,(dup.get(k)||0)+1)}
+  const duplicateKeys=[...dup.entries()].filter(([,n])=>n>1).map(([k])=>k);
+  const validation={
+    period_start,period_end,row_count:rows.length,
+    people_count:new Set(rows.map((x:any)=>x.person_key)).size,
+    missing_planned:missingPlan.length,duplicate_keys:duplicateKeys.length,
+    future_actuals:rows.filter((r:any)=>r.date>new Date().toISOString().slice(0,10)&&r.actual_start).length,
+    missing_date_pages:parsed.missingDatePages,
+    page_periods:parsed.pagePeriods
+  };
+
+  if(mode==="preview")return J({ok:true,preview:true,parser_stage:"quinyx-layout-v21",shift_count:rows.length,
+    people_count:validation.people_count,period_start,period_end,validation,rows,
+    note:"Preview only. V21 čte datum z Quinyx hlavičky každého týdenního bloku, včetně přechodu mezi měsíci. Nic se ještě nezapisuje."});
+
+  if(mode!=="commit")return J({error:"Unsupported mode"},400);
+  if(!import_id)return J({error:"Missing import_id"},400);
+  if(!period_start||!period_end||!rows.length||!validation.people_count||missingPlan.length||duplicateKeys.length||validation.future_actuals||parsed.missingDatePages.length)
+    return J({error:"Quinyx validation failed; commit blocked",validation},409);
+
+  const {data:imp,error:ie}=await db.from("imports").select("id,filename,status,report_type").eq("id",import_id).single();
+  if(ie||!imp)return J({error:ie?.message||"Import not found"},400);
+
+  const keys=[...new Set(rows.map((r:any)=>r.person_key))];
+  const {data:people,error:pe}=await db.from("people").select("id,person_key").in("person_key",keys);
+  if(pe)return J({error:pe.message},500);
+  const pmap=new Map((people||[]).map((p:any)=>[p.person_key,p.id]));
+  const unresolved=keys.filter(k=>!pmap.get(k));
+  if(unresolved.length)return J({error:"Unresolved Quinyx roster people",unresolved},409);
+
+  const payload=rows.map((r:any)=>({
+    person_id:pmap.get(r.person_key),
+    shift_date:r.date,
+    role:r.role,
+    shift_type:r.shift_type,
+    scheduled_start:ts(r.date,r.scheduled_start),
+    scheduled_end:ts(r.date,r.scheduled_end,r.scheduled_start),
+    actual_start:ts(r.date,r.actual_start),
+    actual_end:ts(r.date,r.actual_end,r.actual_start),
+    scheduled_hours:r.scheduled_hours,
+    worked_hours:r.actual_worked_hours,
+    import_id,
+    source_record_key:`shift|${pmap.get(r.person_key)}|${r.date}|${norm(r.role).replace(/\s+/g," ")}|${norm(r.shift_type).replace(/\s+/g," ")}`,
+    metadata:{
+      source_type:"quinyx",parser_version:"quinyx-v21",source_name:r.name,page:r.page,
+      page_period_start:r.page_period_start,page_period_end:r.page_period_end,
+      confidence:r.confidence,venue:"Holešovice, Prague",export_cutoff:new Date().toISOString().slice(0,10)
+    }
+  }));
+
+  const {data:w,error:we}=await db.from("shifts")
+    .upsert(payload,{onConflict:"source_record_key"}).select("id");
+  if(we)return J({error:we.message},500);
+
+  await db.from("imports").update({
+    status:"imported",period_start,period_end,parser_version:"quinyx-v21"
+  }).eq("id",import_id);
+
+  return J({ok:true,committed:true,inserted_count:w?.length??0,attempted_count:payload.length,
+    period_start,period_end,people_count:validation.people_count,validation,merge_guard:"canonical-v152"});
+ }catch(e){return J({error:String(e?.message||e)},500)}
+});
