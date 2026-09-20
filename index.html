@@ -747,7 +747,19 @@ html[data-theme="light"] #seasonRecapOverlay{background:rgba(25,54,34,.34)}html[
 .player-profile-grid{grid-template-columns:repeat(4,1fr);gap:9px;margin-top:12px}.player-profile-grid .small-stat{padding:11px 12px;border-radius:13px;background:rgba(255,255,255,.025);border-color:rgba(255,255,255,.065)}.player-profile-grid .small-stat .k{font-size:7px}.player-profile-grid .small-stat .v{font-size:15px}
 .player-insights-section,.player-breakdown-section{margin-top:12px}.detail-insights{display:grid;grid-template-columns:1fr 1fr;gap:9px}.detail-insights .insight{min-height:74px;padding:12px 13px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.025);display:flex;flex-direction:column;justify-content:space-between}.detail-insights .insight strong{font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.detail-insights .insight span{font-size:11px;font-weight:900;margin-top:9px}.detail-insights .insight:first-child span{color:var(--green2)}.detail-insights .insight:last-child span{color:#fca5a5}
 .breakdown-list{display:grid;gap:7px}.breakdown-row{display:grid;grid-template-columns:minmax(150px,1.25fr) .75fr .75fr auto;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:13px;background:rgba(255,255,255,.025);transition:.18s ease}.breakdown-row:hover{transform:translateX(2px);border-color:rgba(53,231,138,.22)}.breakdown-row.good{background:linear-gradient(90deg,rgba(34,197,94,.10),rgba(255,255,255,.02));border-color:rgba(53,231,138,.20)}.breakdown-row.bad{background:linear-gradient(90deg,rgba(239,68,68,.09),rgba(255,255,255,.02));border-color:rgba(239,68,68,.18)}.breakdown-row.neutral{background:rgba(255,255,255,.025)}.breakdown-metric strong{display:block;font-size:9px}.breakdown-metric span{display:block;font-size:7px;color:var(--muted);margin-top:3px}.breakdown-value,.breakdown-team{text-align:right;font-size:9px;font-weight:900}.breakdown-team{color:var(--muted)}.breakdown-status{justify-self:end;min-width:76px;text-align:center;padding:5px 7px;border-radius:999px;font-size:7px;font-weight:900;letter-spacing:.04em}.breakdown-status.good{color:#86efac;background:rgba(34,197,94,.11);border:1px solid rgba(53,231,138,.18)}.breakdown-status.bad{color:#fca5a5;background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.17)}.breakdown-status.neutral{color:var(--muted);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)}
-html[data-theme="light"] .player-modal{background:linear-gradient(145deg,#f8fcf9,#eaf6ed);border-color:#b9d8c2}.player-modal .player-profile-sub{color:#587062}.player-identity-card,.player-badges-card{background:linear-gradient(145deg,#e7f7eb,#f7fcf8)!important;border-color:#b4d8bc!important}.player-rank-crest{background:radial-gradient(circle at 35% 25%,#fff,#e6f3e9 62%,#d7eade);border-color:#b8d4be}.player-rank-track{background:#d5e8d9}.player-profile-grid .small-stat,.detail-insights .insight,.breakdown-row{background:rgba(255,255,255,.48);border-color:#c6ddcb}.breakdown-row.good{background:linear-gradient(90deg,#e4f6e9,#f8fcf9);border-color:#b1d6b9}.breakdown-row.bad{background:linear-gradient(90deg,#fbeaea,#fbfdfb);border-color:#e4bcbc}.breakdown-status.neutral{background:#f2f7f3;border-color:#d5e3d8}.detail-insights .insight:last-child span{color:#b42318}
+html[data-theme="light"] .player-modal{background:linear-gradient(145deg,#f8fcf9,#eaf6ed);border-color:#b9d8c2}
+html[data-theme="light"] .player-modal .player-profile-sub{color:#587062}
+html[data-theme="light"] .player-identity-card,
+html[data-theme="light"] .player-badges-card{background:linear-gradient(145deg,#e7f7eb,#f7fcf8)!important;border-color:#b4d8bc!important}
+html[data-theme="light"] .player-rank-crest{background:radial-gradient(circle at 35% 25%,#fff,#e6f3e9 62%,#d7eade);border-color:#b8d4be}
+html[data-theme="light"] .player-rank-track{background:#d5e8d9}
+html[data-theme="light"] .player-profile-grid .small-stat,
+html[data-theme="light"] .detail-insights .insight,
+html[data-theme="light"] .breakdown-row{background:rgba(255,255,255,.48);border-color:#c6ddcb}
+html[data-theme="light"] .breakdown-row.good{background:linear-gradient(90deg,#e4f6e9,#f8fcf9);border-color:#b1d6b9}
+html[data-theme="light"] .breakdown-row.bad{background:linear-gradient(90deg,#fbeaea,#fbfdfb);border-color:#e4bcbc}
+html[data-theme="light"] .breakdown-status.neutral{background:#f2f7f3;border-color:#d5e3d8}
+html[data-theme="light"] .detail-insights .insight:last-child span{color:#b42318}
 @media(max-width:700px){.player-modal{padding:14px;border-radius:19px}.player-profile-name{font-size:22px}.player-profile-top{grid-template-columns:1fr}.player-profile-grid{grid-template-columns:1fr 1fr}.detail-insights{grid-template-columns:1fr}.breakdown-row{grid-template-columns:1fr auto;gap:7px}.breakdown-value,.breakdown-team{text-align:left}.breakdown-team{grid-column:1}.breakdown-status{grid-column:2;grid-row:1 / span 2}.breakdown-metric strong{font-size:8px}.breakdown-value,.breakdown-team{font-size:8px}}
 </style>
 <style id="mobile-performance-boost">
@@ -1376,7 +1388,7 @@ html[data-theme="light"] .sc-you-badge{color:#166534;background:rgba(34,197,94,.
 <div class="hidden" id="seasonRecapOverlay"><div class="season-recap-card"><div class="rundown-head"><div><div class="rundown-kicker">NOVÁ SEZÓNA</div><div class="rundown-title" id="seasonRecapTitle">Season Recap</div><div class="rundown-sub" id="seasonRecapSub">Tvoje poslední sezóna</div></div><button aria-label="Zavřít" class="rundown-close" id="seasonRecapClose">×</button></div><div class="season-recap-grid" id="seasonRecapStats"></div><div class="season-recap-section"><h4>🏆 Nejdůležitější výsledky</h4><div class="rundown-list" id="seasonRecapWins"></div></div><div class="season-recap-section"><h4>📈 Posun</h4><div class="rundown-list" id="seasonRecapProgress"></div></div><div class="rundown-actions"><button class="rundown-btn" id="seasonRecapContinue">Jdeme na novou sezónu</button></div></div></div>
 <div class="hidden" id="rundownOverlay"><div class="rundown-card"><div class="rundown-head"><div><div class="rundown-kicker">Tvoje poslední výsledky</div><div class="rundown-title" id="rundownTitle">Dobrá práce.</div><div class="rundown-sub" id="rundownSub">Rychlé shrnutí toho, co se ti povedlo.</div></div><button aria-label="Zavřít" class="rundown-close" id="rundownClose">×</button></div><div class="rundown-grid" id="rundownStats"></div><div class="rundown-section"><h4>🔥 Co se ti povedlo</h4><div class="rundown-list" id="rundownWins"></div></div><div class="rundown-section"><h4>🏆 Co jsi odemkl</h4><div class="rundown-achievements" id="rundownAchievements"></div></div><div class="rundown-section"><h4>🎯 Na čem můžeš ještě zabrat</h4><div class="rundown-list" id="rundownFocus"></div></div><div class="rundown-actions"><button class="rundown-btn" id="rundownContinue">Pokračovat do profilu</button></div></div></div>
 <div class="shell">
-<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V160</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
+<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V162</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
 <div class="layout">
 <aside class="sidebar">
 <div class="label">Profil</div><select class="select" id="workerSelect"></select>
@@ -3232,7 +3244,7 @@ async function openDiagnosticPerson(name){
 
 // Keep detail actions explicitly global so inline click handlers work reliably
 // after dynamic leaderboard/diagnostics rendering.
-window.openDetail=openDetail;
+window.openDetail=(name)=>openDetail(name);
 window.openDiagnosticPerson=openDiagnosticPerson;
 
 function liveLeaderboardMetricDefs(){
@@ -3378,10 +3390,10 @@ function bindProfileClickTargets(){
     el.addEventListener('click',function(ev){
       ev.preventDefault();
       ev.stopPropagation();
-      try{ openDetail(name); }catch(err){
+      openDetail(name).catch(err=>{
         console.error('openDetail failed',name,err);
         setText('globalNotice','Profil se nepodařilo otevřít: '+(err?.message||err));
-      }
+      })
     },{once:true});
   });
 }
@@ -3398,7 +3410,7 @@ function bindDiagnosticClickTargets(){
       try{ openDiagnosticPerson(name); }catch(err){
         console.error('openDiagnosticPerson failed',name,err);
         setText('globalNotice','Profil se nepodařilo otevřít: '+(err?.message||err));
-      }
+      })
     },{once:true});
   });
 }
@@ -3521,11 +3533,14 @@ async function renderDetailLiveOps(name){
  }
 }
 
-function openDetail(name){
-  const resolved=resolveTeamPersonName(name);
-  if(!resolved)return;
-  name=resolved;
-  const lb=playerSeasonData(name); const prev=previousSeasonPlayerData(name); const p=state.team.people[name],defs=state.team.headers||[];
+async function openDetail(name){
+  try{
+    if(!state.team)await ensureTeam();
+    const resolved=resolveTeamPersonName(name);
+    if(!resolved)throw new Error('Profil není v týmové historii: '+name);
+    name=resolved;
+    const lb=playerSeasonData(name); const prev=previousSeasonPlayerData(name); const p=state.team?.people?.[name],defs=state.team?.headers||[];
+    if(!p)throw new Error('Chybí data profilu: '+name);
   setText('detailName',name);setText('detailRank','#'+lb.rank);setText('detailElo',lb.elo+' ELO');setText('detailTier',lb.tier+(lb.status&&lb.status!=='FULL'?' · '+lb.status:'')+' · Season Rank #'+lb.rank);setText('detailSubtitle',`${lb.tier}${lb.status&&lb.status!=='FULL'?' · '+lb.status:''} · posledních 13 týdnů · výkon vs. tým`);
   const crest=lb.tier==='MASTER'?'💎':lb.tier==='GOLD'?'🥇':lb.tier==='SILVER'?'🛡️':'🔰';setText('detailRankCrest',crest); const didRankUp=showProfileRankToast(name,lb,prev); const crestEl=document.getElementById('detailRankCrest'); if(crestEl){crestEl.classList.remove('rank-up-crest'); if(didRankUp){void crestEl.offsetWidth; crestEl.classList.add('rank-up-crest');}} const burst=document.getElementById('rankUpBurst'); const burstSub=document.getElementById('rankUpBurstSub'); if(burst){burst.classList.remove('show'); if(didRankUp){if(burstSub)burstSub.textContent=`${prev.tier} → ${lb.tier} · ${prev.elo} → ${lb.elo} ELO`; void burst.offsetWidth; burst.classList.add('show'); setTimeout(()=>burst.classList.remove('show'),1700);}}
   const rankPct=Math.min(100,Math.max(0,((lb.elo-900)/(1200-900))*100));const fill=document.getElementById('detailRankFill');if(fill)fill.style.width=rankPct+'%';
@@ -3537,8 +3552,12 @@ function openDetail(name){
   const strong=scored.filter(x=>x.teamAvg!=null&&x.good).sort((a,b)=>Math.abs(b.gap)-Math.abs(a.gap))[0];const weak=scored.filter(x=>x.teamAvg!=null&&!x.good).sort((a,b)=>Math.abs(b.gap)-Math.abs(a.gap))[0];
   document.getElementById('detailInsights').innerHTML=`<div class="insight"><strong>Silná stránka</strong><span>${strong?esc(cleanMetricName(strong.d))+' · '+formatNormVal(strong.avg,strong.d):'—'}</span></div><div class="insight"><strong>Největší rezerva</strong><span>${weak?esc(cleanMetricName(weak.d))+' · '+formatNormVal(weak.avg,weak.d):'—'}</span></div>`;
   document.getElementById('detailBreakdown').innerHTML=scored.map(x=>{const status=x.good===true?'good':x.good===false?'bad':'neutral';const label=x.good===true?'↑ NAD TÝMEM':x.good===false?'↓ POD TÝMEM':'→ VYROVNANÉ';const point=x.pts>0?`+${x.pts}`:String(x.pts);return `<div class="breakdown-row ${status}"><div class="breakdown-metric"><strong>${esc(cleanMetricName(x.d))}</strong><span>${status==='good'?'lepší než tým':status==='bad'?'horší než tým':'bez jasné odchylky'} · ${point} b.</span></div><div class="breakdown-value">${formatNormVal(x.avg,x.d)}</div><div class="breakdown-team">Tým · ${x.teamAvg==null?'—':formatNormVal(x.teamAvg,x.d)}</div><div class="breakdown-status ${status}">${label}</div></div>`}).join('')||'<div class="notice">Nedostatek historických dat.</div>';
-  document.getElementById('detailOverlay').classList.add('show');
-  renderDetailLiveOps(name).catch(()=>{});
+    document.getElementById('detailOverlay').classList.add('show');
+    renderDetailLiveOps(name).catch(()=>{});
+  }catch(e){
+    console.error('openDetail',name,e);
+    setText('globalNotice','Profil se nepodařilo otevřít: '+(e?.message||e));
+  }
 }
 
 function badgesForName(name){return badges(name)}
