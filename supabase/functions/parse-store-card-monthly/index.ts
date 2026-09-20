@@ -449,7 +449,7 @@ Deno.serve(async req=>{
   };
 
   if(mode==="preview"){
-   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v4",
+   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v5",
     note:"Preview only. Existing identities are resolved by email/picker login. New historical people are shown before commit."});
   }
 
@@ -538,7 +538,7 @@ Deno.serve(async req=>{
    team_bonus_30h_czk:rewards.team_bonus_30h,
    source_import_id:import_id,
    status:"official",
-   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v4",filename:imp.filename},
+   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v5",filename:imp.filename},
    updated_at:new Date().toISOString()
   };
   const {error:sce}=await db.from("store_card_months").upsert(monthRow,{onConflict:"month"});
@@ -576,13 +576,39 @@ Deno.serve(async req=>{
    bonusWritten=bw?.length??0;
   }
 
+  const previousPeriodStart=imp.period_start||null;
+  const reparsedPeriod=previousPeriodStart&&previousPeriodStart!==period.period_start;
+  let staleCleanup:any={metric_observations:0,store_metrics:0,bonus_ledger:0,store_card_months:0};
+  if(reparsedPeriod){
+   const {data:oldObs,error:oldObsErr}=await db.from("metric_observations")
+     .delete().eq("import_id",import_id).eq("source_type","store_card_monthly")
+     .neq("period_start",period.period_start).select("id");
+   if(oldObsErr)return J({error:"Stale Store Card observation cleanup failed",detail:oldObsErr.message},500);
+   staleCleanup.metric_observations=oldObs?.length??0;
+
+   const {data:oldStore,error:oldStoreErr}=await db.from("store_metrics")
+     .delete().eq("import_id",import_id).neq("period_start",period.period_start).select("id");
+   if(oldStoreErr)return J({error:"Stale Store Card store-metric cleanup failed",detail:oldStoreErr.message},500);
+   staleCleanup.store_metrics=oldStore?.length??0;
+
+   const {data:oldBonus,error:oldBonusErr}=await db.from("bonus_ledger")
+     .delete().eq("import_id",import_id).neq("bonus_month",period.period_start).select("id");
+   if(oldBonusErr)return J({error:"Stale Store Card bonus cleanup failed",detail:oldBonusErr.message},500);
+   staleCleanup.bonus_ledger=oldBonus?.length??0;
+
+   const {data:oldMonth,error:oldMonthErr}=await db.from("store_card_months")
+     .delete().eq("source_import_id",import_id).neq("month",period.period_start).select("month");
+   if(oldMonthErr)return J({error:"Stale Store Card month cleanup failed",detail:oldMonthErr.message},500);
+   staleCleanup.store_card_months=oldMonth?.length??0;
+  }
+
   const totalRecords=obs.length+storeRows.length+bonusRows.length+1;
   const {error:ue}=await db.from("imports").update({
    report_type:"store_card_monthly",
    status:"imported",
    period_start:period.period_start,
    period_end:period.period_end,
-   parser_version:"store-card-monthly-v4",
+   parser_version:"store-card-monthly-v5",
    record_count:totalRecords,
    metadata:{
     ...(imp.metadata||{}),
@@ -600,7 +626,7 @@ Deno.serve(async req=>{
    ...common,
    preview:false,
    committed:true,
-   parser_stage:"store-card-monthly-committed-v4",
+   parser_stage:"store-card-monthly-committed-v5",
    observations_attempted:obs.length,
    observations_inserted:obsWritten,
    store_metrics_attempted:storeRows.length,
@@ -608,7 +634,9 @@ Deno.serve(async req=>{
    bonus_rows_attempted:bonusRows.length,
    bonus_rows_written:bonusWritten,
    historical_people_created:newHistorical.length,
-   total_records:totalRecords
+   total_records:totalRecords,
+   reparsed_from_period:reparsedPeriod?previousPeriodStart:null,
+   stale_cleanup:staleCleanup
   });
  }catch(e){
   return J({error:String((e as any)?.message||e)},500);
