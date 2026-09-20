@@ -374,7 +374,7 @@ async function resolveIdentity(db:any,body:any){
   const aliasType=String(body.alias_type||aliasTypeFor(reportType,alias));
   const normalizedValue=normIdentity(alias);
   const {error}=await db.from("person_aliases").upsert({
-    person_id:personId,alias_type:aliasType,alias_value:alias,normalized_value:normalizedValue,
+    person_id:personId,alias_type:aliasType,alias_value:alias,
     source:"data_hub_manual_confirmation",confirmed:true
   },{onConflict:"alias_type,normalized_value"});
   if(error)throw error;
