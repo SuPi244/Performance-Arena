@@ -3239,7 +3239,7 @@ async function renderBottlenecks(){
 }
 
 async function openDiagnosticPerson(name){
-  try{await ensureTeam();openDetail(name);}catch(e){setText('globalNotice','Detail pracovníka se nepodařilo otevřít.');}
+  try{await ensureTeam();await openDetail(name);}catch(e){setText('globalNotice','Detail pracovníka se nepodařilo otevřít.');}
 }
 
 // Keep detail actions explicitly global so inline click handlers work reliably
@@ -3407,10 +3407,10 @@ function bindDiagnosticClickTargets(){
     el.addEventListener('click',function(ev){
       ev.preventDefault();
       ev.stopPropagation();
-      try{ openDiagnosticPerson(name); }catch(err){
+      openDiagnosticPerson(name).catch(err=>{
         console.error('openDiagnosticPerson failed',name,err);
         setText('globalNotice','Profil se nepodařilo otevřít: '+(err?.message||err));
-      })
+      });
     },{once:true});
   });
 }
