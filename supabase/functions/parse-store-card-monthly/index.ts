@@ -21,17 +21,45 @@ const norm=(s:string)=>String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g
 const compact=(s:string)=>norm(s).replace(/\s+/g,"");
 const center=(it:any)=>Number(it.x||0)+Number(it.w||0)/2;
 
+function monthFromText(raw:string){
+  const s=" "+norm(raw)+" ";
+  const ordered=["september","november","december","february","cervenec","listopad","prosinec","january","october","august","brezen","duben","april","kveten","cerven","srpen","rijen","zari","march","june","july","leden","unor","may"];
+  for(const k of ordered){
+    if(s.includes(" "+k+" "))return MONTHS[k]??null;
+  }
+  return null;
+}
+
 function inferMonth(filename:string,layout:any[]){
-  const texts=[filename,...layout.flatMap((p:any)=>p.items?.map((i:any)=>i.text)||[])].join(" ").toLowerCase();
-  const yearM=texts.match(/\b(20\d{2})\b/); const year=yearM?Number(yearM[1]):null;
-  let month:number|null=null;
-  // Longer Czech names first so červenec is not caught as červen.
-  const ordered=["september","november","december","february","červenec","cervenec","listopad","prosinec","january","october","august","březen","brezen","duben","april","květen","kveten","červen","cerven","srpen","říjen","rijen","září","zari","march","june","july","leden","únor","unor","may"];
-  for(const k of ordered)if(texts.includes(k)){month=MONTHS[k];break}
-  if(!year||!month)return null;
-  const start=`${year}-${String(month).padStart(2,"0")}-01`;
-  const end=new Date(Date.UTC(year,month,0)).toISOString().slice(0,10);
-  return {year,month,period_start:start,period_end:end};
+  // Filename is authoritative. The PDF itself contains a 12-month threshold
+  // table, so scanning the whole document for month names can select the wrong month.
+  const fy=String(filename||"").match(/\b(20\d{2})\b/);
+  const fm=monthFromText(filename);
+  if(fy&&fm){
+    const year=Number(fy[1]),month=Number(fm);
+    const start=`${year}-${String(month).padStart(2,"0")}-01`;
+    return {year,month,period_start:start,period_end:new Date(Date.UTC(year,month,0)).toISOString().slice(0,10),source:"filename"};
+  }
+
+  const page1=norm((layout?.[0]?.items||[]).map((i:any)=>i.text).join(" "));
+  let title=page1.match(/\bresults\s+([a-z]+)\s+(20\d{2})\b/);
+  if(title){
+    const month=monthFromText(title[1]),year=Number(title[2]);
+    if(month){
+      const start=`${year}-${String(month).padStart(2,"0")}-01`;
+      return {year,month,period_start:start,period_end:new Date(Date.UTC(year,month,0)).toISOString().slice(0,10),source:"page1_results_title"};
+    }
+  }
+
+  const anyYear=page1.match(/\b(20\d{2})\b/);
+  const perMonth=page1.match(/\bper\s+month\s+([a-z]+)\b/);
+  const month=perMonth?monthFromText(perMonth[1]):null;
+  if(anyYear&&month){
+    const year=Number(anyYear[1]);
+    const start=`${year}-${String(month).padStart(2,"0")}-01`;
+    return {year,month,period_start:start,period_end:new Date(Date.UTC(year,month,0)).toISOString().slice(0,10),source:"page_title"};
+  }
+  return null;
 }
 
 function groupRows(page:any,tol=1.4){
@@ -420,7 +448,7 @@ Deno.serve(async req=>{
   };
 
   if(mode==="preview"){
-   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v2",
+   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v3",
     note:"Preview only. Existing identities are resolved by email/picker login. New historical people are shown before commit."});
   }
 
@@ -509,7 +537,7 @@ Deno.serve(async req=>{
    team_bonus_30h_czk:rewards.team_bonus_30h,
    source_import_id:import_id,
    status:"official",
-   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v2",filename:imp.filename},
+   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v3",filename:imp.filename},
    updated_at:new Date().toISOString()
   };
   const {error:sce}=await db.from("store_card_months").upsert(monthRow,{onConflict:"month"});
@@ -553,7 +581,7 @@ Deno.serve(async req=>{
    status:"imported",
    period_start:period.period_start,
    period_end:period.period_end,
-   parser_version:"store-card-monthly-v2",
+   parser_version:"store-card-monthly-v3",
    record_count:totalRecords,
    metadata:{
     ...(imp.metadata||{}),
@@ -571,7 +599,7 @@ Deno.serve(async req=>{
    ...common,
    preview:false,
    committed:true,
-   parser_stage:"store-card-monthly-committed-v2",
+   parser_stage:"store-card-monthly-committed-v3",
    observations_attempted:obs.length,
    observations_inserted:obsWritten,
    store_metrics_attempted:storeRows.length,
