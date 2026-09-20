@@ -502,16 +502,19 @@ document.addEventListener('click',async e=>{
   const {data:{session}}=await sb.auth.getSession();if(!session)throw new Error('Relace vypršela.');
   const {data:imp,error}=await sb.from('imports').select('storage_path,filename,metadata').eq('id',b.dataset.id).single();if(error)throw error;
   b.textContent='Čtu PDF…';
-  const layout_json=await extractPdfLayoutClient(imp.storage_path,true);
+  const [layout_json,extracted_text]=await Promise.all([
+    extractPdfLayoutClient(imp.storage_path,true),
+    extractPdfClient(imp.storage_path)
+  ]);
   b.textContent='Parsování…';
   const res=await fetch('https://yhpgqkklnymfiacrztqf.supabase.co/functions/v1/parse-store-card-monthly',{
    method:'POST',
    headers:{Authorization:'Bearer '+session.access_token,apikey:'sb_publishable_EA9Sbn8ayjr0eHaI2m0s6A_Yct2lL8a','Content-Type':'application/json'},
-   body:JSON.stringify({import_id:b.dataset.id,mode:'preview',filename:imp.filename,layout_json})
+   body:JSON.stringify({import_id:b.dataset.id,mode:'preview',filename:imp.filename,layout_json,extracted_text})
   });
   const out=await res.json().catch(()=>({}));if(!res.ok)throw new Error(out.detail||out.error||('HTTP '+res.status));
   await sb.from('imports').update({report_type:'month_end_reconciliation',parser_version:'store-card-monthly-v7',metadata:{...(imp.metadata||{}),month_end:true,reconciliation_month:(out.period_start||'').slice(0,7),store_card_monthly:true}}).eq('id',b.dataset.id);
-  currentPreview={id:b.dataset.id,out,storeCardMonthly:true,layout_json,filename:imp.filename};
+  currentPreview={id:b.dataset.id,out,storeCardMonthly:true,layout_json,extracted_text,filename:imp.filename};
   $('#previewCard').classList.remove('hidden');
   $('#previewCard h2').textContent='Monthly Store Card — Preview';
   $('#pvPeriod').textContent=(out.period_start||'—')+' → '+(out.period_end||'—');
@@ -547,7 +550,7 @@ document.addEventListener('click',async e=>{
   const res=await fetch('https://yhpgqkklnymfiacrztqf.supabase.co/functions/v1/parse-store-card-monthly',{
    method:'POST',
    headers:{Authorization:'Bearer '+session.access_token,apikey:'sb_publishable_EA9Sbn8ayjr0eHaI2m0s6A_Yct2lL8a','Content-Type':'application/json'},
-   body:JSON.stringify({import_id:currentPreview.id,mode:'commit',filename:currentPreview.filename,layout_json:currentPreview.layout_json})
+   body:JSON.stringify({import_id:currentPreview.id,mode:'commit',filename:currentPreview.filename,layout_json:currentPreview.layout_json,extracted_text:currentPreview.extracted_text||''})
   });
   const out=await res.json().catch(()=>({}));
   if(!res.ok)throw new Error(out.detail||out.error||('HTTP '+res.status));
@@ -651,7 +654,8 @@ document.addEventListener('click',async e=>{
   }
   if(item.report_type==='store_card_monthly'){
    if(!item.layout_json)item.layout_json=await extractPdfLayoutClient(item.storage_path,true);
-   return {layout_json:item.layout_json,filename:item.file.name};
+   if(!item.extracted_text)item.extracted_text=await extractPdfClient(item.storage_path);
+   return {layout_json:item.layout_json,extracted_text:item.extracted_text,filename:item.file.name};
   }
   if(item.extracted_text)return {extracted_text:item.extracted_text};
   if(e==='pdf'){
@@ -846,7 +850,8 @@ document.addEventListener('click',async e=>{
     details+='<details class="bulk-details" open><summary>💰 Store Card payouty · '+esc(payouts.length)+' lidí · '+esc(total.toLocaleString('cs-CZ'))+' Kč</summary><div style="margin-top:8px;font-size:12px">'+
       '<div class="ok"><b>Pravidla z tohoto PDF:</b> '+esc(topText)+'</div>'+
       '<div class="muted" style="margin-top:4px">'+teamText+'</div>'+
-      '<div class="muted" style="margin:4px 0 8px">Team effort '+esc(team.team_effort_pct==null?'—':team.team_effort_pct+' %')+' → použitý tier <b>'+esc(team.selected_tier||'—')+'</b> · 40h '+esc(team.selected_40h_czk==null?'—':Number(team.selected_40h_czk).toLocaleString('cs-CZ')+' Kč')+' · 30h '+esc(team.selected_30h_czk==null?'—':Number(team.selected_30h_czk).toLocaleString('cs-CZ')+' Kč')+'</div>'+
+      '<div class="muted" style="margin:4px 0 4px">Team effort '+esc(team.team_effort_pct==null?'—':team.team_effort_pct+' %')+' → použitý tier <b>'+esc(team.selected_tier||'—')+'</b> · 40h '+esc(team.selected_40h_czk==null?'—':Number(team.selected_40h_czk).toLocaleString('cs-CZ')+' Kč')+' · 30h '+esc(team.selected_30h_czk==null?'—':Number(team.selected_30h_czk).toLocaleString('cs-CZ')+' Kč')+'</div>'+
+      '<div class="coverage-meta">Parser bonusů: '+esc(x.preview.reward_parse_source||'layout')+(x.preview.reward_text_diagnostics?' · text match '+esc(x.preview.reward_text_diagnostics.matched_payouts||0)+' lidí':'')+'</div>'+
       (payouts.length?payouts.map(function(p){
         const d=p.payout_decomposition||null;
         const explain=d?' · TOP '+(d.top_rank||'—')+' '+Number(d.top_bonus_czk||0).toLocaleString('cs-CZ')+' + team '+Number(d.team_bonus_czk||0).toLocaleString('cs-CZ')+' ('+esc(d.hours_band||'')+')':'';
@@ -909,7 +914,7 @@ document.addEventListener('click',async e=>{
   const [stagedRes,legacyRes]=await Promise.all([
    sb.from('imports').select('id,file_hash,filename,report_type,storage_path,status,parser_version,metadata,created_at').eq('status','staged').order('created_at',{ascending:true}).limit(100),
    sb.from('imports').select('id,file_hash,filename,report_type,storage_path,status,parser_version,metadata,created_at')
-    .eq('status','imported').eq('report_type','store_card_monthly').neq('parser_version','store-card-monthly-v12').order('created_at',{ascending:true}).limit(50)
+    .eq('status','imported').eq('report_type','store_card_monthly').neq('parser_version','store-card-monthly-v13').order('created_at',{ascending:true}).limit(50)
   ]);
   if(stagedRes.error)throw stagedRes.error;if(legacyRes.error)throw legacyRes.error;
   const rows=[...(stagedRes.data||[]),...(legacyRes.data||[])];
@@ -922,7 +927,7 @@ document.addEventListener('click',async e=>{
    let report_type=PARSERS[x.report_type]?x.report_type:(detected||'universal_metrics');
    if(x.parser_version==='universal-fallback-v1'&&detected&&detected!=='universal_metrics')report_type=detected;
    if(x.status==='imported'&&x.parser_version==='store-card-monthly-v2')report_type='store_card_monthly';
-   const payoutReparse=x.status==='imported'&&x.report_type==='store_card_monthly'&&x.parser_version!=='store-card-monthly-v12';
+   const payoutReparse=x.status==='imported'&&x.report_type==='store_card_monthly'&&x.parser_version!=='store-card-monthly-v13';
    loaded.push({
     file:file,hash:x.file_hash,report_type:report_type,import_id:x.id,storage_path:x.storage_path,
     existing:true,skipCommit:x.status==='imported'&&!payoutReparse,legacyReparse:payoutReparse,forceCommit:payoutReparse,state:'staged'
@@ -1098,14 +1103,14 @@ document.addEventListener('click',async e=>{
  }
  function setupCoverage(){
   const card=coverageCard();if(!card)return;
-  card.innerHTML='<div class="coverage-top"><div><h2 style="margin-bottom:4px">Data Coverage <span class="v152-badge">V163</span></h2><p class="muted" style="margin-bottom:0">% = skutečně zapsané časové pokrytí ve zvoleném měsíci. Pod každým zdrojem vidíš i pokrytí typů metrik, historii a staged soubory, které se ještě nepočítají.</p></div><div class="field"><label>Měsíc · detail</label><input id="coverageMonth" type="month" value="'+localMonth()+'"></div></div>'+
+  card.innerHTML='<div class="coverage-top"><div><h2 style="margin-bottom:4px">Data Coverage <span class="v152-badge">V165</span></h2><p class="muted" style="margin-bottom:0">% = skutečně zapsané časové pokrytí ve zvoleném měsíci. Pod každým zdrojem vidíš i pokrytí typů metrik, historii a staged soubory, které se ještě nepočítají.</p></div><div class="field"><label>Měsíc · detail</label><input id="coverageMonth" type="month" value="'+localMonth()+'"></div></div>'+
    '<div style="display:flex;align-items:baseline;gap:10px;margin:14px 0"><span id="coverageOverall" class="coverage-overall">—</span><span id="coverageThrough" class="muted"></span></div><div id="coverageSources"></div>';
   $('#coverageMonth').onchange=loadCoverage;
  }
  function setup(){
   if(window.__datahubV152)return;window.__datahubV152=true;
-  document.title='Performance Arena — Data Hub V163';
-  const small=document.querySelector('.brand small');if(small&&!/V1(?:5[2-9]|6[01])/.test(small.textContent))small.innerHTML+= ' <span class="v152-badge">V163</span>';
+  document.title='Performance Arena — Data Hub V165';
+  const small=document.querySelector('.brand small');if(small&&!/V1(?:5[2-9]|6[01])/.test(small.textContent))small.innerHTML+= ' <span class="v152-badge">V165</span>';
   setupUpload();setupCoverage();renderBatch();
   ensureIdentityPeople().then(renderBatch).catch(function(){});
   sb.auth.onAuthStateChange(function(_event,s){if(s)setTimeout(loadCoverage,50)});
