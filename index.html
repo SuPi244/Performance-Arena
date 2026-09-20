@@ -1376,7 +1376,7 @@ html[data-theme="light"] .sc-you-badge{color:#166534;background:rgba(34,197,94,.
 <div class="hidden" id="seasonRecapOverlay"><div class="season-recap-card"><div class="rundown-head"><div><div class="rundown-kicker">NOVÁ SEZÓNA</div><div class="rundown-title" id="seasonRecapTitle">Season Recap</div><div class="rundown-sub" id="seasonRecapSub">Tvoje poslední sezóna</div></div><button aria-label="Zavřít" class="rundown-close" id="seasonRecapClose">×</button></div><div class="season-recap-grid" id="seasonRecapStats"></div><div class="season-recap-section"><h4>🏆 Nejdůležitější výsledky</h4><div class="rundown-list" id="seasonRecapWins"></div></div><div class="season-recap-section"><h4>📈 Posun</h4><div class="rundown-list" id="seasonRecapProgress"></div></div><div class="rundown-actions"><button class="rundown-btn" id="seasonRecapContinue">Jdeme na novou sezónu</button></div></div></div>
 <div class="hidden" id="rundownOverlay"><div class="rundown-card"><div class="rundown-head"><div><div class="rundown-kicker">Tvoje poslední výsledky</div><div class="rundown-title" id="rundownTitle">Dobrá práce.</div><div class="rundown-sub" id="rundownSub">Rychlé shrnutí toho, co se ti povedlo.</div></div><button aria-label="Zavřít" class="rundown-close" id="rundownClose">×</button></div><div class="rundown-grid" id="rundownStats"></div><div class="rundown-section"><h4>🔥 Co se ti povedlo</h4><div class="rundown-list" id="rundownWins"></div></div><div class="rundown-section"><h4>🏆 Co jsi odemkl</h4><div class="rundown-achievements" id="rundownAchievements"></div></div><div class="rundown-section"><h4>🎯 Na čem můžeš ještě zabrat</h4><div class="rundown-list" id="rundownFocus"></div></div><div class="rundown-actions"><button class="rundown-btn" id="rundownContinue">Pokračovat do profilu</button></div></div></div>
 <div class="shell">
-<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
+<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V158</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
 <div class="layout">
 <aside class="sidebar">
 <div class="label">Profil</div><select class="select" id="workerSelect"></select>
@@ -1430,13 +1430,16 @@ html[data-theme="light"] .sc-you-badge{color:#166534;background:rgba(34,197,94,.
   <div class="section-head"><h3>📊 DATA HUB TRENDY</h3><span>Inbound · Efficiency · Quality · nové metriky</span></div>
   <div class="hub-trend-toolbar">
     <select class="tool select" id="hubTrendMetric"><option value="">Načítám nové metriky…</option></select>
+    <button class="hub-trend-granularity active" data-hub-granularity="auto">Auto</button>
+    <button class="hub-trend-granularity" data-hub-granularity="day">Denně</button>
+    <button class="hub-trend-granularity" data-hub-granularity="week">Týdně</button>
     <button class="hub-trend-preset active" data-hub-preset="efficiency">⚙️ Efektivita</button>
     <button class="hub-trend-preset" data-hub-preset="inbound">📦 Inbound</button>
     <button class="hub-trend-preset" data-hub-preset="quality">🛡️ Kvalita</button>
     <button class="hub-trend-preset" data-hub-preset="output">📤 Output</button>
   </div>
   <div class="hub-trend-wrap"><canvas id="hubTrendChart"></canvas></div>
-  <div class="hub-trend-explain"><strong id="hubTrendValue">—</strong><span id="hubTrendExplain">Vyber metriku a uvidíš trend po týdnech.</span></div>
+  <div class="hub-trend-explain"><strong id="hubTrendValue">—</strong><span id="hubTrendExplain">Vyber metriku a uvidíš denní nebo týdenní trend podle dostupných dat.</span></div>
 </section></div>
 <div class="section"><div class="section-head"><h3>INBOUND</h3><span id="inboundMeta">—</span></div><section class="generated-chart-card inbound-overview-card"><div class="generated-chart-head"><div><div class="generated-chart-title">Inbound trend</div><div class="generated-chart-sub">Normal + ICY + FREEZE · Data Hub</div></div><div><div class="generated-chart-value" id="inboundTrendValue">—</div><div class="generated-chart-trend neutral" id="inboundTrendDelta">—</div></div></div><div class="chart-wrap small"><canvas id="personalInboundChart"></canvas></div><div class="generated-chart-caption"><span class="generated-chart-key"><i></i> inbound celkem</span><span class="generated-chart-key team"><i></i> jednotlivé typy</span></div></section><div class="metric-grid" id="personalInbound"></div></div><div class="section"><div class="section-head"><h3>POSLEDNÍ TÝDEN</h3><span>zlepšení / zhoršení vs. předchozí týden</span></div><div class="personal-delta-grid" id="personalDeltaGrid"></div></div></section>
 <section class="page" id="page-efficiency">
@@ -1516,7 +1519,7 @@ function isArenaWorkerAllowed(name){return !ARENA_EXCLUDED_WORKERS.has(norm(Stri
 
 function targetForMetric(name){const k=norm(cleanMetricName(name));if(k.includes('picking time'))return SYSTEM_TARGETS.picking;if(k.includes('scanner'))return SYSTEM_TARGETS.scanner;if(k.includes('missing')||k.includes('incorrect'))return SYSTEM_TARGETS.missing;if(k.includes('undelivered'))return SYSTEM_TARGETS.undelivered;if(k.includes('not collected')||k==='ui')return SYSTEM_TARGETS.notcollected;if(k.includes('pofr')||k.includes('perfect order fulfilment')||k.includes('perfect order fulfillment'))return SYSTEM_TARGETS.pofr;if(k.includes('rating'))return SYSTEM_TARGETS.rating;return null;}
 const IGNORED=['packing time per item','venue related cs tickets ratio','merchant rejection ratio','avg packing time'];
-const state={bootstrap:null,worker:null,player:null,history:null,team:null,stores:null,storeHistory:null,storeCard:null,quickLeaderboard:null,teamMetric:null,teamMetricCache:{},teamMetricLoading:{},range:'all',rangeStart:'',rangeEnd:'',storeRangeStart:'',storeRangeEnd:'',teamMode:'all',lbMode:'people',compareWorker:'',compareStore:'',storeRange:'all',inbound:null,leaderMetric:null,achievementMode:'all'};
+const state={bootstrap:null,worker:null,player:null,history:null,team:null,stores:null,storeHistory:null,storeCard:null,quickLeaderboard:null,teamMetric:null,teamMetricCache:{},teamMetricLoading:{},range:'all',rangeStart:'',rangeEnd:'',storeRangeStart:'',storeRangeEnd:'',teamMode:'all',lbMode:'people',compareWorker:'',compareStore:'',storeRange:'all',inbound:null,leaderMetric:null,achievementMode:'all',hubTrendGranularity:'auto'};
 let charts={};
 const CACHE_PREFIX='arena_cache_v13_';
 const CACHE_TTLS={bootstrap:30*60*1000,player:5*60*1000,player_history:20*60*1000,leaderboard:10*60*1000,team_metric:30*60*1000,team_history:30*60*1000,stores_history:30*60*1000,store_history:30*60*1000,player_inbound:20*60*1000};
@@ -2109,15 +2112,27 @@ function renderPersonalFriendlySummary(){
   );
  }
 }
-function hubTrendSeries(){
+function hubTrendSeries(mode=state.hubTrendGranularity||'auto'){
  const d=state.storeCard||{};
- return [...(d.efficiency_series||[]),...(d.metric_series||[])].filter(s=>Array.isArray(s.values)&&s.values.filter(v=>v!=null&&Number.isFinite(Number(v))).length>=1);
+ const weekly=[...(d.efficiency_series||[]),...(d.metric_series||[])].map(s=>({...s,granularity:s.granularity||'week'}));
+ const daily=[...(d.daily_efficiency_series||[]),...(d.daily_metric_series||[])].map(s=>({...s,granularity:'day'}));
+ const usable=a=>a.filter(s=>Array.isArray(s.values)&&s.values.filter(v=>v!=null&&Number.isFinite(Number(v))).length>=1);
+ if(mode==='day')return usable(daily);
+ if(mode==='week')return usable(weekly);
+ const dm=new Map(usable(daily).map(s=>[s.metric_id,s]));
+ const wm=new Map(usable(weekly).map(s=>[s.metric_id,s]));
+ const ids=[...new Set([...wm.keys(),...dm.keys()])];
+ return ids.map(id=>{
+   const dd=dm.get(id),ww=wm.get(id);
+   const dailyPoints=dd?.values?.filter(v=>v!=null&&Number.isFinite(Number(v))).length||0;
+   return dailyPoints>=2?dd:(ww||dd);
+ }).filter(Boolean);
 }
 function chooseHubPreset(preset){
  const all=hubTrendSeries(), tests={
   efficiency:s=>s.metric_id==='eff_total_units_per_hour',
   inbound:s=>s.metric_id==='inbound_total_units_live'||s.metric_id==='inbound_normal_units'||/inbound units/i.test(s.label),
-  quality:s=>s.metric_id==='missing_incorrect_items_rate'||/missing incorrect/i.test(s.label),
+  quality:s=>s.metric_id==='daily_undelivered_items_ratio'||s.metric_id==='missing_incorrect_items_rate'||/missing incorrect|undelivered/i.test(s.label),
   output:s=>s.metric_id==='outbound_units_picked'||s.metric_id==='daily_items_picked_count'||s.metric_id==='daily_item_count_total'||/outbound units|total units picked/i.test(s.label)
  };
  return all.find(tests[preset]||(()=>false))||all[0]||null;
@@ -2130,23 +2145,29 @@ function renderHubTrend(forceId){
  const grouped={efficiency:'Efektivita',output:'Output / Activity',quality:'Kvalita',speed:'Speed / Time',other:'Ostatní'};
  sel.innerHTML=Object.entries(grouped).map(([g,label])=>{
    const rows=all.filter(s=>(s.group||'other')===g);if(!rows.length)return'';
-   return '<optgroup label="'+esc(label)+'">'+rows.map(s=>'<option value="'+esc(s.metric_id)+'">'+esc(s.label)+'</option>').join('')+'</optgroup>';
+   return '<optgroup label="'+esc(label)+'">'+rows.map(s=>'<option value="'+esc(s.metric_id)+'">'+esc(s.label)+(s.granularity==='day'?' · denně':' · týdně')+'</option>').join('')+'</optgroup>';
  }).join('');
  if([...sel.options].some(o=>o.value===current))sel.value=current;
  else if(sel.options.length)sel.selectedIndex=0;
  const s=all.find(x=>x.metric_id===sel.value);if(!s)return;
  destroyChart('hubTrendChart');
  const valid=s.values.map(v=>v==null?null:Number(v));
- charts.hubTrendChart=new Chart(canvas,{type:'line',data:{labels:s.labels,datasets:[
-  {label:s.label,data:valid,borderColor:'#35E78A',backgroundColor:'rgba(53,231,138,.08)',borderWidth:2,fill:true,tension:.3,pointRadius:3,spanGaps:true},
+ const rawLabels=s.labels||[];
+ const labels=s.granularity==='day'
+   ?rawLabels.map(x=>{const m=String(x).match(/^\d{4}-(\d{2})-(\d{2})$/);return m?(Number(m[2])+'. '+Number(m[1])+'.'):x})
+   :rawLabels;
+ charts.hubTrendChart=new Chart(canvas,{type:'line',data:{labels,datasets:[
+  {label:s.label,data:valid,borderColor:'#35E78A',backgroundColor:'rgba(53,231,138,.08)',borderWidth:2,fill:true,tension:.3,pointRadius:s.granularity==='day'?3:3,spanGaps:true},
   {label:'Trend',data:regressionLine(valid),borderColor:'#7C5CFF',borderDash:[5,5],borderWidth:1.5,fill:false,tension:0,pointRadius:0,spanGaps:true}
- ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#91a79b',maxTicksLimit:7}},y:{ticks:{color:'#91a79b'}}}}});
+ ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#91a79b',maxTicksLimit:s.granularity==='day'?12:7}},y:{ticks:{color:'#91a79b'}}}}});
  const vv=valid.filter(v=>v!=null),latest=vv.at(-1),prev=vv.length>1?vv.at(-2):null;
  setText('hubTrendValue',enhancedFmt(latest,s.unit));
  const diff=latest!=null&&prev!=null?latest-prev:null;
  const good=diff==null?null:(s.lower_is_better?diff<0:diff>0);
- setText('hubTrendExplain',diff==null?'Zatím jen jeden datový bod.':((good?'Zlepšení':'Zhoršení')+' proti minulému týdnu · '+(diff>0?'+':'')+enhancedFmt(diff,s.unit)));
+ const periodText=s.granularity==='day'?'předchozímu dostupnému dni':'minulému týdnu';
+ setText('hubTrendExplain',(s.granularity==='day'?'Denní Data Hub trend':'Týdenní agregace')+' · '+(diff==null?'zatím jen jeden datový bod.':((good?'zlepšení':'zhoršení')+' proti '+periodText+' · '+(diff>0?'+':'')+enhancedFmt(diff,s.unit))));
 }
+
 function renderStoreCardLive(){
  const d=state.storeCard;
  const meta=document.getElementById('storeCardLiveMeta');
@@ -2958,22 +2979,27 @@ async function renderInbound(){
     }
   }
 
-  const all=d?.metric_series||[];
+  const dailyAll=d?.daily_metric_series||[],weeklyAll=d?.metric_series||[];
+  const dailyHas=dailyAll.some(s=>String(s.metric_id||'').startsWith('inbound_')&&(s.values||[]).filter(v=>v!=null).length>=2);
+  const all=dailyHas?dailyAll:weeklyAll;
+  const inboundGranularity=dailyHas?'day':'week';
   const order=['inbound_total_units_live','inbound_normal_units','inbound_icy_units','inbound_freez_units'];
   const labels={inbound_total_units_live:'Inbound celkem',inbound_normal_units:'Normal',inbound_icy_units:'ICY',inbound_freez_units:'FREEZE'};
   const rows=order.map(id=>all.find(s=>s.metric_id===id)).filter(Boolean);
 
   if(!rows.length){
     box.innerHTML='<div class="panel">Pro tento profil zatím nejsou v Data Hubu inbound data.</div>';
-    setText('inboundMeta','0 týdnů · Data Hub');
+    setText('inboundMeta','0 období · Data Hub');
     setText('inboundTrendValue','—');setText('inboundTrendDelta','Bez dat');
     destroyChart('personalInboundChart');
     return;
   }
 
   const items=rows.map((s,i)=>{
-    const spans=weekSpans(s.labels||[],null);
-    const sliced=sliceHistory(s.values||[],s.labels||[],'week',spans);
+    const spans=inboundGranularity==='week'?weekSpans(s.labels||[],null):null;
+    const sliced=inboundGranularity==='week'
+      ?sliceHistory(s.values||[],s.labels||[],'week',spans)
+      :sliceHistory(s.values||[],s.labels||[],'day',null);
     const vv=(sliced.arr||[]).map(v=>Number(v)).filter(v=>Number.isFinite(v));
     const total=vv.length?vv.reduce((a,b)=>a+b,0):null;
     const average=vv.length?total/vv.length:null;
@@ -2981,7 +3007,7 @@ async function renderInbound(){
     return {s,i,sliced,total,average,last};
   });
 
-  box.innerHTML=items.map(x=>`<div class="metric-card"><div class="metric-top"><div class="metric-title">${esc(labels[x.s.metric_id]||x.s.label)}</div>${x.last!=null?`<span class="trend neutral">poslední týden · ${liveFmt(x.last,'int')}</span>`:''}</div><div class="metric-main">${liveFmt(x.total,'int')}</div><div class="metric-sub">${x.average!=null?'Celkem ve vybraném období · průměr '+liveFmt(x.average,'number')+' / týden':'Zatím bez hodnot'}</div><div class="spark"><canvas id="inb_${x.i}"></canvas></div></div>`).join('');
+  box.innerHTML=items.map(x=>`<div class="metric-card"><div class="metric-top"><div class="metric-title">${esc(labels[x.s.metric_id]||x.s.label)}</div>${x.last!=null?`<span class="trend neutral">poslední ${inboundGranularity==='day'?'den':'týden'} · ${liveFmt(x.last,'int')}</span>`:''}</div><div class="metric-main">${liveFmt(x.total,'int')}</div><div class="metric-sub">${x.average!=null?'Celkem ve vybraném období · průměr '+liveFmt(x.average,'number')+' / '+(inboundGranularity==='day'?'den':'týden')':'Zatím bez hodnot'}</div><div class="spark"><canvas id="inb_${x.i}"></canvas></div></div>`).join('');
 
   items.forEach(x=>{
     destroyChart('inb_'+x.i);
@@ -3981,7 +4007,18 @@ async function buildPostLoginRundown(){
  overlay.classList.remove('hidden');
 }
 document.addEventListener('change',e=>{if(e.target?.id==='hubTrendMetric')renderHubTrend(e.target.value)});
-document.addEventListener('click',e=>{const b=e.target.closest?.('.hub-trend-preset');if(!b)return;document.querySelectorAll('.hub-trend-preset').forEach(x=>x.classList.toggle('active',x===b));const s=chooseHubPreset(b.dataset.hubPreset);if(s)renderHubTrend(s.metric_id)});
+document.addEventListener('click',e=>{
+ const g=e.target.closest?.('.hub-trend-granularity');
+ if(g){
+   state.hubTrendGranularity=g.dataset.hubGranularity||'auto';
+   document.querySelectorAll('.hub-trend-granularity').forEach(x=>x.classList.toggle('active',x===g));
+   renderHubTrend();
+   return;
+ }
+ const b=e.target.closest?.('.hub-trend-preset');if(!b)return;
+ document.querySelectorAll('.hub-trend-preset').forEach(x=>x.classList.toggle('active',x===b));
+ const s=chooseHubPreset(b.dataset.hubPreset);if(s)renderHubTrend(s.metric_id)
+});
 
 function enterAppAfterLogin(){
   const ov=document.getElementById('loginOverlay');
