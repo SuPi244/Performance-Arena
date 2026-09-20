@@ -130,7 +130,13 @@ Deno.serve(async(req)=>{
 
    for(const d of defs){
     // Exact-day operational series.
-    const dailyRows=d.daily.flatMap(id=>(byMetric.get(id)||[]).filter((r:any)=>day(r.period_start)===day(r.period_end)));
+    let dailyRows:any[]=[];
+    // Daily aliases are preference-ordered (e.g. Items Picked Count before Item Count Total).
+    // Use the first source that actually exists for this person so aliases never double-count.
+    for(const id of d.daily){
+      const candidate=(byMetric.get(id)||[]).filter((r:any)=>day(r.period_start)===day(r.period_end));
+      if(candidate.length){dailyRows=candidate;break}
+    }
     const dg=new Map<string,number[]>();
     for(const r of dailyRows){
       const v=num(r.value);if(v===null)continue;const k=day(r.period_start);
@@ -209,7 +215,7 @@ Deno.serve(async(req)=>{
   }
 
   return J({
-    ok:true,version:"arena-unified-data-v1",since,
+    ok:true,version:"arena-unified-data-v2",since,
     metrics:defs.map(d=>({id:d.id,label:d.label,unit:d.unit,lower_is_better:d.lower_is_better,category:d.category,legacy_names:d.legacy_names,daily_available:Object.values(team).some((p:any)=>!!p.daily[d.id]),weekly_available:Object.values(team).some((p:any)=>!!p.weekly[d.id])})),
     people:team,
     store:{metrics:Object.entries(storeDefs).map(([id,d]:any)=>({id,...d})),stores:storeMap}
