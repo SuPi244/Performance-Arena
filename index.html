@@ -1523,12 +1523,25 @@ html[data-theme="light"] .employee-pulse-header strong{color:#52665a}
 </style>
 
 
-<style id="home-trend-direction-v184">
-.home-trend-move{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:5px 8px;font-size:7px;font-weight:1000;letter-spacing:.035em;border:1px solid var(--line);white-space:nowrap}.home-trend-move.good{color:#86efac;background:rgba(34,197,94,.11);border-color:rgba(34,197,94,.28);box-shadow:0 0 18px rgba(34,197,94,.06)}.home-trend-move.bad{color:#fca5a5;background:rgba(239,68,68,.10);border-color:rgba(239,68,68,.28);box-shadow:0 0 18px rgba(239,68,68,.05)}.home-trend-move.neutral{color:#cbd5e1;background:rgba(148,163,184,.07)}
-.home-momentum-value-row{flex-wrap:wrap}.home-momentum-value-row #homeMomentumExplain{flex-basis:100%;margin-top:1px}.home-momentum-panel{transition:border-color .2s ease,box-shadow .2s ease}.home-momentum-panel.trend-good{border-color:rgba(34,197,94,.26);box-shadow:inset 0 0 0 1px rgba(34,197,94,.025)}.home-momentum-panel.trend-bad{border-color:rgba(239,68,68,.24);box-shadow:inset 0 0 0 1px rgba(239,68,68,.025)}
-.home-kpi-badges{display:flex;align-items:flex-end;gap:5px;flex-direction:column}.home-kpi-trend-card{transition:border-color .2s ease,box-shadow .2s ease}.home-kpi-trend-card.trend-good{border-color:rgba(34,197,94,.26);box-shadow:inset 0 0 0 1px rgba(34,197,94,.025)}.home-kpi-trend-card.trend-bad{border-color:rgba(239,68,68,.26);box-shadow:inset 0 0 0 1px rgba(239,68,68,.025)}
-@media(max-width:700px){.home-kpi-badges{align-items:flex-start}.home-kpi-trend-head{flex-wrap:wrap}.home-kpi-badges{flex-direction:row;width:100%}}
-@media(min-width:1800px){.home-trend-move{font-size:8.5px;padding:6px 9px}}
+<style id="home-trend-direction-v186">
+.home-trend-move{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:7px 11px;font-size:8px;font-weight:1000;letter-spacing:.045em;border:1px solid transparent;white-space:nowrap;text-transform:uppercase}
+.home-trend-move.good{color:#06190f;background:#35e78a;border-color:#6df2aa;box-shadow:0 0 0 1px rgba(53,231,138,.12),0 0 24px rgba(53,231,138,.18)}
+.home-trend-move.bad{color:#fff;background:#ef4444;border-color:#fb7185;box-shadow:0 0 0 1px rgba(239,68,68,.16),0 0 28px rgba(239,68,68,.22)}
+.home-trend-move.neutral{color:#dbe4df;background:#475569;border-color:#64748b}
+.home-momentum-value-row{flex-wrap:wrap;align-items:center;gap:9px}.home-momentum-value-row #homeMomentumValue{font-size:31px}.home-momentum-value-row #homeMomentumExplain{flex-basis:100%;margin-top:2px;font-size:8px;font-weight:800}
+.home-momentum-panel,.home-kpi-trend-card{position:relative;overflow:hidden;transition:border-color .2s ease,box-shadow .2s ease,background .2s ease}
+.home-momentum-panel:before,.home-kpi-trend-card:before{content:"";position:absolute;left:0;top:0;right:0;height:4px;opacity:0;transition:.2s ease;z-index:2}
+.home-momentum-panel.trend-good,.home-kpi-trend-card.trend-good{border-color:rgba(53,231,138,.72)!important;background:linear-gradient(180deg,rgba(53,231,138,.085),rgba(53,231,138,.015) 34%),var(--panel)!important;box-shadow:inset 0 0 0 1px rgba(53,231,138,.12),0 0 28px rgba(53,231,138,.065)}
+.home-momentum-panel.trend-bad,.home-kpi-trend-card.trend-bad{border-color:rgba(239,68,68,.78)!important;background:linear-gradient(180deg,rgba(239,68,68,.105),rgba(239,68,68,.018) 36%),var(--panel)!important;box-shadow:inset 0 0 0 1px rgba(239,68,68,.16),0 0 34px rgba(239,68,68,.085)}
+.home-momentum-panel.trend-good:before,.home-kpi-trend-card.trend-good:before{opacity:1;background:#35e78a;box-shadow:0 0 18px rgba(53,231,138,.45)}
+.home-momentum-panel.trend-bad:before,.home-kpi-trend-card.trend-bad:before{opacity:1;background:#ef4444;box-shadow:0 0 22px rgba(239,68,68,.55)}
+.home-kpi-badges{display:flex;align-items:flex-end;gap:6px;flex-direction:column}.home-kpi-status{font-size:7px!important;padding:5px 7px!important}
+.home-kpi-trend-card.trend-bad .home-kpi-trend-head>div>strong{color:#fecaca}.home-kpi-trend-card.trend-good .home-kpi-trend-head>div>strong{color:#bbf7d0}
+html[data-theme="light"] .home-trend-move.good{color:#064e3b}html[data-theme="light"] .home-trend-move.bad{color:#fff}
+html[data-theme="light"] .home-momentum-panel.trend-bad,html[data-theme="light"] .home-kpi-trend-card.trend-bad{background:linear-gradient(180deg,rgba(239,68,68,.09),rgba(255,255,255,.96) 42%)!important}
+html[data-theme="light"] .home-momentum-panel.trend-good,html[data-theme="light"] .home-kpi-trend-card.trend-good{background:linear-gradient(180deg,rgba(34,197,94,.09),rgba(255,255,255,.96) 42%)!important}
+@media(max-width:700px){.home-kpi-badges{align-items:flex-start;flex-direction:row;width:100%}.home-kpi-trend-head{flex-wrap:wrap}.home-trend-move{font-size:7.5px;padding:6px 9px}}
+@media(min-width:1800px){.home-trend-move{font-size:10px;padding:8px 13px}.home-momentum-value-row #homeMomentumValue{font-size:38px}.home-momentum-value-row #homeMomentumExplain{font-size:10px}.home-kpi-status{font-size:8.5px!important}}
 </style>
 
 </head>
@@ -1546,7 +1559,7 @@ html[data-theme="light"] .employee-pulse-header strong{color:#52665a}
 <div class="hidden" id="seasonRecapOverlay"><div class="season-recap-card"><div class="rundown-head"><div><div class="rundown-kicker">NOVÁ SEZÓNA</div><div class="rundown-title" id="seasonRecapTitle">Season Recap</div><div class="rundown-sub" id="seasonRecapSub">Tvoje poslední sezóna</div></div><button aria-label="Zavřít" class="rundown-close" id="seasonRecapClose">×</button></div><div class="season-recap-grid" id="seasonRecapStats"></div><div class="season-recap-section"><h4>🏆 Nejdůležitější výsledky</h4><div class="rundown-list" id="seasonRecapWins"></div></div><div class="season-recap-section"><h4>📈 Posun</h4><div class="rundown-list" id="seasonRecapProgress"></div></div><div class="rundown-actions"><button class="rundown-btn" id="seasonRecapContinue">Jdeme na novou sezónu</button></div></div></div>
 <div class="hidden" id="rundownOverlay"><div class="rundown-card"><div class="rundown-head"><div><div class="rundown-kicker">Tvoje poslední výsledky</div><div class="rundown-title" id="rundownTitle">Dobrá práce.</div><div class="rundown-sub" id="rundownSub">Rychlé shrnutí toho, co se ti povedlo.</div></div><button aria-label="Zavřít" class="rundown-close" id="rundownClose">×</button></div><div class="rundown-grid" id="rundownStats"></div><div class="rundown-section"><h4>🔥 Co se ti povedlo</h4><div class="rundown-list" id="rundownWins"></div></div><div class="rundown-section"><h4>🏆 Co jsi odemkl</h4><div class="rundown-achievements" id="rundownAchievements"></div></div><div class="rundown-section"><h4>🎯 Na čem můžeš ještě zabrat</h4><div class="rundown-list" id="rundownFocus"></div></div><div class="rundown-actions"><button class="rundown-btn" id="rundownContinue">Pokračovat do profilu</button></div></div></div>
 <div class="shell">
-<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V185</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
+<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V186</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
 <div class="layout">
 <aside class="sidebar">
 <div class="label" id="profileLabel">Profil</div><select class="select" id="workerSelect"></select>
@@ -2277,6 +2290,7 @@ function enhancedFmt(v,unit){
  if(unit==='count')return liveFmt(v,'int');
  if(unit==='points')return liveFmt(v,'points');
  if(unit==='currency')return czk(v);
+ if(unit==='minutes')return liveFmt(v,'number')+' min';
  return liveFmt(v,'number');
 }
 function enhancedKpi(label,value,unit='number',sub=''){
@@ -2797,7 +2811,7 @@ function renderHomeLeaderboardPreview(){
 }
 function homeMomentumSeries(key){
  const specs={
-  efficiency:{ids:['avg_picking_time','picking_time_per_item','daily_avg_picking_time'],tests:['avg picking time','picking time per item','picking time'],lower:true,unit:'number'},
+  efficiency:{ids:['avg_picking_time','picking_time_per_item','daily_avg_picking_time'],tests:['avg picking time','picking time per item','picking time'],lower:true,unit:'minutes'},
   output:{ids:['outbound_orders','picking_app_task_count','daily_picking_app_task_count'],tests:['picking app task count','orders picked','order count'],lower:false,unit:'count'},
   quality:{ids:['missing_incorrect_items_rate','missing_items_ratio'],tests:['missing incorrect','missing items'],lower:true,unit:'percent'},
   inbound:{ids:['inbound_total_units_live','inbound_normal_units','inbound_units'],tests:['inbound total','inbound units','inbound'],lower:false,unit:'count'}
@@ -2807,9 +2821,15 @@ function homeMomentumSeries(key){
 }
 function homeTrendMovement(diff,lower,unit){
  if(diff==null||!Number.isFinite(Number(diff)))return{cls:'neutral',label:'—',detail:'Zatím jen jeden dostupný bod.'};
- if(Math.abs(diff)<0.0001)return{cls:'neutral',label:'→ BEZE ZMĚNY',detail:'Beze změny proti předchozímu týdnu.'};
- const good=lower?diff<0:diff>0,raw=(diff>0?'+':'')+enhancedFmt(diff,unit);
- return{cls:good?'good':'bad',label:(good?'↑ ZLEPŠENÍ ':'↓ ZHORŠENÍ ')+raw,detail:(good?'Zlepšení':'Zhoršení')+' proti předchozímu týdnu · '+raw};
+ if(Math.abs(diff)<0.0001)return{cls:'neutral',label:'→ BEZE ZMĚNY',detail:'Beze změny proti minulému týdnu.'};
+ const good=lower?diff<0:diff>0;
+ const abs=Math.abs(Number(diff));
+ const amount=unit==='minutes'?(fmt(abs,2)+' min'):enhancedFmt(abs,unit);
+ return{
+   cls:good?'good':'bad',
+   label:(good?'↑ ZLEPŠENÍ':'↓ ZHORŠENÍ')+' · '+amount,
+   detail:(good?'Lepší':'Horší')+' než minulý týden o '+amount
+ };
 }
 function renderHomeMomentum(preset){
  const canvas=document.getElementById('homeMomentumChart');if(!canvas)return;
@@ -2834,7 +2854,7 @@ function renderHomeMomentum(preset){
  const pointRadius=values.map(function(v,i){return i===latestIdx?6:(v!=null?2.5:0)});
  const pointBg=values.map(function(v,i){return i===latestIdx?(move.cls==='good'?'#22c55e':move.cls==='bad'?'#ef4444':'#94a3b8'):'#35E78A'});
  charts.homeMomentumChart=new Chart(canvas,{type:'line',data:{labels:labels,datasets:[
-  {label:srs.label,data:values,borderColor:'#35E78A',backgroundColor:'rgba(53,231,138,.09)',borderWidth:2.4,fill:true,tension:.32,pointRadius:pointRadius,pointBackgroundColor:pointBg,pointBorderWidth:0,spanGaps:true},
+  {label:srs.label,data:values,borderColor:'#35E78A',backgroundColor:move.cls==='bad'?'rgba(239,68,68,.055)':'rgba(53,231,138,.09)',borderWidth:2.4,fill:true,tension:.32,pointRadius:pointRadius,pointBackgroundColor:pointBg,pointBorderWidth:0,spanGaps:true,segment:{borderColor:function(ctx){return ctx.p1DataIndex===latestIdx?(move.cls==='good'?'#22c55e':move.cls==='bad'?'#ef4444':'#94a3b8'):'#35E78A'},borderWidth:function(ctx){return ctx.p1DataIndex===latestIdx?4:2.4}}},
   {label:'Trend',data:regressionLine(values),borderColor:'#f59e0b',borderDash:[5,5],borderWidth:1.5,fill:false,tension:0,pointRadius:0,spanGaps:true}
  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#91a79b',maxTicksLimit:8}},y:{ticks:{color:'#91a79b'}}}}});
  setText('homeMomentumValue',enhancedFmt(latest,srs.unit));
@@ -2866,7 +2886,7 @@ function homeKpiSeries(spec){
        labels:merged.keys,
        display_labels:merged.labels,
        values:merged.arr,
-       unit:hub?.unit||spec.unit||(isPct(legacyDef.name)?'percent':'number'),
+       unit:spec.unit||hub?.unit||(isPct(legacyDef.name)?'percent':'number'),
        granularity:'week',
        lower_is_better:spec.lower,
        source_mode:merged.hasDataHub?'Sheets + Data Hub':'Google Sheets'
@@ -2911,7 +2931,7 @@ function renderHomeKpiTrend(spec){
  const pointRadius=values.map(function(v,i){return i===latestIdx?5:(v!=null?2:0)});
  const pointBg=values.map(function(v,i){return i===latestIdx?(movement.cls==='good'?'#22c55e':movement.cls==='bad'?'#ef4444':'#94a3b8'):'#35E78A'});
  charts[spec.canvasId]=new Chart(canvas,{type:'line',data:{labels:labels,datasets:[
-  {label:series.label,data:values,borderColor:'#35E78A',backgroundColor:'rgba(53,231,138,.07)',borderWidth:2,fill:true,tension:.32,pointRadius:pointRadius,pointBackgroundColor:pointBg,pointBorderWidth:0,spanGaps:true},
+  {label:series.label,data:values,borderColor:'#35E78A',backgroundColor:movement.cls==='bad'?'rgba(239,68,68,.055)':'rgba(53,231,138,.07)',borderWidth:2,fill:true,tension:.32,pointRadius:pointRadius,pointBackgroundColor:pointBg,pointBorderWidth:0,spanGaps:true,segment:{borderColor:function(ctx){return ctx.p1DataIndex===latestIdx?(movement.cls==='good'?'#22c55e':movement.cls==='bad'?'#ef4444':'#94a3b8'):'#35E78A'},borderWidth:function(ctx){return ctx.p1DataIndex===latestIdx?3.6:2}}},
   {label:'Cíl',data:targetData,borderColor:'#f59e0b',borderDash:[4,4],borderWidth:1.2,fill:false,tension:0,pointRadius:0,spanGaps:true}
  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{enabled:true}},scales:{x:{display:false},y:{ticks:{color:'#91a79b',maxTicksLimit:4,font:{size:9}},grid:{color:'rgba(145,167,155,.08)'}}}}});
 }
@@ -2920,7 +2940,7 @@ function renderHomeKpiTrends(){
   {canvasId:'homeKpiPofrChart',valueId:'homeKpiPofrValue',statusId:'homeKpiPofrStatus',metaId:'homeKpiPofrMeta',moveId:'homeKpiPofrMove',ids:['perfect_order_fulfilment_ratio','pofr'],tests:['perfect order fulfilment','perfect order fulfillment','pofr'],target:98,lower:false,unit:'percent',targetCopy:'Cíl ≥ 98 %'},
   {canvasId:'homeKpiMissingChart',valueId:'homeKpiMissingValue',statusId:'homeKpiMissingStatus',metaId:'homeKpiMissingMeta',moveId:'homeKpiMissingMove',ids:['missing_incorrect_items_rate','missing_items_ratio'],tests:['missing incorrect','missing items'],target:.34,lower:true,unit:'percent',targetCopy:'Cíl ≤ 0,34 %'},
   {canvasId:'homeKpiScannerChart',valueId:'homeKpiScannerValue',statusId:'homeKpiScannerStatus',metaId:'homeKpiScannerMeta',moveId:'homeKpiScannerMove',ids:['items_picked_via_scanner_ratio','daily_items_picked_via_scanner_ratio','scan_to_pick_ratio'],tests:['scanner ratio','scan to pick','picked via scanner'],target:98,lower:false,unit:'percent',targetCopy:'Cíl ≥ 98 %'},
-  {canvasId:'homeKpiPickingChart',valueId:'homeKpiPickingValue',statusId:'homeKpiPickingStatus',metaId:'homeKpiPickingMeta',moveId:'homeKpiPickingMove',ids:['picking_time_per_item','avg_picking_time','daily_avg_picking_time'],tests:['picking time per item','avg picking time','picking time'],target:2.57,lower:true,unit:'number',targetCopy:'Cíl ≤ 2,57 min'}
+  {canvasId:'homeKpiPickingChart',valueId:'homeKpiPickingValue',statusId:'homeKpiPickingStatus',metaId:'homeKpiPickingMeta',moveId:'homeKpiPickingMove',ids:['picking_time_per_item','avg_picking_time','daily_avg_picking_time'],tests:['picking time per item','avg picking time','picking time'],target:2.57,lower:true,unit:'minutes',targetCopy:'Cíl ≤ 2,57 min'}
  ];
  specs.forEach(renderHomeKpiTrend);
 }
