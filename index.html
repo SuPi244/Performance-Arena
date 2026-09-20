@@ -1657,6 +1657,16 @@ tr.unknown .admin-status{color:var(--muted)!important;background:rgba(148,163,18
 @media(max-width:900px){.admin-period-bar{align-items:flex-start;flex-direction:column}.admin-period-copy{min-width:0}.admin-period-custom{width:100%;flex-wrap:wrap}}
 </style>
 
+
+<style id="hybrid-ops-history-v197">
+.ops-history-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.ops-history-card .section-head strong{font-size:15px;color:var(--text)}
+.ops-history-meta{font-size:8px;color:var(--muted);margin:-3px 0 8px}
+.ops-history-card .chart-wrap{height:190px}
+@media(max-width:900px){.ops-history-grid{grid-template-columns:1fr}.ops-history-card .chart-wrap{height:175px}}
+@media(min-width:1800px){.ops-history-card .chart-wrap{height:230px}.ops-history-meta{font-size:9px}}
+</style>
+
 </head>
 <body><div class="ambient-particles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
 <div id="loginOverlay">
@@ -1672,7 +1682,7 @@ tr.unknown .admin-status{color:var(--muted)!important;background:rgba(148,163,18
 <div class="hidden" id="seasonRecapOverlay"><div class="season-recap-card"><div class="rundown-head"><div><div class="rundown-kicker">NOVÁ SEZÓNA</div><div class="rundown-title" id="seasonRecapTitle">Season Recap</div><div class="rundown-sub" id="seasonRecapSub">Tvoje poslední sezóna</div></div><button aria-label="Zavřít" class="rundown-close" id="seasonRecapClose">×</button></div><div class="season-recap-grid" id="seasonRecapStats"></div><div class="season-recap-section"><h4>🏆 Nejdůležitější výsledky</h4><div class="rundown-list" id="seasonRecapWins"></div></div><div class="season-recap-section"><h4>📈 Posun</h4><div class="rundown-list" id="seasonRecapProgress"></div></div><div class="rundown-actions"><button class="rundown-btn" id="seasonRecapContinue">Jdeme na novou sezónu</button></div></div></div>
 <div class="hidden" id="rundownOverlay"><div class="rundown-card"><div class="rundown-head"><div><div class="rundown-kicker">Tvoje poslední výsledky</div><div class="rundown-title" id="rundownTitle">Dobrá práce.</div><div class="rundown-sub" id="rundownSub">Rychlé shrnutí toho, co se ti povedlo.</div></div><button aria-label="Zavřít" class="rundown-close" id="rundownClose">×</button></div><div class="rundown-grid" id="rundownStats"></div><div class="rundown-section"><h4>🔥 Co se ti povedlo</h4><div class="rundown-list" id="rundownWins"></div></div><div class="rundown-section"><h4>🏆 Co jsi odemkl</h4><div class="rundown-achievements" id="rundownAchievements"></div></div><div class="rundown-section"><h4>🎯 Na čem můžeš ještě zabrat</h4><div class="rundown-list" id="rundownFocus"></div></div><div class="rundown-actions"><button class="rundown-btn" id="rundownContinue">Pokračovat do profilu</button></div></div></div>
 <div class="shell">
-<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V196</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
+<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V197</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
 <div class="layout">
 <aside class="sidebar">
 <div class="label" id="profileLabel">Profil</div><select class="select" id="workerSelect"></select>
@@ -1923,7 +1933,20 @@ tr.unknown .admin-status{color:var(--muted)!important;background:rgba(148,163,18
   </div>
   <div class="friendly-narrative" id="personalFriendlyNarrative"><strong>Co z toho plyne:</strong> čekám na aktuální Data Hub data.</div>
 </div><div class="section"><div class="toolbar range-toolbar"><span class="tool">📅 Období</span><label class="date-tool">Od <input class="date-input" id="personalDateStart" type="date"/></label><label class="date-tool">Do <input class="date-input" id="personalDateEnd" type="date"/></label><button class="tool range-clear" id="personalDateClear">Celá historie</button><select class="tool select" id="compareSelect" style="width:auto;min-width:170px"><option value="">Bez srovnání</option></select></div></div><div class="section"><div class="section-head"><h3>KLÍČOVÉ KPI</h3><span id="personalMeta">—</span></div><div class="metric-grid" id="personalKpis"></div></div><div class="section"><details class="user-details"><summary>📋 Detailní osobní metriky <span style="color:var(--muted);font-size:8px">pro ty, kdo chtějí všechna čísla</span></summary><div class="details-body"><div class="metric-grid" id="personalMetrics"></div></div></details></div><div class="section"><div class="section-head"><h3>📈 SEASON TREND</h3><span>vygenerované hodnoty · tvoje vs. tým</span></div><div class="season-generated-grid"><section class="generated-chart-card"><div class="generated-chart-head"><div><div class="generated-chart-title">Season ELO</div><div class="generated-chart-sub">Vývoj sezónního ELO po týdnech</div></div><div><div class="generated-chart-value" id="personalEloChartValue">—</div><div class="generated-chart-trend neutral" id="personalEloChartTrend">—</div></div></div><div class="chart-wrap small"><canvas id="personalEloChart"></canvas></div><div class="generated-chart-caption"><span class="generated-chart-key"><i></i> tvoje ELO</span><span class="generated-chart-key team"><i></i> týmový průměr</span></div></section><section class="generated-chart-card"><div class="generated-chart-head"><div><div class="generated-chart-title">Performance Score</div><div class="generated-chart-sub">Týdenní skóre ze stejných KPI a vah jako Arena</div></div><div><div class="generated-chart-value" id="personalPerfChartValue">—</div><div class="generated-chart-trend neutral" id="personalPerfChartTrend">—</div></div></div><div class="chart-wrap small"><canvas id="personalPerfChart"></canvas></div><div class="generated-chart-caption"><span class="generated-chart-key"><i></i> tvoje skóre</span><span class="generated-chart-key team"><i></i> týmový průměr</span></div></section></div></div>
-<div class="section"><div class="section-head"><h3>INBOUND</h3><span id="inboundMeta">týdenní Data Hub historie</span></div><div class="metric-grid" id="personalInbound"></div></div><div class="section"><div class="section-head"><h3>POSLEDNÍ TÝDEN</h3><span>zlepšení / zhoršení vs. předchozí týden</span></div><div class="personal-delta-grid" id="personalDeltaGrid"></div></div></section>
+<div class="section"><div class="section-head"><h3>INBOUND</h3><span id="inboundMeta">týdenní Data Hub + Store Card fallback</span></div><div class="metric-grid" id="personalInbound"></div></div>
+<div class="section ops-history-grid">
+  <section class="panel ops-history-card">
+    <div class="section-head"><div><span class="home-priority-kicker">HYBRID HISTORY</span><h3>📦 INBOUND TREND</h3></div><strong id="personalInboundHistoryValue">—</strong></div>
+    <div class="ops-history-meta" id="personalInboundHistoryMeta">Store Card měsíce + týdenní Data Hub</div>
+    <div class="chart-wrap small"><canvas id="personalInboundHistoryChart"></canvas></div>
+  </section>
+  <section class="panel ops-history-card">
+    <div class="section-head"><div><span class="home-priority-kicker">HYBRID HISTORY</span><h3>📋 STOCK COUNT TREND</h3></div><strong id="personalStockHistoryValue">—</strong></div>
+    <div class="ops-history-meta" id="personalStockHistoryMeta">Store Card měsíce + týdenní Data Hub</div>
+    <div class="chart-wrap small"><canvas id="personalStockHistoryChart"></canvas></div>
+  </section>
+</div>
+<div class="section"><div class="section-head"><h3>POSLEDNÍ TÝDEN</h3><span>zlepšení / zhoršení vs. předchozí týden</span></div><div class="personal-delta-grid" id="personalDeltaGrid"></div></div></section>
 <section class="page" id="page-efficiency">
 <div class="hero"><div class="eyebrow">Aktuální výkon</div><h2>Efektivita</h2><p>Output, efektivita, kvalita a reliability pohromadě. Efektivita je kontextová vrstva — není to automaticky Rank/ELO.</p></div>
 <div class="section"><div class="storecard-wallet-grid">
@@ -2446,7 +2469,7 @@ async function loadUnifiedArenaData(force=false){
  if(force){state.unifiedData=null;state.unifiedLoading=null}
  if(state.unifiedData)return state.unifiedData;
  if(state.unifiedLoading)return state.unifiedLoading;
- state.unifiedLoading=fetch(UNIFIED_ARENA_API_URL,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json','apikey':'sb_publishable_EA9Sbn8ayjr0eHaI2m0s6A_Yct2lL8a'},body:JSON.stringify({since:'2026-08-01',_cb:Date.now()})})
+ state.unifiedLoading=fetch(UNIFIED_ARENA_API_URL,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json','apikey':'sb_publishable_EA9Sbn8ayjr0eHaI2m0s6A_Yct2lL8a'},body:JSON.stringify({since:DASHBOARD_FIRST_WEEK_START,_cb:Date.now()})})
    .then(async r=>{const d=await r.json().catch(()=>({}));if(!r.ok||d?.ok===false)throw new Error(d?.error||('HTTP '+r.status));state.unifiedData=d;return d})
    .finally(()=>{state.unifiedLoading=null});
  return state.unifiedLoading;
@@ -2454,6 +2477,71 @@ async function loadUnifiedArenaData(force=false){
 function unifiedMetricDef(id){return state.unifiedData?.metrics?.find(x=>x.id===id)||null}
 function unifiedPersonByName(name){const t=norm(name);return Object.values(state.unifiedData?.people||{}).find(p=>norm(p.name)===t||norm(p.person_key)===t)||null}
 function seriesMap(series){const m=new Map();if(!series)return m;(series.labels||[]).forEach((k,i)=>{const v=Number(series.values?.[i]);if(Number.isFinite(v))m.set(String(k),v)});return m}
+function csMonthLabel(iso){
+ const d=dateOnly(iso);if(!d)return String(iso||'—');
+ return d.toLocaleDateString('cs-CZ',{month:'long',year:'numeric'});
+}
+function inclusiveDays(start,end){
+ const a=dateOnly(start),b=dateOnly(end);if(!a||!b)return 0;
+ return Math.max(1,Math.round((b-a)/86400000)+1);
+}
+function rangeOverlapDays(aStart,aEnd,bStart,bEnd){
+ const as=dateOnly(aStart),ae=dateOnly(aEnd),bs=dateOnly(bStart),be=dateOnly(bEnd);
+ if(!as||!ae||!bs||!be)return 0;
+ const s=Math.max(as.getTime(),bs.getTime()),e=Math.min(ae.getTime(),be.getTime());
+ return e<s?0:Math.floor((e-s)/86400000)+1;
+}
+function unifiedHybridRowsForPerson(person,metricId,frame=null){
+ const weekly=person?.weekly?.[metricId],monthly=person?.monthly?.[metricId],rows=[];
+ (weekly?.labels||[]).forEach(function(k,i){
+   const v=Number(weekly.values?.[i]);if(!Number.isFinite(v))return;
+   const ps=String(k),pe=personalWeekKey(addDays(dateOnly(ps),6));
+   if(frame&&rangeOverlapDays(ps,pe,frame.start,frame.end)<=0)return;
+   rows.push({key:ps+'|W',sort_date:ps,period_start:ps,period_end:pe,value:v,raw_value:v,source:'data_hub_weekly',granularity:'week',display:personalWeekLabel(ps)});
+ });
+ (monthly?.labels||[]).forEach(function(k,i){
+   const raw=Number(monthly.values?.[i]);if(!Number.isFinite(raw))return;
+   const ps=String(k),pe=String(monthly.period_ends?.[i]||new Date(dateOnly(ps).getFullYear(),dateOnly(ps).getMonth()+1,0).toISOString().slice(0,10));
+   const days=inclusiveDays(ps,pe);if(!days)return;
+   if(frame){
+     const overlap=rangeOverlapDays(ps,pe,frame.start,frame.end);
+     // A monthly Store Card belongs to a season/range only when a meaningful
+     // part of that month falls inside it. This avoids dragging June into a
+     // season that starts on June 29.
+     if(overlap/days<0.5)return;
+   }
+   const detailed=rows.filter(function(r){return r.source==='data_hub_weekly'&&rangeOverlapDays(r.period_start,r.period_end,ps,pe)>0}).length;
+   // If the month is already covered by at least three detailed weeks, the
+   // Store Card stops being a fallback and is omitted.
+   if(detailed>=3)return;
+   rows.push({
+     key:pe+'|M',sort_date:pe,period_start:ps,period_end:pe,
+     value:raw*7/days,raw_value:raw,source:'store_card_monthly',
+     granularity:'month',display:csMonthLabel(ps)+' · Store Card'
+   });
+ });
+ return rows.sort(function(a,b){return a.sort_date.localeCompare(b.sort_date)||(a.granularity==='month'?-1:1)});
+}
+function unifiedHybridTotalRows(person,metricIds,frame=null){
+ const map=new Map();
+ (metricIds||[]).forEach(function(id){
+   unifiedHybridRowsForPerson(person,id,frame).forEach(function(r){
+     if(!map.has(r.key))map.set(r.key,{...r,value:0,raw_value:0});
+     const x=map.get(r.key);x.value+=Number(r.value)||0;x.raw_value+=Number(r.raw_value)||0;
+   });
+ });
+ return [...map.values()].sort(function(a,b){return a.sort_date.localeCompare(b.sort_date)||(a.granularity==='month'?-1:1)});
+}
+function sliceHybridRows(rows){
+ let out=[...(rows||[])];
+ if(state.rangeStart||state.rangeEnd){
+   const a=state.rangeStart||'1900-01-01',b=state.rangeEnd||'2999-12-31';
+   out=out.filter(function(r){return rangeOverlapDays(r.period_start,r.period_end,a,b)>0});
+ }else if(state.range!=='all'){
+   out=out.slice(Math.max(0,out.length-Number(state.range)));
+ }
+ return out;
+}
 function legacyMetricNameForUnified(def){
  const metrics=state.bootstrap?.metrics||[],headers=state.team?.headers||[];
  const aliases=[...(def?.legacy_names||[]),def?.label||'',String(def?.id||'').replaceAll('_',' ')]
@@ -2487,7 +2575,7 @@ async function unifiedTeamMetric(metricId,requested='auto'){
    Object.entries(maps).forEach(([name,m])=>people[name]={history:labels.map(k=>m.has(k)?m.get(k):null)});
    return {metric:def.label,metric_id:metricId,granularity:'day',labels,people,def};
  }
- const merged=new Map(),keys=new Set(),legacyName=legacyMetricNameForUnified(def);
+ const merged=new Map(),keys=new Set(),pointMeta=new Map(),legacyName=legacyMetricNameForUnified(def);
  let legacy=null;
  if(legacyName&&state.team?.people&&Array.isArray(state.team.headers)){
    const idx=findTeamHistoryMetric(legacyName,state.team.headers);
@@ -2507,16 +2595,38 @@ async function unifiedTeamMetric(metricId,requested='auto'){
      if(!merged.has(canonical))merged.set(canonical,new Map());const map=merged.get(canonical);
      (p.history||[]).forEach(function(v,i){
        const start=spans[i]?.start,key=start?personalWeekKey(start):null,nv=normalizeMetricValue(v,legacyName);
-       if(key&&nv!=null){map.set(key,nv);keys.add(key)}
+       if(key&&nv!=null){map.set(key,nv);keys.add(key);if(!pointMeta.has(key))pointMeta.set(key,{display:personalWeekLabel(key),source:'legacy_weekly',granularity:'week'})}
      });
    });
  }
  for(const p of Object.values(state.unifiedData.people||{})){
-   const s=p.weekly?.[metricId];if(!s)continue;if(!merged.has(p.name))merged.set(p.name,new Map());const m=merged.get(p.name);
-   (s.labels||[]).forEach((k,i)=>{const v=Number(s.values?.[i]);if(Number.isFinite(v)){m.set(String(k),v);keys.add(String(k))}});
+   const sw=p.weekly?.[metricId];
+   if(sw){
+     if(!merged.has(p.name))merged.set(p.name,new Map());const m=merged.get(p.name);
+     (sw.labels||[]).forEach(function(k,i){
+       const v=Number(sw.values?.[i]);if(!Number.isFinite(v))return;
+       const key=String(k);m.set(key,v);keys.add(key);
+       pointMeta.set(key,{display:personalWeekLabel(key),source:'data_hub_weekly',granularity:'week'});
+     });
+   }
+   // Add one normalized monthly Store Card fallback point only where detailed
+   // weekly coverage is still sparse. Values are converted to a 7-day
+   // equivalent, so they remain comparable with weekly totals.
+   const monthlyRows=unifiedHybridRowsForPerson(p,metricId).filter(function(r){return r.source==='store_card_monthly'});
+   if(monthlyRows.length){
+     if(!merged.has(p.name))merged.set(p.name,new Map());const m=merged.get(p.name);
+     monthlyRows.forEach(function(r){
+       m.set(r.key,r.value);keys.add(r.key);
+       pointMeta.set(r.key,{display:r.display,source:r.source,granularity:r.granularity,raw_value:r.raw_value,period_start:r.period_start,period_end:r.period_end});
+     });
+   }
  }
- const labels=[...keys].sort(),people={};for(const [name,m] of merged)people[name]={history:labels.map(k=>m.has(k)?m.get(k):null)};
- return {metric:def.label,metric_id:metricId,granularity:'week',labels,people,def};
+ const labels=[...keys].sort(function(a,b){return a.split('|')[0].localeCompare(b.split('|')[0])||a.localeCompare(b)}),people={};
+ for(const [name,m] of merged)people[name]={history:labels.map(k=>m.has(k)?m.get(k):null)};
+ const display_labels=labels.map(function(k){return pointMeta.get(k)?.display||personalWeekLabel(k.split('|')[0])});
+ const point_sources=labels.map(function(k){return pointMeta.get(k)?.source||'weekly'});
+ const hybrid=point_sources.some(function(x){return x==='store_card_monthly'});
+ return {metric:def.label,metric_id:metricId,granularity:'week',labels,display_labels,point_sources,people,def,hybrid,normalized_weekly_equivalent:hybrid};
 }
 
 async function refreshLiveArenaIfStale(force=false){
@@ -3260,7 +3370,42 @@ function homeTeamAverageSeries(spec,keys){
  }
  return (keys||[]).map(function(k){return byWeek.has(String(k))?byWeek.get(String(k)):null});
 }
+
+function homeHybridTeamAverage(metricIds,referenceRows,frame){
+ const bucket=new Map();
+ Object.values(state.unifiedData?.people||{}).forEach(function(p){
+   unifiedHybridTotalRows(p,metricIds,frame).forEach(function(r){
+     const key=r.sort_date+'|'+r.granularity;
+     if(!bucket.has(key))bucket.set(key,[]);
+     bucket.get(key).push(Number(r.value));
+   });
+ });
+ return (referenceRows||[]).map(function(r){
+   const a=bucket.get(r.sort_date+'|'+r.granularity)||[];
+   const good=a.filter(Number.isFinite);return good.length?good.reduce(function(x,y){return x+y},0)/good.length:null;
+ });
+}
 function homeMomentumSeries(key){
+ if(key==='inbound'&&state.unifiedData){
+   const person=unifiedPersonByName(state.worker),frame=getSeasonFrame();
+   if(person){
+     const rows=unifiedHybridTotalRows(person,['inbound_normal','inbound_icy','inbound_freeze'],frame);
+     if(rows.length){
+       const prevRows=unifiedHybridTotalRows(person,['inbound_normal','inbound_icy','inbound_freeze'],previousSeasonFrame());
+       const prev=prevRows.length?Number(prevRows.at(-1).value):null;
+       return {
+         metric_id:'inbound_total_hybrid',label:'Inbound',unit:'count',lower_is_better:false,granularity:'hybrid',
+         labels:rows.map(function(r){return r.sort_date}),
+         display_labels:rows.map(function(r){return r.display}),
+         values:rows.map(function(r){return r.value}),
+         previous_season_value:Number.isFinite(prev)?prev:null,
+         team_values:homeHybridTeamAverage(['inbound_normal','inbound_icy','inbound_freeze'],rows,frame),
+         source_mode:'Store Card fallback + Data Hub',
+         home_key:key
+       };
+     }
+   }
+ }
  const specs={
   efficiency:{ids:['avg_picking_time','picking_time_per_item','daily_avg_picking_time'],tests:['avg picking time','picking time per item','picking time'],lower:true,unit:'minutes'},
   output:{ids:['outbound_orders','picking_app_task_count','daily_picking_app_task_count'],tests:['picking app task count','orders picked','order count'],lower:false,unit:'count'},
@@ -3275,7 +3420,7 @@ function seriesIndexesForFrame(series,frame){
  const labels=series?.labels||[];if(!frame)return labels.map(function(_,i){return i});
  return labels.map(function(label,i){
    const d=dateOnly(label);if(!d)return null;
-   const end=series.granularity==='day'?d:addDays(d,6);
+   const end=(series.granularity==='day'||series.granularity==='hybrid')?d:addDays(d,6);
    return(end>=frame.start&&d<=frame.end)?i:null;
  }).filter(function(i){return i!=null});
 }
@@ -4278,6 +4423,7 @@ function buildMetricCards(){
     charts[c.canvasId]=new Chart(canvas,{type:'line',data:{labels:c.sliced.labels,datasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{display:false},y:{display:false}}}});
   });
   renderInbound();
+  renderInboundStockHistory();
   renderPersonalDeltas(cards);
   renderGeneratedTrendCharts();
   animateCards('personalKpis');animateCards('personalMetrics');animateCards('personalInbound');
@@ -4379,9 +4525,58 @@ async function renderInbound(){
   setText('inboundMeta',shown+' týdnů · Data Hub');
 }
 
+
+async function renderInboundStockHistory(){
+ try{
+   await loadUnifiedArenaData();
+   const person=unifiedPersonByName(state.worker);if(!person)return;
+   const inbound=sliceHybridRows(unifiedHybridTotalRows(person,['inbound_normal','inbound_icy','inbound_freeze']));
+   const stock=sliceHybridRows(unifiedHybridRowsForPerson(person,'stock_count'));
+
+   const draw=function(canvasId,valueId,metaId,rows,label){
+     destroyChart(canvasId);
+     const canvas=document.getElementById(canvasId);if(!canvas)return;
+     if(!rows.length){
+       setText(valueId,'—');setText(metaId,'Pro vybrané období zatím nejsou data.');
+       return;
+     }
+     const latest=rows.at(-1),hasMonthly=rows.some(function(r){return r.source==='store_card_monthly'}),hasWeekly=rows.some(function(r){return r.source==='data_hub_weekly'});
+     setText(valueId,Math.round(Number(latest.value)||0).toLocaleString('cs-CZ')+' / týd.');
+     setText(metaId,(hasMonthly&&hasWeekly?'Store Card fallback + týdenní Data Hub':hasMonthly?'Store Card monthly fallback':'Týdenní Data Hub')+' · srovnatelně přepočteno na 7 dní');
+     const labels=rows.map(function(r){return r.display});
+     const values=rows.map(function(r){return Number(r.value)});
+     charts[canvasId]=new Chart(canvas,{
+       type:'line',
+       data:{labels,datasets:[{
+         label:label+' / 7 dní',data:values,borderColor:'#35E78A',backgroundColor:'rgba(53,231,138,.08)',
+         borderWidth:2.3,fill:true,tension:.28,spanGaps:true,
+         pointRadius:rows.map(function(r){return r.source==='store_card_monthly'?5:3}),
+         pointStyle:rows.map(function(r){return r.source==='store_card_monthly'?'rectRot':'circle'})
+       }]},
+       options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+         plugins:{legend:{display:false},tooltip:{callbacks:{
+           afterLabel:function(ctx){
+             const r=rows[ctx.dataIndex];if(!r)return'';
+             return r.source==='store_card_monthly'
+               ?('Store Card total: '+Math.round(Number(r.raw_value)||0).toLocaleString('cs-CZ')+' · '+shortDayLabel(r.period_start)+'–'+shortDayLabel(r.period_end))
+               :'Týdenní Data Hub';
+           }
+         }}},
+         scales:{x:{ticks:{color:'#91A79B',maxRotation:0,font:{size:8}},grid:{display:false}},y:{beginAtZero:true,ticks:{color:'#91A79B'},grid:{color:'rgba(145,167,155,.10)'}}}}
+     });
+   };
+   draw('personalInboundHistoryChart','personalInboundHistoryValue','personalInboundHistoryMeta',inbound,'Inbound');
+   draw('personalStockHistoryChart','personalStockHistoryValue','personalStockHistoryMeta',stock,'Stock Count');
+ }catch(e){
+   console.warn('hybrid inbound/stock history',e);
+   setText('personalInboundHistoryMeta','Historie se nepodařila načíst.');
+   setText('personalStockHistoryMeta','Historie se nepodařila načíst.');
+ }
+}
+
 async function renderCorrelation(){
  try{
-  const u=await loadUnifiedArenaData(),metrics=(u.metrics||[]).filter(m=>m.weekly_available);
+  const u=await loadUnifiedArenaData(),metrics=(u.metrics||[]).filter(m=>m.weekly_available||m.monthly_available);
   if(metrics.length<2)return;
   const xSelect=document.getElementById('corrX'),ySelect=document.getElementById('corrY');
   const opts=metrics.map(m=>'<option value="'+esc(m.id)+'">'+esc(m.label)+'</option>').join('');
@@ -5053,7 +5248,7 @@ async function ensureTeamMetric(metricName,force=false){
 async function renderTeam(){
  const sel=document.getElementById('teamMetric');if(!sel)return;
  try{
-  const u=await loadUnifiedArenaData(),metrics=(u.metrics||[]).filter(m=>m.weekly_available||m.daily_available);
+  const u=await loadUnifiedArenaData(),metrics=(u.metrics||[]).filter(m=>m.weekly_available||m.daily_available||m.monthly_available);
   if(!metrics.length)throw new Error('Nejsou dostupné sjednocené týmové metriky.');
   const old=sel.value,html=metrics.map(m=>'<option value="'+esc(m.id)+'">'+esc(m.label)+'</option>').join('');
   if(sel.innerHTML!==html)sel.innerHTML=html;
@@ -5073,9 +5268,11 @@ async function renderTeam(){
   let selected=state.teamMode==='top5'?ranked.slice(0,5):validPeople;const datasets=[];
   if(state.teamMode!=='avg')selected.slice(0,state.teamMode==='all'?25:5).forEach((p,i)=>datasets.push({label:p.name,data:p.h,borderColor:i===0?'#35E78A':`hsl(${(i*47)%360} 70% 65%)`,borderWidth:i===0?2.5:1.4,tension:.3,pointRadius:0,spanGaps:true}));
   if(state.teamMode==='avg'||state.teamMode==='all')datasets.push({label:'Týmový průměr',data:(d.labels||[]).map((_,i)=>{const a=validPeople.map(p=>p.h[i]).filter(v=>v!=null);return a.length?a.reduce((x,y)=>x+y,0)/a.length:null}),borderColor:'#F59E0B',borderWidth:2.5,borderDash:[6,4],tension:.3,pointRadius:0,spanGaps:true});
-  const labels=(d.labels||[]).map(k=>actual==='day'?(fmtDate(dateOnly(k))||k):personalWeekLabel(k));
+  const labels=Array.isArray(d.display_labels)&&d.display_labels.length===(d.labels||[]).length
+    ?d.display_labels
+    :(d.labels||[]).map(k=>actual==='day'?(fmtDate(dateOnly(k))||k):personalWeekLabel(String(k).split('|')[0]));
   charts.team=new Chart(document.getElementById('teamChart'),{type:'line',data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:true,labels:{boxWidth:10,font:{size:9}}}},scales:{x:{ticks:{color:'#91A79B',font:{size:8}},grid:{color:'rgba(134,239,172,.06)'}},y:{ticks:{color:'#91A79B',font:{size:8},callback:v=>formatNormVal(v,def.label)},grid:{color:'rgba(134,239,172,.06)'}}}}});
-  setText('globalNotice','Team Trends · '+def.label+' · '+(actual==='day'?'denní Data Hub':'týdenní · Sheets + Data Hub')+' · '+validPeople.length+' pracovníků');
+  setText('globalNotice','Team Trends · '+def.label+' · '+(d.hybrid?'Store Card fallback + týdenní Data Hub · Store Card přepočtená na 7 dní':actual==='day'?'denní Data Hub':'týdenní · Sheets + Data Hub')+' · '+validPeople.length+' pracovníků');
  }catch(err){destroyChart('team');setText('globalNotice','Týmová data se nepodařilo načíst: '+(err?.message||err));console.warn('renderTeam',err)}
 }
 function hasAnyUsableMetricData(person,headers){
