@@ -303,8 +303,8 @@ async function coverage(db:any,requestedMonth:string){
     {data:activePeople,error:ape}
   ]=await Promise.all([
     db.from("imports").select("id,filename,report_type,period_start,period_end,status,metadata,parser_version,created_at").order("created_at",{ascending:false}).limit(500),
-    db.from("metric_observations").select("source_type,period_start,period_end,metric_id").lte("period_start",end).gte("period_end",queryStart).limit(20000),
-    db.from("metric_observations").select("source_type,period_start,period_end,metric_id").in("source_type",metricSources).limit(50000),
+    db.rpc("data_hub_metric_coverage_spans",{p_start:queryStart,p_end:end}),
+    db.rpc("data_hub_metric_type_history"),
     db.from("shifts").select("shift_date,scheduled_start,actual_start,shift_type").gte("shift_date",start).lte("shift_date",end).limit(20000),
     db.from("store_metrics").select("venue_key,period_start,period_end,metric_id,metadata").lte("period_start",end).gte("period_end",start).limit(20000),
     db.from("store_card_months").select("month,status").eq("month",start),
@@ -347,13 +347,38 @@ async function coverage(db:any,requestedMonth:string){
   const dueDays=allDays.filter(d=>d<=dueEnd);
   const daily=(id:string,label:string)=>{
     const coveredSet=new Set<string>();
-    for(const d of allDays){
-      if(observations.some((x:any)=>x.source_type===id&&day(x.period_start)===d))coveredSet.add(d);
+    for(const x of observations){
+      if(x.source_type!==id)continue;
+      const ps=day(x.period_start),pe=day(x.period_end||x.period_start);
+      if(!ps)continue;
+      // Daily sources normally have start=end, but expand a short span defensively.
+      let d=ps,guard=0;
+      while(d<=pe&&guard++<62){
+        if(d>=start&&d<=end)coveredSet.add(d);
+        d=addDays(d,1);
+      }
+    }
+    // Imported file periods are a secondary truth source. This makes coverage resilient
+    // even when the observation table is large or a source intentionally writes sparse rows.
+    for(const x of imports.filter((z:any)=>z.status==="imported"&&z.report_type===id)){
+      let d=day(x.period_start),pe=day(x.period_end||x.period_start),guard=0;
+      if(!d||!pe)continue;
+      while(d<=pe&&guard++<62){
+        if(d>=start&&d<=end)coveredSet.add(d);
+        d=addDays(d,1);
+      }
     }
     const covered=dueDays.filter(d=>coveredSet.has(d)).length;
+    const loadedDays=allDays.filter(d=>coveredSet.has(d));
     const segments=allDays.map(d=>({key:d,label:d.slice(8),state:d>dueEnd?"future":coveredSet.has(d)?"complete":d===today?"partial":"missing"}));
     const missing=segments.filter(x=>x.state==="missing").map(x=>x.key);
-    return enrich({id,label,cadence:"day",covered,expected:dueDays.length,percentage:pct(covered,dueDays.length),state:coverageState(covered,dueDays.length,segments.some(x=>x.state==="partial")),missing,segments,unresolved:unresolvedCounts[id]||0},id);
+    const importedFilesInMonth=imports.filter((x:any)=>x.status==="imported"&&x.report_type===id&&day(x.period_start)<=end&&day(x.period_end)>=start).length;
+    return enrich({
+      id,label,cadence:"day",covered,expected:dueDays.length,percentage:pct(covered,dueDays.length),
+      state:coverageState(covered,dueDays.length,segments.some(x=>x.state==="partial")),
+      missing,segments,loaded_days:loadedDays,loaded_day_count:loadedDays.length,
+      imported_files_in_month:importedFilesInMonth,unresolved:unresolvedCounts[id]||0
+    },id);
   };
 
   const weekStarts:string[]=[];for(let w=monday(start);w<=end;w=addDays(w,7))weekStarts.push(w);
