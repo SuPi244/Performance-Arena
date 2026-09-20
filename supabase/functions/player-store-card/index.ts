@@ -354,7 +354,11 @@ Deno.serve(async req=>{
       }
     }
 
-    const confirmed=(bonusRows||[]).map((x:any)=>({...x,amount:Number(x.amount||0)}));
+    const confirmed=(bonusRows||[]).map((x:any)=>{
+      const rawAmount=Number(x.amount||0);
+      const eligible=x?.metadata?.bonus_eligible;
+      return {...x,raw_amount:rawAmount,amount:eligible===false?0:rawAmount};
+    });
     const bonus_wallet={
       currency:"CZK",
       confirmed_total_czk:confirmed.reduce((a:number,x:any)=>a+x.amount,0),
@@ -823,7 +827,7 @@ Deno.serve(async req=>{
       const [{data:ps,error:pse},{data:pb,error:pbe}]=await Promise.all([
         db.from("metric_observations").select("person_id,metric_id,value,period_start")
           .in("metric_id",["store_card_score_people","store_card_total_points"]).eq("period_start",latestClosed).limit(1000),
-        db.from("bonus_ledger").select("person_id,amount,bonus_month,status")
+        db.from("bonus_ledger").select("person_id,amount,bonus_month,status,metadata")
           .eq("bonus_month",latestClosed).in("status",["confirmed","paid"]).limit(1000)
       ]);
       if(pse)throw new Error(pse.message);
@@ -1140,23 +1144,21 @@ Deno.serve(async req=>{
     const teamEffortExcludedDpc=projected.filter((x:any)=>x.employment_type==="DPC").length;
     const teamEffortUnknown=projected.filter((x:any)=>x.employment_type==null).length;
 
-    // Infer 40h/30h bonus class from the last closed Store Card when possible.
+    // Infer 40h/30h bonus class from the last closed Store Card using the
+    // official payout itself. Do not derive the TOP component from raw score
+    // rank: official red/ineligible people keep their score rank but are
+    // skipped for monetary rewards.
     const topBonus=Array.isArray(latestMonth?.top_bonus_czk)?latestMonth.top_bonus_czk.map(Number):[3500,2500,1800,1200,500];
-    const priorRanked=priorTotals.sort((a:any,b:any)=>b.value-a.value);
-    const priorRank=priorRanked.findIndex((x:any)=>x.person_id===person.id)+1;
     const priorBonus=priorBonuses.find((x:any)=>x.person_id===person.id);
-    const priorTop=priorRank>0&&priorRank<=topBonus.length?Number(topBonus[priorRank-1]||0):0;
-    const priorTeamComponent=priorBonus?Math.max(0,Number(priorBonus.amount||0)-priorTop):null;
     let contractClass:string|null=null;
     const priorTeamEffort=finite(latestMonth?.team_effort_percent);
-    if(priorTeamComponent!==null&&priorTeamEffort!==null){
-      if(priorTeamEffort>=70){
-        if(Math.abs(priorTeamComponent-800)<1)contractClass="40h";
-        else if(Math.abs(priorTeamComponent-600)<1)contractClass="30h";
-      }else if(priorTeamEffort>=65){
-        if(Math.abs(priorTeamComponent-600)<1)contractClass="40h";
-        else if(Math.abs(priorTeamComponent-400)<1)contractClass="30h";
-      }
+    const priorBonusEligible=priorBonus?.metadata?.bonus_eligible!==false;
+    if(priorBonus&&priorBonusEligible&&priorTeamEffort!==null&&priorTeamEffort>=65){
+      const amount=Number(priorBonus.amount||0);
+      const possibleTop=[0,...topBonus.map((x:any)=>Number(x||0))];
+      const teamByClass=priorTeamEffort>=70?{ "40h":800, "30h":600 }:{ "40h":600, "30h":400 };
+      const matches=Object.entries(teamByClass).filter(([,team])=>possibleTop.some(t=>Math.abs(amount-(Number(team)+t))<1)).map(([cls])=>cls);
+      if(matches.length===1)contractClass=matches[0];
     }
 
     const projectedRank=mine?.rank??null;
@@ -1260,7 +1262,7 @@ Deno.serve(async req=>{
 
     return J({
       ok:true,
-      version:"player-store-card-v14",
+      version:"player-store-card-v15",
       person:{
         person_key:person.person_key,
         display_name:person.display_name,
