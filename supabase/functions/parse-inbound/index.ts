@@ -14,7 +14,7 @@ const emailHints=[
 ];
 
 const canonical=(s:string)=>{
- const n=norm(s).replace("…","");
+ const n=norm(s);
  if(n.replace(/[^a-z0-9]+/g,"")==="nicksch")return "__ignored_nicksch__";
  for(const [prefix,full] of emailHints)if(n.startsWith(prefix))return full;
  return n;
@@ -117,9 +117,7 @@ Deno.serve(async req=>{
   const unknownIds=[...new Set(unknownRows.map(r=>norm(r.user_id)).filter(Boolean))];
 
   const [{data:emailAliases,error:emailErr},{data:idAliases,error:idErr},{data:resolvedQueue,error:resolvedErr}]=await Promise.all([
-   emailNames.length
-    ? db.from("person_aliases").select("person_id,normalized_value,confirmed,alias_type,alias_value").in("normalized_value",emailNames)
-    : Promise.resolve({data:[],error:null}),
+   db.from("person_aliases").select("person_id,normalized_value,confirmed,alias_type,alias_value").eq("alias_type","email").eq("confirmed",true),
    unknownIds.length
     ? db.from("person_aliases").select("person_id,normalized_value,confirmed,alias_type,alias_value").eq("alias_type","wolt_user_id").eq("confirmed",true)
     : Promise.resolve({data:[],error:null}),
@@ -131,7 +129,18 @@ Deno.serve(async req=>{
   if(idErr)return J({error:idErr.message},500);
   if(resolvedErr)return J({error:resolvedErr.message},500);
 
-  const emailMap=new Map((emailAliases||[]).filter((x:any)=>x.confirmed!==false).map((x:any)=>[x.normalized_value,x.person_id]));
+  const confirmedEmails=(emailAliases||[]).filter((x:any)=>x.confirmed!==false);
+  const emailMap=new Map<string,string>();
+  for(const sourceAlias of emailNames){
+    const raw=norm(sourceAlias),prefix=raw.replace(/[….]+$/g,"");
+    const exact=confirmedEmails.filter((x:any)=>norm(x.normalized_value||x.alias_value)===raw);
+    if(exact.length===1){emailMap.set(raw,exact[0].person_id);continue}
+    if(prefix.length>=8){
+      const matches=confirmedEmails.filter((x:any)=>norm(x.normalized_value||x.alias_value).startsWith(prefix));
+      const people=[...new Set(matches.map((x:any)=>x.person_id))];
+      if(people.length===1)emailMap.set(raw,people[0]);
+    }
+  }
   const confirmedIds=[
    ...(idAliases||[]).filter((x:any)=>x.confirmed!==false).map((x:any)=>({person_id:x.person_id,alias_value:x.alias_value,normalized_value:x.normalized_value,source:"person_alias"})),
    ...(resolvedQueue||[]).filter((x:any)=>x.resolved_person_id).map((x:any)=>({person_id:x.resolved_person_id,alias_value:x.alias_value,normalized_value:norm(x.alias_value),source:"resolved_queue"}))
@@ -181,7 +190,7 @@ Deno.serve(async req=>{
 
   const dates=activeRows.map(r=>r.date).sort();
   if(mode==="preview")return J({
-   ok:true,preview:true,parser_stage:"inbound_parsed_v9",
+   ok:true,preview:true,parser_stage:"inbound_parsed_v10",
    period_start:dates[0],period_end:dates.at(-1),
    row_count:activeRows.length,
    parsed_row_count:rows.length,
@@ -267,7 +276,7 @@ Deno.serve(async req=>{
      active_days:activeDays,
      activity,
      bucket_totals:totals,
-     parser_version:"inbound-v9"
+     parser_version:"inbound-v10"
     }
    };
 
@@ -282,7 +291,7 @@ Deno.serve(async req=>{
    status:"imported",
    period_start:dates[0],
    period_end:dates.at(-1),
-   parser_version:"inbound-v9"
+   parser_version:"inbound-v10"
   }).eq("id",id);
 
   return J({
