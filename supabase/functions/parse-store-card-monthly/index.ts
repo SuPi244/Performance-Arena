@@ -90,58 +90,99 @@ function canonicalVenue(raw:any){
   return {venue:safe.replace(/\s+/g," ").trim(),venue_key:norm(safe).replace(/\s+/g,"_")};
 }
 
-function parsePeople(layout:any[]){
-  // Store Card layouts have changed slightly between months. Do not depend on
-  // one exact header string; choose the page that actually contains GA emails.
-  const ranked=(layout||[]).map((p:any,idx:number)=>{
-    const texts=(p.items||[]).map((x:any)=>String(x.text||""));
-    const joined=texts.join(" ");
-    const emails=(joined.match(/[A-Z0-9._%+-]+@wolt\.com/ig)||[]);
-    let score=emails.length*10;
-    if(/Total points per GA/i.test(joined))score+=6;
-    if(/E-?mail/i.test(joined))score+=3;
-    if(/Orders picked|Total units picked|Scan to Pick/i.test(joined))score+=3;
-    return {p,idx,score,emailCount:emails.length};
-  }).sort((a:any,b:any)=>b.score-a.score);
-  const best=ranked[0];
-  if(!best||best.emailCount===0)return [];
+function parsePeople(layout:any[],identityHints:any[]=[]){
+  const hints=(identityHints||[])
+    .filter((h:any)=>h&&h.alias_value&&h.person_id)
+    .map((h:any)=>({alias_value:String(h.alias_value),key:compact(h.alias_value),person_id:h.person_id,display_name:h.display_name||null}))
+    .filter((h:any)=>h.key.length>=3)
+    .sort((a:any,b:any)=>b.key.length-a.key.length);
 
-  const rows=groupRows(best.p,1.8),out:any[]=[];
-  for(const r of rows){
-    const rowText=(r.items||[]).map((i:any)=>String(i.text||"")).join(" ").replace(/\s+/g," ").trim();
-    const em=rowText.match(/[A-Z0-9._%+-]+@wolt\.com/i);
-    if(!em)continue;
-    const email=String(em[0]).trim().toLowerCase();
-    const row:any={
-      email,
-      picker_login:txt(r,122,151)||null,
-      display_name:txt(r,151,195)||null,
-      orders_picked:val(r,195,211),
-      total_units_picked:val(r,214,231),
-      missing_items_ratio:val(r,232,250),
-      undelivered_items_ratio:val(r,254,272),
-      scan_to_pick_ratio:val(r,273,292),
-      bad_goods_rating_ratio:val(r,298,317),
-      avg_goods_rating:val(r,328,346),
-      venue_related_cs_tickets_ratio:val(r,362,383),
-      average_accepted_time:val(r,393,410),
-      average_collection_time:val(r,420,438),
-      average_start_collection_time:val(r,451,469),
-      inbound_total_units:val(r,471,488),
-      inbound_icy_units:val(r,490,507),
-      inbound_freeze_units:val(r,510,529),
-      stock_count:val(r,531,545),
-      team_rating:val(r,557,574),
-      score_outbound:val(r,592,607),
-      score_quality:val(r,620,634),
-      score_speed:val(r,648,662),
-      score_inbound_stock:val(r,675,689),
-      score_people:val(r,702,716),
-      total_points:val(r,730,746)
-    };
-    // Reject only obvious header/garbage rows; historical months legitimately
-    // contain many null KPI cells for people with little activity.
-    if(email.includes("@wolt.com"))out.push(row);
+  const pageRanks=(layout||[]).map((p:any,idx:number)=>{
+    const items=(p.items||[]).map((x:any)=>String(x.text||""));
+    const joined=items.join(" ");
+    const tight=items.join("");
+    const emailCount=(joined.match(/[A-Z0-9._%+-]+\s*@\s*wolt\s*\.\s*com/ig)||[]).length+
+      (tight.match(/[A-Z0-9._%+-]+@wolt\.com/ig)||[]).length;
+    const compactPage=compact(joined);
+    const hintHits=hints.filter((h:any)=>compactPage.includes(h.key)).slice(0,30).length;
+    let score=emailCount*12+hintHits*3;
+    if(/Total points per GA/i.test(joined))score+=12;
+    if(/Orders picked|Total units picked|Scan to Pick|Average Accepted Time/i.test(joined))score+=8;
+    if(/E-?mail/i.test(joined))score+=3;
+    return {p,idx,score,emailCount,hintHits};
+  }).sort((a:any,b:any)=>b.score-a.score);
+
+  // Historical cards can omit/split the email column. Metric headers or known picker/name
+  // rows are therefore sufficient to identify the GA table page.
+  const candidates=pageRanks.filter((x:any)=>x.score>=8).slice(0,3);
+  const out:any[]=[];
+  const seen=new Set<string>();
+
+  for(const cand of candidates){
+    const rows=groupRows(cand.p,2.6);
+    for(const r of rows){
+      const itemTexts=(r.items||[]).map((i:any)=>String(i.text||"").trim()).filter(Boolean);
+      const rowText=itemTexts.join(" ").replace(/\s+/g," ").trim();
+      const tight=itemTexts.join("").replace(/\s+/g,"");
+      const compactRow=compact(rowText);
+      if(!rowText||/Total points per GA|Orders picked|Total units picked|Average Accepted Time|E-?mail/i.test(rowText))continue;
+
+      let email:string|null=null;
+      const em1=rowText.replace(/\s*@\s*/g,"@").replace(/\s*\.\s*/g,".").match(/[A-Z0-9._%+-]+@wolt\.com/i);
+      const em2=tight.match(/[A-Z0-9._%+-]+@wolt\.com/i);
+      if(em1||em2)email=String((em1||em2)![0]).toLowerCase();
+
+      const hint=hints.find((h:any)=>compactRow.includes(h.key))||null;
+      let picker=txt(r,112,160)||null;
+      let display=txt(r,150,205)||null;
+
+      // If the old layout shifted columns, prefer the exact known picker/name token
+      // that is visibly present in this row.
+      if(hint){
+        if(!picker||compact(picker).length<3||/\d/.test(picker))picker=hint.alias_value;
+        if(!display&&hint.display_name)display=hint.display_name;
+      }
+
+      const values:any={
+        orders_picked:val(r,195,211),
+        total_units_picked:val(r,214,231),
+        missing_items_ratio:val(r,232,250),
+        undelivered_items_ratio:val(r,254,272),
+        scan_to_pick_ratio:val(r,273,292),
+        bad_goods_rating_ratio:val(r,298,317),
+        avg_goods_rating:val(r,328,346),
+        venue_related_cs_tickets_ratio:val(r,362,383),
+        average_accepted_time:val(r,393,410),
+        average_collection_time:val(r,420,438),
+        average_start_collection_time:val(r,451,469),
+        inbound_total_units:val(r,471,488),
+        inbound_icy_units:val(r,490,507),
+        inbound_freeze_units:val(r,510,529),
+        stock_count:val(r,531,545),
+        team_rating:val(r,557,574),
+        score_outbound:val(r,592,607),
+        score_quality:val(r,620,634),
+        score_speed:val(r,648,662),
+        score_inbound_stock:val(r,675,689),
+        score_people:val(r,702,716),
+        total_points:val(r,730,746)
+      };
+      const numericCount=Object.values(values).filter((v:any)=>v!==null&&v!==undefined).length;
+      if(!email&&!hint)continue;
+      if(numericCount<2&&!email)continue;
+
+      const identityKey=email||String(hint?.person_id||picker||display||rowText);
+      if(seen.has(identityKey))continue;
+      seen.add(identityKey);
+      out.push({
+        email,
+        picker_login:picker||hint?.alias_value||null,
+        display_name:display||hint?.display_name||picker||email,
+        hint_person_id:hint?.person_id||null,
+        ...values
+      });
+    }
+    if(out.length)break;
   }
   return out;
 }
@@ -343,24 +384,41 @@ const normAlias=(s:any)=>String(s||"").trim().toLowerCase();
 const slug=(s:any)=>String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
 
 async function resolvePeople(db:any,people:any[]){
- const emails=[...new Set(people.map(p=>normAlias(p.email)).filter(Boolean))];
- const pickers=[...new Set(people.map(p=>normAlias(p.picker_login)).filter(Boolean))];
+ const emails=[...new Set(people.map((p:any)=>normAlias(p.email)).filter(Boolean))];
+ const pickers=[...new Set(people.map((p:any)=>normAlias(p.picker_login)).filter(Boolean))];
+ const names=[...new Set(people.map((p:any)=>normAlias(p.display_name)).filter(Boolean))];
 
- const [{data:ea,error:ee},{data:pa,error:pe}]=await Promise.all([
+ const [{data:ea,error:ee},{data:pa,error:pe},{data:peopleRows,error:pde}]=await Promise.all([
   emails.length?db.from("person_aliases").select("person_id,alias_type,alias_value,normalized_value").eq("alias_type","email").in("normalized_value",emails):Promise.resolve({data:[],error:null}),
-  pickers.length?db.from("person_aliases").select("person_id,alias_type,alias_value,normalized_value").eq("alias_type","picker_username").in("normalized_value",pickers):Promise.resolve({data:[],error:null})
+  pickers.length?db.from("person_aliases").select("person_id,alias_type,alias_value,normalized_value").eq("alias_type","picker_username").in("normalized_value",pickers):Promise.resolve({data:[],error:null}),
+  db.from("people").select("id,display_name,full_name")
  ]);
  if(ee)throw new Error("Email alias lookup failed: "+ee.message);
  if(pe)throw new Error("Picker alias lookup failed: "+pe.message);
+ if(pde)throw new Error("People lookup failed: "+pde.message);
 
  const em=new Map((ea||[]).map((x:any)=>[normAlias(x.normalized_value||x.alias_value),x.person_id]));
  const pm=new Map((pa||[]).map((x:any)=>[normAlias(x.normalized_value||x.alias_value),x.person_id]));
+ const nameMap=new Map<string,string|null>();
+ for(const p of peopleRows||[]){
+   for(const v of [p.display_name,p.full_name]){
+     const k=normAlias(v);if(!k)continue;
+     if(!nameMap.has(k))nameMap.set(k,p.id);
+     else if(nameMap.get(k)!==p.id)nameMap.set(k,null);
+   }
+ }
 
- return people.map(p=>{
-  const ep=em.get(normAlias(p.email))||null, pp=pm.get(normAlias(p.picker_login))||null;
-  const conflict=!!(ep&&pp&&ep!==pp);
-  return {...p,person_id:conflict?null:(ep||pp||null),identity_conflict:conflict,email_person_id:ep,picker_person_id:pp,
-    identity_state:conflict?"conflict":(ep||pp)?"matched":"new_historical"};
+ return people.map((p:any)=>{
+  const ep=em.get(normAlias(p.email))||null;
+  const pp=pm.get(normAlias(p.picker_login))||null;
+  const np=nameMap.get(normAlias(p.display_name))||null;
+  const hp=p.hint_person_id||null;
+  const ids=[ep,pp,np,hp].filter(Boolean);
+  const unique=[...new Set(ids)];
+  const conflict=unique.length>1;
+  const resolved=conflict?null:(unique[0]||null);
+  return {...p,person_id:resolved,identity_conflict:conflict,email_person_id:ep,picker_person_id:pp,name_person_id:np,hint_person_id:hp,
+    identity_state:conflict?"conflict":resolved?"matched":"new_historical"};
  });
 }
 
@@ -378,7 +436,7 @@ async function ensureHistoricalPeople(db:any,resolved:any[]){
    active:false,
    mapping_confidence:"confirmed"
   }).select("id").single();
-  if(ce)throw new Error("Historical person create failed for "+p.email+": "+ce.message);
+  if(ce)throw new Error("Historical person create failed for "+(p.email||p.picker_login||p.display_name||"unknown")+": "+ce.message);
   p.person_id=created.id;
   p.identity_state="created_historical";
  }
@@ -426,8 +484,33 @@ Deno.serve(async req=>{
   const period=inferMonth(filename||imp.filename||"",layout);
   if(!period)return J({error:"Could not infer Store Card month/year",diagnostics:{filename:filename||imp.filename||"",pages:layout.length}},422);
 
-  const people=parsePeople(layout);
-  if(!people.length)return J({error:"No Store Card people rows parsed",diagnostics:{pages:layout.length,period_start:period.period_start,period_end:period.period_end}},422);
+  const [{data:pickerHints,error:phErr},{data:knownPeople,error:kpErr}]=await Promise.all([
+    db.from("person_aliases").select("person_id,alias_value").eq("alias_type","picker_username").eq("confirmed",true),
+    db.from("people").select("id,display_name,full_name")
+  ]);
+  if(phErr)return J({error:"Picker hint lookup failed",detail:phErr.message},500);
+  if(kpErr)return J({error:"People hint lookup failed",detail:kpErr.message},500);
+  const displayById=new Map((knownPeople||[]).map((x:any)=>[x.id,x.display_name||x.full_name||null]));
+  const identityHints=[
+    ...(pickerHints||[]).map((x:any)=>({...x,display_name:displayById.get(x.person_id)||null})),
+    ...(knownPeople||[]).flatMap((x:any)=>[
+      x.display_name?{person_id:x.id,alias_value:x.display_name,display_name:x.display_name}:null,
+      x.full_name?{person_id:x.id,alias_value:x.full_name,display_name:x.display_name}:null
+    ].filter(Boolean))
+  ];
+
+  const people=parsePeople(layout,identityHints);
+  if(!people.length){
+    const diagnosticPages=(layout||[]).map((p:any)=>({
+      page:p.page,
+      item_count:(p.items||[]).length,
+      sample:(p.items||[]).slice(0,220).map((x:any)=>x.text).join(" | ").slice(0,9000)
+    }));
+    await db.from("imports").update({
+      metadata:{...(imp.metadata||{}),store_card_parse_debug:{parser:"v9",period_start:period.period_start,pages:diagnosticPages}}
+    }).eq("id",import_id);
+    return J({error:"No Store Card people rows parsed",diagnostics:{parser:"v9",pages:layout.length,period_start:period.period_start,period_end:period.period_end,page_samples:diagnosticPages}},422);
+  }
 
   const rewards=parseRewards(layout,people,period);
   const maxima=parseMaxima(layout);
@@ -463,7 +546,7 @@ Deno.serve(async req=>{
   };
 
   if(mode==="preview"){
-   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v8",
+   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v9",
     note:"Preview only. Existing identities are resolved by email/picker login. New historical people are shown before commit."});
   }
 
@@ -552,7 +635,7 @@ Deno.serve(async req=>{
    team_bonus_30h_czk:rewards.team_bonus_30h,
    source_import_id:import_id,
    status:"official",
-   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v8",filename:imp.filename},
+   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v9",filename:imp.filename},
    updated_at:new Date().toISOString()
   };
   const {error:sce}=await db.from("store_card_months").upsert(monthRow,{onConflict:"month"});
@@ -569,7 +652,7 @@ Deno.serve(async req=>{
    status:"confirmed",
    source_type:"store_card_monthly",
    import_id,
-   source_record_key:`store_card_bonus:${period.period_start}:${normAlias(p.email)}`,
+   source_record_key:`store_card_bonus:${period.period_start}:${normAlias(p.email||p.picker_login||p.person_id)}`,
    metadata:{
     source_email:p.email,
     picker_login:p.picker_login,
@@ -622,7 +705,7 @@ Deno.serve(async req=>{
    status:"imported",
    period_start:period.period_start,
    period_end:period.period_end,
-   parser_version:"store-card-monthly-v8",
+   parser_version:"store-card-monthly-v9",
    record_count:totalRecords,
    metadata:{
     ...(imp.metadata||{}),
