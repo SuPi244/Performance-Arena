@@ -1672,7 +1672,7 @@ tr.unknown .admin-status{color:var(--muted)!important;background:rgba(148,163,18
 <div class="hidden" id="seasonRecapOverlay"><div class="season-recap-card"><div class="rundown-head"><div><div class="rundown-kicker">NOVÁ SEZÓNA</div><div class="rundown-title" id="seasonRecapTitle">Season Recap</div><div class="rundown-sub" id="seasonRecapSub">Tvoje poslední sezóna</div></div><button aria-label="Zavřít" class="rundown-close" id="seasonRecapClose">×</button></div><div class="season-recap-grid" id="seasonRecapStats"></div><div class="season-recap-section"><h4>🏆 Nejdůležitější výsledky</h4><div class="rundown-list" id="seasonRecapWins"></div></div><div class="season-recap-section"><h4>📈 Posun</h4><div class="rundown-list" id="seasonRecapProgress"></div></div><div class="rundown-actions"><button class="rundown-btn" id="seasonRecapContinue">Jdeme na novou sezónu</button></div></div></div>
 <div class="hidden" id="rundownOverlay"><div class="rundown-card"><div class="rundown-head"><div><div class="rundown-kicker">Tvoje poslední výsledky</div><div class="rundown-title" id="rundownTitle">Dobrá práce.</div><div class="rundown-sub" id="rundownSub">Rychlé shrnutí toho, co se ti povedlo.</div></div><button aria-label="Zavřít" class="rundown-close" id="rundownClose">×</button></div><div class="rundown-grid" id="rundownStats"></div><div class="rundown-section"><h4>🔥 Co se ti povedlo</h4><div class="rundown-list" id="rundownWins"></div></div><div class="rundown-section"><h4>🏆 Co jsi odemkl</h4><div class="rundown-achievements" id="rundownAchievements"></div></div><div class="rundown-section"><h4>🎯 Na čem můžeš ještě zabrat</h4><div class="rundown-list" id="rundownFocus"></div></div><div class="rundown-actions"><button class="rundown-btn" id="rundownContinue">Pokračovat do profilu</button></div></div></div>
 <div class="shell">
-<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V194</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
+<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V195</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
 <div class="layout">
 <aside class="sidebar">
 <div class="label" id="profileLabel">Profil</div><select class="select" id="workerSelect"></select>
@@ -4457,11 +4457,60 @@ async function openDiagnosticPerson(name){
 window.openDetail=(name)=>openDetail(name);
 window.openDiagnosticPerson=openDiagnosticPerson;
 
-function liveLeaderboardMetricDefs(){
+function rawLiveLeaderboardMetricDefs(){
   return state.storeCard?.projection?.leaderboard_metric_definitions||[];
 }
+function liveLeaderboardMetricDefs(){
+  const raw=rawLiveLeaderboardMetricDefs();
+
+  // Canonical leaderboard concepts. Some reports expose the same KPI under a
+  // legacy GA name and a newer Daily Picking name. Keep one human-facing item,
+  // but retain all source IDs as fallbacks for coverage.
+  const groups=[
+    {
+      id:'picking_time',
+      label:'Picking Time',
+      unit:'minutes',
+      lower_is_better:true,
+      group:'Speed',
+      source_ids:['average_collection_time','avg_picking_time']
+    }
+  ];
+  const consumed=new Set(),out=[];
+  for(const g of groups){
+    const matches=g.source_ids.filter(function(id){return raw.some(function(d){return d.id===id})});
+    if(!matches.length)continue;
+    matches.forEach(function(id){consumed.add(id)});
+    out.push({...g,source_ids:matches});
+  }
+
+  // Future-proof exact duplicates too (e.g. the same metric emitted from daily
+  // and weekly source pipelines under different IDs but identical labels).
+  const seen=new Set();
+  for(const d of raw){
+    if(consumed.has(d.id))continue;
+    const key=[norm(d.label||d.id),String(d.unit||''),String(!!d.lower_is_better)].join('|');
+    if(seen.has(key))continue;
+    seen.add(key);
+    out.push({...d,source_ids:[d.id]});
+  }
+
+  // Preserve the backend's rough category order, while placing a canonical
+  // metric where its first source appeared instead of dumping it at the top.
+  const rawOrder=new Map(raw.map(function(d,i){return[d.id,i]}));
+  out.sort(function(a,b){
+    const ai=Math.min(...(a.source_ids||[a.id]).map(function(id){return rawOrder.has(id)?rawOrder.get(id):9999}));
+    const bi=Math.min(...(b.source_ids||[b.id]).map(function(id){return rawOrder.has(id)?rawOrder.get(id):9999}));
+    return ai-bi;
+  });
+  return out;
+}
 function liveLeaderboardMetricDef(id){
-  return liveLeaderboardMetricDefs().find(x=>x.id===id)||null;
+  return liveLeaderboardMetricDefs().find(function(x){return x.id===id})||null;
+}
+function canonicalLeaderboardMode(mode){
+  if(mode==='live:avg_picking_time'||mode==='live:average_collection_time')return'live:picking_time';
+  return mode;
 }
 function formatLiveLeaderboardValue(v,def){
   const x=Number(v);if(!Number.isFinite(x))return'—';
@@ -4537,10 +4586,16 @@ function playerLeaderboardRows(mode,data){
   if(mode.startsWith('live:')){
     const id=mode.slice(5),def=liveLeaderboardMetricDef(id);
     if(!def)return [];
+    const sourceIds=def.source_ids?.length?def.source_ids:[id];
     const rows=(state.storeCard?.projection?.leaderboard||[]).map(x=>{
-      const raw=x?.live_metrics?.[id],value=Number(raw);
+      let raw=null,sourceId=null;
+      for(const sid of sourceIds){
+        const candidate=x?.live_metrics?.[sid],num=Number(candidate);
+        if(candidate!==null&&candidate!==undefined&&Number.isFinite(num)){raw=candidate;sourceId=sid;break}
+      }
+      const value=Number(raw);
       if(raw===null||raw===undefined||!Number.isFinite(value))return null;
-      return {name:x.display_name,rank:null,elo:null,value,metric:def.label,live:true,liveDef:def,sourceRank:x.rank};
+      return {name:x.display_name,rank:null,elo:null,value,metric:def.label,live:true,liveDef:def,liveSourceId:sourceId,sourceRank:x.rank};
     }).filter(Boolean);
     if(id==='store_card_points')rows.sort((a,b)=>Number(a.sourceRank)-Number(b.sourceRank));
     else rows.sort((a,b)=>def.lower_is_better?(a.value-b.value):(b.value-a.value)||a.name.localeCompare(b.name,'cs'));
@@ -4609,16 +4664,16 @@ function bindDiagnosticClickTargets(){
 async function renderLeaderboard(){
   const sel=document.getElementById('lbMetric'); if(!sel)return;
   const opts=leaderboardMetricOptions();
-  const old=sel.value;
+  const old=canonicalLeaderboardMode(sel.value);
   if(sel.innerHTML!==opts)sel.innerHTML=opts;
-  if(old && [...sel.options].some(o=>o.value===old)) sel.value=old;
-  const mode=sel.value||'elo';
+  if(old && [...sel.options].some(function(o){return o.value===old})) sel.value=old;
+  const mode=canonicalLeaderboardMode(sel.value||'elo');
   setText('lbHeading',state.lbMode==='people'?(mode==='elo'?'SEASON TOP':mode==='level'?'COMPANY LEVEL LEADERBOARD':'METRIC LEADERBOARD'):'STORE LEADERBOARD');
   const liveMode=mode.startsWith('live:');
   setText('lbMeta',state.lbMode==='people'
     ?(mode==='elo'?'Season ELO · 13týdenní okno'
       :mode==='level'?'Company Level & XP · celoživotní questy'
-      :liveMode?'Aktuální měsíc · obnoveno při otevření žebříčku'
+      :liveMode?(mode==='live:picking_time'?'Aktuální měsíc · Picking Time = Daily Collection Time, fallback Avg Picking Time':'Aktuální měsíc · obnoveno při otevření žebříčku')
       :'Aktuální metrika')
     :'Měsíční historie · pořadí podle zvoleného KPI');
   let list=[];
