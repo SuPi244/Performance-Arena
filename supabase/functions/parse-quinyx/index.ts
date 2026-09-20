@@ -181,8 +181,10 @@ function parse(pages:any[]){
    const p=ps[pi]; if(!p.roster)continue;
    const bottom=pi+1<ps.length?ps[pi+1].y:p.y-95,band=it.filter((z:any)=>z.y<=p.y+5&&z.y>bottom+1);
    for(const role of band.filter((z:any)=>/^(GA|SL)\s+(Morning|Afternoon|Shift Middle)$/i.test(z.text))){
-    const d=nearestDay(ds,role.x),[left,right]=colBounds(ds,d),c=band.filter((z:any)=>z.x>=left&&z.x<right);
-    const pageCol=it.filter((z:any)=>z.x>=left&&z.x<right);
+    const d=nearestDay(ds,role.x),[left,right]=colBounds(ds,d);
+    const ownsDay=(z:any)=>nearestDay(ds,z.x)===d;
+    const c=band.filter(ownsDay);
+    const pageCol=it.filter(ownsDay);
     // Quinyx may print the venue as a separate item beside the role.
     if(pageCol.some((z:any)=>norm(z.text).includes("michle prague")&&Math.abs(z.y-role.y)<2.2))continue;
     const ys=[...new Set(c.filter((z:any)=>isTime(z.text)).map((z:any)=>z.y))].sort((x:any,y:any)=>y-x);
@@ -191,25 +193,45 @@ function parse(pages:any[]){
     const below=pairs.filter((q:any)=>q.y<role.y-3).sort((x:any,y:any)=>y.y-x.y);
     const breakPairs=below.filter((q:any)=>["11:00-11:30","20:00-20:30","18:00-18:30","14:15-14:45"].includes(q.pair.join("-")));
     const actualPairs=below.filter((q:any)=>!breakPairs.includes(q)&&!(q.pair[0]==="00:00"&&q.pair[1]==="00:00")).sort((x:any,y:any)=>x.y-y.y);
-    // Planned block: on wide columns both times share Y; on narrow columns end time wraps to next line.
-    // Take the two nearest time tokens ABOVE the full role label (max 32 pt), excluding 00:00 absence.
-    const plannedTokens=pageCol.filter((z:any)=>isTime(z.text)&&z.y>role.y+1.5&&z.y-role.y<36)
+    // Planned block: right-edge Sunday cells and older PDFs often wrap the start/end
+    // farther apart than normal. Own tokens by the nearest day header and inspect up to 60 pt above role.
+    const plannedTokens=pageCol.filter((z:any)=>isTime(z.text)&&z.y>role.y+1.2&&z.y-role.y<60)
+      .sort((a:any,b:any)=>(a.y-role.y)-(b.y-role.y)||a.x-b.x);
+    const combinedRanges=pageCol.filter((z:any)=>z.y>role.y+1.2&&z.y-role.y<60)
+      .map((z:any)=>{
+        const m=String(z.text||"").match(/\b(\d{1,2}:\d{2})\s*[-–—]\s*(\d{1,2}:\d{2})\b/);
+        return m?{start:m[1],end:m[2],y:z.y,x:z.x}:null;
+      }).filter(Boolean)
       .sort((a:any,b:any)=>(a.y-role.y)-(b.y-role.y)||a.x-b.x);
     let planned:any=null, scheduledPaidHours:any=null, plannedPicked:any[]=[];
-    if(plannedTokens.length>=2){
-      let picked=plannedTokens.slice(0,2);
-      picked=Math.abs(picked[0].y-picked[1].y)<1.1
-        ? picked.sort((a:any,b:any)=>a.x-b.x)
-        : picked.sort((a:any,b:any)=>b.y-a.y);
-      const a=picked[0].text,b=picked[1].text;
-      const k=`${a}-${b}`;
-      if(!(a==="00:00"&&b==="00:00") &&
+    if(combinedRanges.length){
+      const q:any=combinedRanges[0],k=`${q.start}-${q.end}`;
+      if(!(q.start==="00:00"&&q.end==="00:00") &&
          !["11:00-11:30","20:00-20:30","18:00-18:30","14:15-14:45"].includes(k)){
-        planned=[a,b]; plannedPicked=picked;
-        const py=Math.min(...picked.map((z:any)=>z.y));
-        const nums=pageCol.filter((z:any)=>/^\d+(?:\.\d+)?$/.test(z.text)&&Math.abs(z.y-py)<1.1)
+        planned=[q.start,q.end];plannedPicked=[q];
+        const nums=pageCol.filter((z:any)=>/^\d+(?:\.\d+)?$/.test(z.text)&&Math.abs(z.y-q.y)<1.6)
           .sort((x:any,y:any)=>x.x-y.x);
         if(nums.length)scheduledPaidHours=+nums[nums.length-1].text;
+      }
+    }
+    if(!planned&&plannedTokens.length>=2){
+      // Prefer a plausible pair close to the role; don't accidentally take a meal break.
+      for(let aidx=0;aidx<Math.min(plannedTokens.length,6)&&!planned;aidx++){
+        for(let bidx=aidx+1;bidx<Math.min(plannedTokens.length,6)&&!planned;bidx++){
+          let picked=[plannedTokens[aidx],plannedTokens[bidx]];
+          if(Math.abs(picked[0].y-picked[1].y)>22)continue;
+          picked=Math.abs(picked[0].y-picked[1].y)<1.1
+            ? picked.sort((a:any,b:any)=>a.x-b.x)
+            : picked.sort((a:any,b:any)=>b.y-a.y);
+          const a=picked[0].text,b=picked[1].text,k=`${a}-${b}`;
+          if((a==="00:00"&&b==="00:00") ||
+             ["11:00-11:30","20:00-20:30","18:00-18:30","14:15-14:45"].includes(k))continue;
+          planned=[a,b];plannedPicked=picked;
+          const py=Math.min(...picked.map((z:any)=>z.y));
+          const nums=pageCol.filter((z:any)=>/^\d+(?:\.\d+)?$/.test(z.text)&&Math.abs(z.y-py)<1.6)
+            .sort((x:any,y:any)=>x.x-y.x);
+          if(nums.length)scheduledPaidHours=+nums[nums.length-1].text;
+        }
       }
     }
     // Actual clock row is the FIRST non-break pair below the role, not the lowest pair in the person's band.
@@ -233,7 +255,9 @@ function parse(pages:any[]){
       role:m[1].toUpperCase(),shift_type:m[2],page:pg.page,
       page_period_start:period.start,page_period_end:period.end,
       confidence:planned&&actual&&worked!=null?"verified_geometry":planned?"scheduled_only":"needs_review",
-      observed_pairs:pairs.map((q:any)=>({y:q.y,start:q.pair[0],end:q.pair[1]}))});
+      observed_pairs:pairs.map((q:any)=>({y:q.y,start:q.pair[0],end:q.pair[1]})),
+      role_x:role.x,role_y:role.y,day_x:d.x,column_left:left,column_right:right,
+      planned_time_tokens:plannedTokens.slice(0,8).map((z:any)=>({text:z.text,x:z.x,y:z.y}))});
    }
   }
  }
@@ -250,11 +274,16 @@ function parse(pages:any[]){
    if(!old||score(r)>score(old))best.set(k,r);
  }
  const deduped=[...best.values()];
+ const periodEnds=pagePeriods.map((p:any)=>p.period_end).filter(Boolean).sort();
+ const targetMonth=periodEnds.length?String(periodEnds[periodEnds.length-1]).slice(0,7):null;
+ const monthRows=targetMonth?deduped.filter((r:any)=>String(r.date||"").startsWith(targetMonth)):deduped;
  return {
-   rows:deduped,
+   rows:monthRows,
+   targetMonth,
+   excluded_adjacent_month_rows:deduped.length-monthRows.length,
    missingDatePages:[...new Set(missingDatePages)].sort((a,b)=>a-b),
    pagePeriods,missingDateDebug,inferredDatePages,
-   candidate_row_count:rows.length,deduped_row_count:deduped.length
+   candidate_row_count:rows.length,deduped_row_count:deduped.length,month_row_count:monthRows.length
  };
 }
 function addDays(date:string,n:number){
@@ -295,10 +324,12 @@ Deno.serve(async req=>{
   const futureActualRows=rows.filter((r:any)=>r.date>new Date().toISOString().slice(0,10)&&r.actual_start);
   const validation={
     period_start,period_end,row_count:rows.length,
+    target_month:parsed.targetMonth||period_start.slice(0,7),
+    excluded_adjacent_month_rows:parsed.excluded_adjacent_month_rows||0,
     candidate_row_count:parsed.candidate_row_count??rows.length,
     people_count:new Set(rows.map((x:any)=>x.person_key)).size,
     missing_planned:missingPlan.length,
-    missing_planned_rows:missingPlan.slice(0,20).map((r:any)=>({person:r.name,date:r.date,role:r.role,shift_type:r.shift_type,page:r.page,confidence:r.confidence})),
+    missing_planned_rows:missingPlan.slice(0,30).map((r:any)=>({person:r.name,date:r.date,role:r.role,shift_type:r.shift_type,page:r.page,confidence:r.confidence,role_x:r.role_x,role_y:r.role_y,day_x:r.day_x,column_left:r.column_left,column_right:r.column_right,planned_time_tokens:r.planned_time_tokens||[],observed_pairs:r.observed_pairs||[]})),
     duplicate_keys:duplicateKeys.length,
     future_actuals:futureActualRows.length,
     future_actual_rows:futureActualRows.slice(0,20).map((r:any)=>({person:r.name,date:r.date,role:r.role,shift_type:r.shift_type,page:r.page})),
@@ -308,9 +339,9 @@ Deno.serve(async req=>{
     date_debug:parsed.missingDateDebug
   };
 
-  if(mode==="preview")return J({ok:true,preview:true,parser_stage:"quinyx-layout-v26",shift_count:rows.length,
+  if(mode==="preview")return J({ok:true,preview:true,parser_stage:"quinyx-layout-v27",shift_count:rows.length,
     people_count:validation.people_count,period_start,period_end,validation,rows,
-    note:"Preview only. V26 umí doplnit chybějící page period z jednoznačně shodné sady dnů a u duplicitních kandidátů vybírá nejúplnější směnu. Nic se ještě nezapisuje."});
+    note:"Preview only. V27 přiřazuje buňky nejbližšímu dni až k okraji stránky, zvládá zalomené/combined time ranges a měsíční export ořízne na skutečný cílový měsíc. Nic se ještě nezapisuje."});
 
   if(mode!=="commit")return J({error:"Unsupported mode"},400);
   if(!import_id)return J({error:"Missing import_id"},400);
@@ -341,7 +372,7 @@ Deno.serve(async req=>{
     import_id,
     source_record_key:`shift|${pmap.get(r.person_key)}|${r.date}|${norm(r.role).replace(/\s+/g," ")}|${norm(r.shift_type).replace(/\s+/g," ")}`,
     metadata:{
-      source_type:"quinyx",parser_version:"quinyx-v26",source_name:r.name,page:r.page,
+      source_type:"quinyx",parser_version:"quinyx-v27",source_name:r.name,page:r.page,
       page_period_start:r.page_period_start,page_period_end:r.page_period_end,
       confidence:r.confidence,venue:"Holešovice, Prague",export_cutoff:new Date().toISOString().slice(0,10)
     }
@@ -352,7 +383,7 @@ Deno.serve(async req=>{
   if(we)return J({error:we.message},500);
 
   await db.from("imports").update({
-    status:"imported",period_start,period_end,parser_version:"quinyx-v26"
+    status:"imported",period_start,period_end,parser_version:"quinyx-v27"
   }).eq("id",import_id);
 
   return J({ok:true,committed:true,inserted_count:w?.length??0,attempted_count:payload.length,
