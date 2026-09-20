@@ -147,15 +147,35 @@ function reportCutoff(items:any[]){
  return null;
 }
 function parse(pages:any[]){
- const rows:any[]=[],missingDatePages:number[]=[],pagePeriods:any[]=[],missingDateDebug:any[]=[];
- for(const pg of pages||[]){
-  const it=pg.items||[],baseDays=days(it),ps=personAnchors(it),cutoff=reportCutoff(it);
+ const rows:any[]=[],missingDatePages:number[]=[],pagePeriods:any[]=[],missingDateDebug:any[]=[],inferredDatePages:any[]=[];
+ const contexts=(pages||[]).map((pg:any)=>{
+   const it=pg.items||[],baseDays=days(it),ps=personAnchors(it),cutoff=reportCutoff(it);
+   return {pg,it,baseDays,ps,cutoff,period:pagePeriod(it)};
+ });
+ const signature=(ds:any[])=>ds.map((d:any)=>d.day).join(",");
+ const periodBySignature=new Map<string,Map<string,any>>();
+ for(const x of contexts){
+   if(!x.period||!x.baseDays.length)continue;
+   const sig=signature(x.baseDays),key=x.period.start+"|"+x.period.end;
+   if(!periodBySignature.has(sig))periodBySignature.set(sig,new Map());
+   periodBySignature.get(sig)!.set(key,x.period);
+ }
+ for(const x of contexts){
+  const {pg,it,baseDays,ps,cutoff}=x;
   if(!baseDays.length||!ps.length)continue;
-  const period=pagePeriod(it);
+  let period=x.period;
+  if(!period){
+    const opts=periodBySignature.get(signature(baseDays));
+    if(opts&&opts.size===1){
+      const hit=[...opts.values()][0];
+      period={...hit,source:"matched_day_signature",raw:"inferred from matching Quinyx day header"};
+      inferredDatePages.push({page:Number(pg.page),period_start:period.start,period_end:period.end,method:"matching_day_signature"});
+    }
+  }
   if(!period){missingDatePages.push(Number(pg.page));missingDateDebug.push({page:Number(pg.page),header_candidates:dateDebug(it)});continue}
   const ds=baseDays.map((d:any)=>({...d,date:dateForDay(period,d.day)}));
-  if(ds.some((d:any)=>!d.date)){missingDatePages.push(Number(pg.page));continue}
-  pagePeriods.push({page:Number(pg.page),period_start:period.start,period_end:period.end,header:period.raw});
+  if(ds.some((d:any)=>!d.date)){missingDatePages.push(Number(pg.page));missingDateDebug.push({page:Number(pg.page),header_candidates:dateDebug(it)});continue}
+  pagePeriods.push({page:Number(pg.page),period_start:period.start,period_end:period.end,header:period.raw,source:period.source||"range"});
 
   for(let pi=0;pi<ps.length;pi++){
    const p=ps[pi]; if(!p.roster)continue;
@@ -173,7 +193,7 @@ function parse(pages:any[]){
     const actualPairs=below.filter((q:any)=>!breakPairs.includes(q)&&!(q.pair[0]==="00:00"&&q.pair[1]==="00:00")).sort((x:any,y:any)=>x.y-y.y);
     // Planned block: on wide columns both times share Y; on narrow columns end time wraps to next line.
     // Take the two nearest time tokens ABOVE the full role label (max 32 pt), excluding 00:00 absence.
-    const plannedTokens=pageCol.filter((z:any)=>isTime(z.text)&&z.y>role.y+1.5&&z.y-role.y<24)
+    const plannedTokens=pageCol.filter((z:any)=>isTime(z.text)&&z.y>role.y+1.5&&z.y-role.y<36)
       .sort((a:any,b:any)=>(a.y-role.y)-(b.y-role.y)||a.x-b.x);
     let planned:any=null, scheduledPaidHours:any=null, plannedPicked:any[]=[];
     if(plannedTokens.length>=2){
@@ -217,9 +237,25 @@ function parse(pages:any[]){
    }
   }
  }
- const seen=new Set();
- const deduped=rows.filter(r=>{const k=`${r.person_key}|${r.date}|${r.role}|${r.shift_type}`;if(seen.has(k))return false;seen.add(k);return true});
- return {rows:deduped,missingDatePages:[...new Set(missingDatePages)].sort((a,b)=>a-b),pagePeriods,missingDateDebug};
+ const score=(r:any)=>
+   (r.scheduled_start&&r.scheduled_end?20:0)+
+   (r.actual_start&&r.actual_end?8:0)+
+   (r.actual_worked_hours!=null?4:0)+
+   (r.scheduled_hours!=null?2:0)+
+   (r.confidence==="verified_geometry"?3:r.confidence==="scheduled_only"?1:0);
+ const best=new Map<string,any>();
+ for(const r of rows){
+   const k=`${r.person_key}|${r.date}|${r.role}|${r.shift_type}`;
+   const old=best.get(k);
+   if(!old||score(r)>score(old))best.set(k,r);
+ }
+ const deduped=[...best.values()];
+ return {
+   rows:deduped,
+   missingDatePages:[...new Set(missingDatePages)].sort((a,b)=>a-b),
+   pagePeriods,missingDateDebug,inferredDatePages,
+   candidate_row_count:rows.length,deduped_row_count:deduped.length
+ };
 }
 function addDays(date:string,n:number){
  const d=new Date(date+"T12:00:00Z"); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10);
@@ -256,19 +292,25 @@ Deno.serve(async req=>{
   const dup=new Map<string,number>();
   for(const r of rows){const k=`${r.person_key}|${r.date}|${r.role}|${r.shift_type}`;dup.set(k,(dup.get(k)||0)+1)}
   const duplicateKeys=[...dup.entries()].filter(([,n])=>n>1).map(([k])=>k);
+  const futureActualRows=rows.filter((r:any)=>r.date>new Date().toISOString().slice(0,10)&&r.actual_start);
   const validation={
     period_start,period_end,row_count:rows.length,
+    candidate_row_count:parsed.candidate_row_count??rows.length,
     people_count:new Set(rows.map((x:any)=>x.person_key)).size,
-    missing_planned:missingPlan.length,duplicate_keys:duplicateKeys.length,
-    future_actuals:rows.filter((r:any)=>r.date>new Date().toISOString().slice(0,10)&&r.actual_start).length,
+    missing_planned:missingPlan.length,
+    missing_planned_rows:missingPlan.slice(0,20).map((r:any)=>({person:r.name,date:r.date,role:r.role,shift_type:r.shift_type,page:r.page,confidence:r.confidence})),
+    duplicate_keys:duplicateKeys.length,
+    future_actuals:futureActualRows.length,
+    future_actual_rows:futureActualRows.slice(0,20).map((r:any)=>({person:r.name,date:r.date,role:r.role,shift_type:r.shift_type,page:r.page})),
     missing_date_pages:parsed.missingDatePages,
+    inferred_date_pages:parsed.inferredDatePages||[],
     page_periods:parsed.pagePeriods,
     date_debug:parsed.missingDateDebug
   };
 
-  if(mode==="preview")return J({ok:true,preview:true,parser_stage:"quinyx-layout-v25",shift_count:rows.length,
+  if(mode==="preview")return J({ok:true,preview:true,parser_stage:"quinyx-layout-v26",shift_count:rows.length,
     people_count:validation.people_count,period_start,period_end,validation,rows,
-    note:"Preview only. V23 čte datum z Quinyx range, českých/anglických měsíců, číselného range nebo ISO week fallbacku. Nic se ještě nezapisuje."});
+    note:"Preview only. V26 umí doplnit chybějící page period z jednoznačně shodné sady dnů a u duplicitních kandidátů vybírá nejúplnější směnu. Nic se ještě nezapisuje."});
 
   if(mode!=="commit")return J({error:"Unsupported mode"},400);
   if(!import_id)return J({error:"Missing import_id"},400);
@@ -299,7 +341,7 @@ Deno.serve(async req=>{
     import_id,
     source_record_key:`shift|${pmap.get(r.person_key)}|${r.date}|${norm(r.role).replace(/\s+/g," ")}|${norm(r.shift_type).replace(/\s+/g," ")}`,
     metadata:{
-      source_type:"quinyx",parser_version:"quinyx-v25",source_name:r.name,page:r.page,
+      source_type:"quinyx",parser_version:"quinyx-v26",source_name:r.name,page:r.page,
       page_period_start:r.page_period_start,page_period_end:r.page_period_end,
       confidence:r.confidence,venue:"Holešovice, Prague",export_cutoff:new Date().toISOString().slice(0,10)
     }
@@ -310,7 +352,7 @@ Deno.serve(async req=>{
   if(we)return J({error:we.message},500);
 
   await db.from("imports").update({
-    status:"imported",period_start,period_end,parser_version:"quinyx-v25"
+    status:"imported",period_start,period_end,parser_version:"quinyx-v26"
   }).eq("id",import_id);
 
   return J({ok:true,committed:true,inserted_count:w?.length??0,attempted_count:payload.length,
