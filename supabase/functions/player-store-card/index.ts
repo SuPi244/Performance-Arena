@@ -292,7 +292,7 @@ Deno.serve(async req=>{
       {data:historyShifts,error:historyShiftErr}
     ]=await Promise.all([
       db.from("bonus_ledger").select("bonus_month,amount,currency,status,metadata").eq("person_id",person.id)
-        .in("status",["confirmed","paid"]).order("bonus_month",{ascending:false}),
+        .in("status",["confirmed","paid","pending_unparsed"]).order("bonus_month",{ascending:false}),
       db.from("store_card_months").select("*").order("month",{ascending:false}).limit(24),
       db.from("metric_observations").select("person_id,metric_id,value,period_start,period_end,source_type,metadata")
         .eq("person_id",person.id).gte("period_start",frame.start).lte("period_start",frame.today),
@@ -386,16 +386,19 @@ Deno.serve(async req=>{
       }
     }
 
-    const confirmed=(bonusRows||[]).map((x:any)=>{
+    const history=(bonusRows||[]).map((x:any)=>{
       const rawAmount=Number(x.amount||0);
       const eligible=x?.metadata?.bonus_eligible;
-      return {...x,raw_amount:rawAmount,amount:eligible===false?0:rawAmount};
+      const parsed=x.status!=="pending_unparsed";
+      return {...x,raw_amount:rawAmount,amount:parsed?(eligible===false?0:rawAmount):null,payout_parsed:parsed};
     });
+    const confirmed=history.filter((x:any)=>x.status==="confirmed"||x.status==="paid");
     const bonus_wallet={
       currency:"CZK",
-      confirmed_total_czk:confirmed.reduce((a:number,x:any)=>a+x.amount,0),
+      confirmed_total_czk:confirmed.reduce((a:number,x:any)=>a+Number(x.amount||0),0),
       latest:confirmed[0]||null,
-      history:confirmed
+      history,
+      pending_unparsed_count:history.filter((x:any)=>x.status==="pending_unparsed").length
     };
 
     const latestMonth=months?.[0]||null;
@@ -1354,7 +1357,7 @@ Deno.serve(async req=>{
 
     return J({
       ok:true,
-      version:"player-store-card-v16",
+      version:"player-store-card-v17",
       person:{
         person_key:person.person_key,
         display_name:person.display_name,
