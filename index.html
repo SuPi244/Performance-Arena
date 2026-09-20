@@ -1436,6 +1436,23 @@ html[data-theme="light"] .home-scorecard-main{background:linear-gradient(145deg,
 @media(min-width:1800px){.home-scorecard-main{padding:28px}.home-scorecard-points strong{font-size:62px}.home-scorecard-bonus{font-size:36px}.home-headline-card{min-height:132px;padding:19px}.home-headline-card>strong{font-size:31px}.home-momentum-panel,.home-leaderboard-panel{min-height:450px}.home-momentum-chart{height:320px}.home-lb-row{padding:12px 13px}.home-lb-name strong{font-size:12px}}
 </style>
 
+
+<style id="home-kpi-v180">
+.home-kpi-pulse-section{margin-top:16px}.home-kpi-pulse{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:8px!important}
+.home-kpi-pulse .scan-chip{min-height:58px;justify-content:center;padding:10px 12px!important;border-radius:13px!important;font-size:9px!important}
+.home-kpi-pulse .scan-chip strong{font-size:13px!important;margin-left:auto}.home-kpi-pulse .scan-chip.good{border-color:rgba(34,197,94,.34)!important;background:linear-gradient(145deg,rgba(34,197,94,.13),rgba(34,197,94,.035))!important;box-shadow:inset 0 0 0 1px rgba(34,197,94,.04)}
+.home-kpi-pulse .scan-chip.bad{border-color:rgba(239,68,68,.35)!important;background:linear-gradient(145deg,rgba(239,68,68,.13),rgba(239,68,68,.035))!important}.home-kpi-pulse .scan-chip.neutral{border-color:var(--line);background:rgba(255,255,255,.018);color:var(--muted)}
+.home-kpi-trend-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}.home-kpi-trend-card{border:1px solid var(--line);border-radius:17px;padding:13px;background:linear-gradient(145deg,rgba(53,231,138,.035),rgba(255,255,255,.012)),var(--panel);min-width:0}
+.home-kpi-trend-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.home-kpi-trend-head>div>span{display:block;font-size:8px;font-weight:950;letter-spacing:.07em;color:var(--muted)}.home-kpi-trend-head strong{display:block;font-size:22px;margin-top:5px;letter-spacing:-.035em}
+.home-kpi-status{font-size:7px;font-weight:950;border-radius:999px;padding:5px 7px;border:1px solid var(--line);white-space:nowrap}.home-kpi-status.good{color:#86efac;background:rgba(34,197,94,.10);border-color:rgba(34,197,94,.25)}.home-kpi-status.bad{color:#fca5a5;background:rgba(239,68,68,.09);border-color:rgba(239,68,68,.24)}.home-kpi-status.neutral{color:var(--muted)}
+.home-kpi-mini-chart{height:145px;margin-top:8px}.home-kpi-trend-card>small{display:block;margin-top:7px;font-size:7.5px;line-height:1.4;color:var(--muted)}
+html[data-theme="light"] .home-kpi-trend-card{background:#f8fbf9}
+@media(max-width:1100px){.home-kpi-trend-grid{grid-template-columns:1fr 1fr}.home-kpi-pulse{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
+@media(max-width:700px){.home-kpi-trend-grid{grid-template-columns:1fr 1fr}.home-kpi-pulse{grid-template-columns:1fr 1fr!important}.home-kpi-mini-chart{height:125px}}
+@media(max-width:470px){.home-kpi-trend-grid{grid-template-columns:1fr}.home-kpi-pulse{grid-template-columns:1fr!important}}
+@media(min-width:1800px){.home-kpi-mini-chart{height:175px}.home-kpi-trend-card{padding:17px}.home-kpi-trend-head strong{font-size:27px}.home-kpi-pulse .scan-chip{min-height:70px!important;font-size:11px!important}.home-kpi-pulse .scan-chip strong{font-size:16px!important}}
+</style>
+
 </head>
 <body><div class="ambient-particles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
 <div id="loginOverlay">
@@ -1451,7 +1468,7 @@ html[data-theme="light"] .home-scorecard-main{background:linear-gradient(145deg,
 <div class="hidden" id="seasonRecapOverlay"><div class="season-recap-card"><div class="rundown-head"><div><div class="rundown-kicker">NOVÁ SEZÓNA</div><div class="rundown-title" id="seasonRecapTitle">Season Recap</div><div class="rundown-sub" id="seasonRecapSub">Tvoje poslední sezóna</div></div><button aria-label="Zavřít" class="rundown-close" id="seasonRecapClose">×</button></div><div class="season-recap-grid" id="seasonRecapStats"></div><div class="season-recap-section"><h4>🏆 Nejdůležitější výsledky</h4><div class="rundown-list" id="seasonRecapWins"></div></div><div class="season-recap-section"><h4>📈 Posun</h4><div class="rundown-list" id="seasonRecapProgress"></div></div><div class="rundown-actions"><button class="rundown-btn" id="seasonRecapContinue">Jdeme na novou sezónu</button></div></div></div>
 <div class="hidden" id="rundownOverlay"><div class="rundown-card"><div class="rundown-head"><div><div class="rundown-kicker">Tvoje poslední výsledky</div><div class="rundown-title" id="rundownTitle">Dobrá práce.</div><div class="rundown-sub" id="rundownSub">Rychlé shrnutí toho, co se ti povedlo.</div></div><button aria-label="Zavřít" class="rundown-close" id="rundownClose">×</button></div><div class="rundown-grid" id="rundownStats"></div><div class="rundown-section"><h4>🔥 Co se ti povedlo</h4><div class="rundown-list" id="rundownWins"></div></div><div class="rundown-section"><h4>🏆 Co jsi odemkl</h4><div class="rundown-achievements" id="rundownAchievements"></div></div><div class="rundown-section"><h4>🎯 Na čem můžeš ještě zabrat</h4><div class="rundown-list" id="rundownFocus"></div></div><div class="rundown-actions"><button class="rundown-btn" id="rundownContinue">Pokračovat do profilu</button></div></div></div>
 <div class="shell">
-<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V179</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
+<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V180</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
 <div class="layout">
 <aside class="sidebar">
 <div class="label">Profil</div><select class="select" id="workerSelect"></select>
@@ -1501,6 +1518,12 @@ html[data-theme="light"] .home-scorecard-main{background:linear-gradient(145deg,
   </div>
 </div>
 
+
+<div class="section home-kpi-pulse-section">
+  <div class="section-head home-priority-head"><div><span class="home-priority-kicker">KPI PULSE</span><h3>RYCHLÁ KONTROLA</h3></div><span>zelená = na cíli · červená = mimo cíl</span></div>
+  <div class="scan-strip home-kpi-pulse" id="homeScanStrip"></div>
+</div>
+
 <div class="section home-focus-grid">
   <section class="panel home-momentum-panel">
     <div class="section-head"><div><span class="home-priority-kicker">PROGRESS</span><h3>📈 JDEŠ NAHORU?</h3></div><span id="homeMomentumMeta">live trend</span></div>
@@ -1520,13 +1543,23 @@ html[data-theme="light"] .home-scorecard-main{background:linear-gradient(145deg,
   </section>
 </div>
 
+<div class="section home-kpi-trends-section">
+  <div class="section-head home-priority-head"><div><span class="home-priority-kicker">KEY KPI TRENDS</span><h3>📊 HLAVNÍ KPI V ČASE</h3></div><span>trend + cílová hranice</span></div>
+  <div class="home-kpi-trend-grid">
+    <section class="home-kpi-trend-card"><div class="home-kpi-trend-head"><div><span>💚 POFR</span><strong id="homeKpiPofrValue">—</strong></div><b id="homeKpiPofrStatus" class="home-kpi-status neutral">—</b></div><div class="home-kpi-mini-chart"><canvas id="homeKpiPofrChart"></canvas></div><small id="homeKpiPofrMeta">Cíl ≥ 98 %</small></section>
+    <section class="home-kpi-trend-card"><div class="home-kpi-trend-head"><div><span>🛡️ MISSING</span><strong id="homeKpiMissingValue">—</strong></div><b id="homeKpiMissingStatus" class="home-kpi-status neutral">—</b></div><div class="home-kpi-mini-chart"><canvas id="homeKpiMissingChart"></canvas></div><small id="homeKpiMissingMeta">Cíl ≤ 0,34 %</small></section>
+    <section class="home-kpi-trend-card"><div class="home-kpi-trend-head"><div><span>📡 SCANNER</span><strong id="homeKpiScannerValue">—</strong></div><b id="homeKpiScannerStatus" class="home-kpi-status neutral">—</b></div><div class="home-kpi-mini-chart"><canvas id="homeKpiScannerChart"></canvas></div><small id="homeKpiScannerMeta">Cíl ≥ 98 %</small></section>
+    <section class="home-kpi-trend-card"><div class="home-kpi-trend-head"><div><span>🎯 PICKING TIME</span><strong id="homeKpiPickingValue">—</strong></div><b id="homeKpiPickingStatus" class="home-kpi-status neutral">—</b></div><div class="home-kpi-mini-chart"><canvas id="homeKpiPickingChart"></canvas></div><small id="homeKpiPickingMeta">Cíl ≤ 2,57 min</small></section>
+  </div>
+</div>
+
 <div class="section grid2 home-game-loop"><section class="panel"><div class="section-head"><h3>⚔️ AKTIVNÍ VÝZVY</h3><span>co můžeš ovlivnit teď</span></div><div id="questList"></div></section><section class="panel"><div class="section-head"><h3>🏅 ODZNAKY</h3><span>season progress</span></div><div class="badge-row badge-showcase" id="badgeList"></div></section></div>
 
 <details class="section home-deep-dive">
   <summary><div><span class="home-priority-kicker">DETAILED PERFORMANCE</span><strong>Všechny metriky, rank progress a sezónní detail</strong></div><span class="home-deep-dive-hint">Rozbalit</span></summary>
   <div class="home-deep-dive-body">
     <div class="section"><div class="section-head"><h3>SEASON SNAPSHOT</h3><span id="seasonMeta">Načítám…</span></div><div class="cards"><div class="card"><div class="name">Season ELO</div><div class="val" id="sElo">—</div><div class="sub" id="sEloDiff">vs. předchozí období</div></div><div class="card rank-snapshot-card"><div class="name">Season Rank</div><div class="rank-snapshot-value"><span id="sRankIcon">🔰</span><strong id="sRank">—</strong></div><div class="sub">aktuální hodnost</div></div><div class="card"><div class="name">Performance</div><div class="val" id="sPerf">—</div><div class="sub">aktuální týden</div></div><div class="card"><div class="name">Streak</div><div class="val" id="sStreak">—</div><div class="sub">splněných týdnů</div></div></div></div>
-    <div class="section"><div class="scan-strip" id="homeScanStrip"></div></div>
+    
     <div class="section"><div class="panel rank-progress-panel"><div class="section-head"><h3>⭐ RANK PROGRESS</h3><span id="rankProgressText">—</span></div><div class="rank-rail"><div class="rank-rail-track"><span id="rankBar" style="width:0%"></span></div><div class="rank-scale"><span class="rank-stop bronze" data-rank-min="900"><i>🔰</i><b>Bronze</b><em>900+</em></span><span class="rank-stop silver" data-rank-min="1000"><i>🛡️</i><b>Silver</b><em>1000</em></span><span class="rank-stop gold" data-rank-min="1100"><i>🥇</i><b>Gold</b><em>1100</em></span><span class="rank-stop master" data-rank-min="1200"><i>💎</i><b>Master</b><em>1200+</em></span></div></div><div class="rank-current-range"><span id="rankFrom">—</span><strong id="rankTo">—</strong></div></div></div>
     <div class="section home-two-col">
       <section class="panel"><div class="section-head"><h3>📊 SEASON BREAKDOWN</h3><span>posledních 13 týdnů</span></div><div style="overflow:auto"><table class="table"><thead><tr><th>Metrika</th><th>Výkon</th><th>Tým</th><th>Vliv na ELO</th></tr></thead><tbody id="homeBreakdown"><tr><td colspan="4" style="color:var(--muted)">Detail se načte z profilu a sezónních dat.</td></tr></tbody></table></div></section>
@@ -1898,8 +1931,27 @@ function closeBadgeLegend(){document.getElementById('badgeLegendOverlay')?.class
 function nextRankLabel(elo){return elo<1000?'Silver · 1000':elo<1100?'Gold · 1100':elo<1200?'Master · 1200':'Master · MAX'}
 function renderHomeScanStrip(){
   const box=document.getElementById('homeScanStrip'); if(!box||!state.player)return;
-  const defs=[['Avg Picking Time','Picking Time'],['Items Picked Via Scanner Ratio','Scanner'],['Missing Incorrect Items Rate','Missing'],['Perfect Order Fulfilment Ratio','POFR']];
-  box.innerHTML=defs.map(([a,label])=>{const m=metricBy(state.player,[a]);if(!m)return '';const value=normalizeMetricValue(m.value,m.name),target=targetForMetric(m.name);const good=value!=null&&target!=null?(lowerBetter(m.name)?value<=target:value>=target):true;return `<div class="scan-chip ${good?'good':'bad'}"><span class="scan-dot"></span><span>${label}</span><strong>${formatNormVal(m.value,m.name)}</strong></div>`}).join('');
+  const lp=state.storeCard?.live_personal||{};
+  const fallback=function(aliases){
+    const m=metricBy(state.player,aliases);
+    return m?{value:normalizeMetricValue(m.value,m.name),name:m.name,display:formatNormVal(m.value,m.name)}:null;
+  };
+  const defs=[
+    {label:'Picking Time',aliases:['Avg Picking Time','Picking Time'],live:null,target:2.57,lower:true,unit:' min'},
+    {label:'Scanner',aliases:['Items Picked Via Scanner Ratio','Scanner Ratio','Scan to pick'],live:lp.scan_to_pick_ratio,target:98,lower:false,unit:' %'},
+    {label:'Missing',aliases:['Missing Incorrect Items Rate','Missing Items Rate'],live:lp.missing_items_ratio,target:.34,lower:true,unit:' %'},
+    {label:'Undelivered',aliases:['Undelivered Items Ratio','Undelivered'],live:lp.undelivered_items_ratio,target:.24,lower:true,unit:' %'},
+    {label:'POFR',aliases:['Perfect Order Fulfilment Ratio','Perfect Order Fulfillment Ratio','POFR'],live:lp.pofr,target:98,lower:false,unit:' %'}
+  ];
+  box.innerHTML=defs.map(function(d){
+    const fb=fallback(d.aliases);
+    const hasLive=d.live!==null&&d.live!==undefined&&Number.isFinite(Number(d.live));
+    const value=hasLive?Number(d.live):(fb?.value??null);
+    if(value==null)return '<div class="scan-chip neutral"><span class="scan-dot"></span><span>'+d.label+'</span><strong>—</strong></div>';
+    const good=d.lower?value<=d.target:value>=d.target;
+    const display=hasLive?(d.unit===' %'?fmt(value,2)+'%':fmt(value,2)+d.unit):(fb?.display??fmt(value,2)+d.unit);
+    return '<div class="scan-chip '+(good?'good':'bad')+'"><span class="scan-dot"></span><span>'+d.label+'</span><strong>'+esc(display)+'</strong></div>';
+  }).join('');
   animateCards('homeScanStrip');
 }
 
@@ -2580,6 +2632,48 @@ function renderHomeMomentum(preset){
  setText('homeMomentumMeta',srs.label+' · '+(srs.granularity==='day'?'denně':'týdně'));
  setText('homeMomentumExplain',diff==null?'Zatím jen jeden dostupný bod.':((good?'↑ zlepšení ':'↓ zhoršení ')+(diff>0?'+':'')+enhancedFmt(diff,srs.unit)+' proti předchozímu období'));
 }
+
+function homeKpiSeries(spec){
+ const all=hubTrendSeries();
+ return all.find(function(x){return (spec.ids||[]).includes(x.metric_id)})
+   || all.find(function(x){return (spec.tests||[]).some(function(t){return norm(x.label||'').includes(norm(t))})})
+   || null;
+}
+function renderHomeKpiTrend(spec){
+ const series=homeKpiSeries(spec),canvas=document.getElementById(spec.canvasId),valueEl=document.getElementById(spec.valueId),statusEl=document.getElementById(spec.statusId),metaEl=document.getElementById(spec.metaId);
+ if(!canvas||!valueEl||!statusEl)return;
+ destroyChart(spec.canvasId);
+ if(!series){
+   valueEl.textContent='—';statusEl.textContent='ČEKÁ NA DATA';statusEl.className='home-kpi-status neutral';
+   if(metaEl)metaEl.textContent=spec.targetCopy+' · trend zatím není dostupný';
+   return;
+ }
+ const values=(series.values||[]).map(function(v){return v==null?null:Number(v)});
+ const valid=values.filter(function(v){return v!=null&&Number.isFinite(v)});
+ const latest=valid.at(-1),prev=valid.length>1?valid.at(-2):null;
+ const good=latest!=null?(spec.lower?latest<=spec.target:latest>=spec.target):null;
+ valueEl.textContent=enhancedFmt(latest,series.unit);
+ statusEl.textContent=good===null?'—':good?'NA CÍLI':'MIMO CÍL';
+ statusEl.className='home-kpi-status '+(good===null?'neutral':good?'good':'bad');
+ const diff=latest!=null&&prev!=null?latest-prev:null;
+ if(metaEl)metaEl.textContent=spec.targetCopy+(diff==null?' · zatím bez srovnání':' · '+((spec.lower?diff<0:diff>0)?'↑ zlepšení ':'↓ zhoršení ')+(diff>0?'+':'')+enhancedFmt(diff,series.unit));
+ const rawLabels=series.labels||[];
+ const labels=series.granularity==='day'?rawLabels.map(function(x){const m=String(x).match(/^\d{4}-(\d{2})-(\d{2})$/);return m?(Number(m[2])+'. '+Number(m[1])+'.'):x}):rawLabels;
+ const targetData=values.map(function(v){return v==null?null:spec.target});
+ charts[spec.canvasId]=new Chart(canvas,{type:'line',data:{labels:labels,datasets:[
+  {label:series.label,data:values,borderColor:'#35E78A',backgroundColor:'rgba(53,231,138,.07)',borderWidth:2,fill:true,tension:.32,pointRadius:2,spanGaps:true},
+  {label:'Cíl',data:targetData,borderColor:'#f59e0b',borderDash:[4,4],borderWidth:1.2,fill:false,tension:0,pointRadius:0,spanGaps:true}
+ ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{enabled:true}},scales:{x:{display:false},y:{ticks:{color:'#91a79b',maxTicksLimit:4,font:{size:9}},grid:{color:'rgba(145,167,155,.08)'}}}}});
+}
+function renderHomeKpiTrends(){
+ const specs=[
+  {canvasId:'homeKpiPofrChart',valueId:'homeKpiPofrValue',statusId:'homeKpiPofrStatus',metaId:'homeKpiPofrMeta',ids:['perfect_order_fulfilment_ratio','pofr'],tests:['perfect order fulfilment','perfect order fulfillment','pofr'],target:98,lower:false,targetCopy:'Cíl ≥ 98 %'},
+  {canvasId:'homeKpiMissingChart',valueId:'homeKpiMissingValue',statusId:'homeKpiMissingStatus',metaId:'homeKpiMissingMeta',ids:['missing_incorrect_items_rate','missing_items_ratio'],tests:['missing incorrect','missing items'],target:.34,lower:true,targetCopy:'Cíl ≤ 0,34 %'},
+  {canvasId:'homeKpiScannerChart',valueId:'homeKpiScannerValue',statusId:'homeKpiScannerStatus',metaId:'homeKpiScannerMeta',ids:['items_picked_via_scanner_ratio','daily_items_picked_via_scanner_ratio','scan_to_pick_ratio'],tests:['scanner ratio','scan to pick','picked via scanner'],target:98,lower:false,targetCopy:'Cíl ≥ 98 %'},
+  {canvasId:'homeKpiPickingChart',valueId:'homeKpiPickingValue',statusId:'homeKpiPickingStatus',metaId:'homeKpiPickingMeta',ids:['picking_time_per_item','avg_picking_time','daily_avg_picking_time'],tests:['picking time per item','avg picking time','picking time'],target:2.57,lower:true,targetCopy:'Cíl ≤ 2,57 min'}
+ ];
+ specs.forEach(renderHomeKpiTrend);
+}
 function renderHomePriority(){
  const d=state.storeCard||{},eff=d.efficiency||{},lp=d.live_personal||{},pr=d.projection||{};
  const points=Number(pr.projected_points),max=Number(d.latest_official_store_card?.max_points||17)||17,threshold=Number(d.scoring?.reference_threshold_points||11)||11;
@@ -2618,6 +2712,7 @@ function renderHomePriority(){
 
  renderHomeLeaderboardPreview();
  renderHomeMomentum();
+ renderHomeKpiTrends();
 }
 
 function renderHome(){if(!state.player)return;renderSeasonCountdown();const p=state.player,lb=playerSeasonData(state.worker),sc=performanceScoreFromLatest(p),st=streak(state.history),life=lifetimeProgressFor(state.worker),xp=life.xp,lvl=life.level,within=xp%1000,t=tier(lb.elo);document.body.dataset.tier=t[0];setText('homeName',p.worker);setText('homeTier',t[0]);setText('homeRank','#'+lb.rank);const rankIcon=t[0]==='MASTER'?'💎':t[0]==='GOLD'?'🥇':t[0]==='SILVER'?'🛡️':'🔰';setText('rankCrest',rankIcon);setText('rankHeadline',t[0]==='UNRANKED'?'UNRANKED':t[0]);setText('sElo',lb.elo+' b.');setText('sRank',t[0]==='UNRANKED'?'—':`${t[0]}${lb.status&&lb.status!=='FULL'?' · '+lb.status:''} · #${lb.rank}`);setText('sRankIcon',rankIcon);setText('sPerf',sc==null?'—':fmt(sc,1));setText('sStreak',st);setText('homeLevel','LVL '+lvl);setText('homeXp',within+' / 1000 XP');document.getElementById('xpBar').style.width=(within/10)+'%';setText('seasonMeta',state.team?.labels?.length?('Rank: sezónní ELO · Level: celoživotní XP · '+state.team.labels.length+' týdnů dostupných'):'Aktuální rank · sezónní detail se dopočítá při otevření žebříčku');const rankBar=document.getElementById('rankBar');const rankMin=900,rankMax=1200;const rankPct=Math.min(100,Math.max(0,((lb.elo-rankMin)/(rankMax-rankMin))*100));rankBar.style.width=rankPct+'%';setText('rankProgressText',t[0]==='UNRANKED'?'—':t[0]);setText('rankFrom','');setText('rankTo','');document.querySelectorAll('.rank-rail .rank-stop').forEach((el,i)=>{const min=Number(el.dataset.rankMin||0);el.classList.toggle('active',lb.elo>=min);el.classList.toggle('current',(i===0&&lb.elo<1000)||(i===1&&lb.elo>=1000&&lb.elo<1100)||(i===2&&lb.elo>=1100&&lb.elo<1200)||(i===3&&lb.elo>=1200));});const b=badges(state.worker);document.getElementById('badgeList').innerHTML=b.map(x=>`<span class="badge" data-emoji="${esc(x[0])}" data-title="${esc(x[1])}" title="${esc(x[1])}">${x[0]} ${esc(x[1])}</span>`).join('')||'<span class="empty-badges">Zatím žádné sezónní odznaky</span>';renderQuests();renderHomeScanStrip();renderHomeBreakdown();renderAchievements();renderStoreCardLive();renderStoreQuests().catch(e=>{console.warn('store quests',e);const b=document.getElementById('homeStoreQuestList');if(b)b.innerHTML='<div class=\"notice error\">Store Challenges se nepodařilo načíst.</div>';});animateWidth('xpBar',within/10,850);const rankPct2=Math.min(100,Math.max(0,((lb.elo-900)/(1200-900))*100));animateWidth('rankBar',rankPct2,1000);animateCards('badgeList');animateCards('homeQuestList');animateCards('homeStoreQuestList');renderHomePriority()}
