@@ -80,6 +80,74 @@ function txt(row:any,min=-Infinity,max=Infinity){
 function val(row:any,min:number,max:number){
   const s=txt(row,min,max); const m=s.match(/-?\d+(?:[.,]\d+)?%?/); return m?n(m[0]):null;
 }
+
+function detectColumnX(page:any,aliases:string[],fallback:number){
+  const items=[...(page?.items||[])].filter((x:any)=>String(x.text||"").trim());
+  const keys=aliases.map(compact).filter(Boolean);
+  const candidates:any[]=[];
+  const push=(x:number,text:string,score:number)=>{
+    if(!Number.isFinite(x)||!score)return;
+    candidates.push({x,text,score,dist:Math.abs(x-fallback)});
+  };
+  const scoreText=(raw:any)=>{
+    const c=compact(String(raw||""));if(!c)return 0;
+    let best=0;
+    for(const k of keys){
+      if(c===k)best=Math.max(best,1000);
+      else if(c.includes(k))best=Math.max(best,850-Math.min(150,c.length-k.length));
+      else if(k.includes(c)&&c.length>=Math.max(4,Math.floor(k.length*.55)))best=Math.max(best,520-Math.abs(k.length-c.length));
+    }
+    return best;
+  };
+
+  // Normal one-item headers.
+  for(const it of items){
+    const sc=scoreText(it.text);if(sc)push(center(it),String(it.text||""),sc);
+  }
+
+  // Headers split horizontally into several PDF text items.
+  for(const r of groupRows(page,2.8)){
+    const its=r.items||[];
+    for(let i=0;i<its.length;i++){
+      for(let len=2;len<=4&&i+len<=its.length;len++){
+        const span=its.slice(i,i+len),joined=span.map((z:any)=>z.text).join(" ");
+        const sc=scoreText(joined);
+        if(sc){
+          const x=span.reduce((a:number,z:any)=>a+center(z),0)/span.length;
+          push(x,joined,sc-10*(len-1));
+        }
+      }
+    }
+  }
+
+  // Headers split vertically (common in old Store Cards): combine text items
+  // that share approximately the same column center.
+  for(const anchor of items){
+    const ax=center(anchor);
+    const col=items.filter((z:any)=>Math.abs(center(z)-ax)<=9)
+      .sort((a:any,b:any)=>Number(b.y||0)-Number(a.y||0));
+    if(col.length<2)continue;
+    const joined=col.slice(0,12).map((z:any)=>z.text).join(" ");
+    const sc=scoreText(joined);
+    if(sc)push(ax,joined,sc-20);
+  }
+
+  if(!candidates.length)return fallback;
+  candidates.sort((a:any,b:any)=>b.score-a.score||a.dist-b.dist);
+  return candidates[0].x;
+}
+
+function nearestNumeric(row:any,x:number,maxDist=12){
+  const cands=(row?.items||[]).map((it:any)=>({v:n(it.text),d:Math.abs(center(it)-x)}))
+    .filter((q:any)=>q.v!==null&&Number.isFinite(Number(q.v))&&q.d<=maxDist)
+    .sort((a:any,b:any)=>a.d-b.d);
+  return cands.length?Number(cands[0].v):null;
+}
+
+function dynamicVal(row:any,x:number,min:number,max:number){
+  const v=nearestNumeric(row,x,12);
+  return v!==null?v:val(row,min,max);
+}
 function canonicalVenue(raw:any){
   const safe=String(raw??"").trim();
   const c=compact(safe);
@@ -120,6 +188,12 @@ function parsePeople(layout:any[],identityHints:any[]=[]){
 
   for(const cand of candidates){
     const rows=groupRows(cand.p,2.6);
+    const dynamicCols={
+      inbound_total_units:detectColumnX(cand.p,["IB total units","Inbound total units","Total IB units"],479.5),
+      inbound_icy_units:detectColumnX(cand.p,["ICY IB Units","ICY inbound units","ICY units"],498.5),
+      inbound_freeze_units:detectColumnX(cand.p,["FREEZE IB units","FREEZE inbound units","Freeze units"],519.5),
+      stock_count:detectColumnX(cand.p,["Stock Count","Stock count adjustments"],538)
+    };
     for(const r of rows){
       const itemTexts=(r.items||[]).map((i:any)=>String(i.text||"").trim()).filter(Boolean);
       const rowText=itemTexts.join(" ").replace(/\s+/g," ").trim();
@@ -155,10 +229,10 @@ function parsePeople(layout:any[],identityHints:any[]=[]){
         average_accepted_time:val(r,393,410),
         average_collection_time:val(r,420,438),
         average_start_collection_time:val(r,451,469),
-        inbound_total_units:val(r,471,488),
-        inbound_icy_units:val(r,490,507),
-        inbound_freeze_units:val(r,510,529),
-        stock_count:val(r,531,545),
+        inbound_total_units:dynamicVal(r,dynamicCols.inbound_total_units,471,488),
+        inbound_icy_units:dynamicVal(r,dynamicCols.inbound_icy_units,490,507),
+        inbound_freeze_units:dynamicVal(r,dynamicCols.inbound_freeze_units,510,529),
+        stock_count:dynamicVal(r,dynamicCols.stock_count,531,545),
         team_rating:val(r,557,574),
         score_outbound:val(r,592,607),
         score_quality:val(r,620,634),
@@ -179,7 +253,8 @@ function parsePeople(layout:any[],identityHints:any[]=[]){
         picker_login:picker||hint?.alias_value||null,
         display_name:display||hint?.display_name||picker||email,
         hint_person_id:hint?.person_id||null,
-        ...values
+        ...values,
+        _column_detection:dynamicCols
       });
     }
     if(out.length)break;
@@ -1262,7 +1337,7 @@ Deno.serve(async req=>{
   };
 
   if(mode==="preview"){
-   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v22",
+   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v23",
     note:"Preview only. Existing identities are resolved by email/picker login. New historical people are shown before commit."});
   }
 
@@ -1351,7 +1426,7 @@ Deno.serve(async req=>{
    team_bonus_30h_czk:rewards.team_bonus_30h,
    source_import_id:import_id,
    status:"official",
-   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v22",filename:imp.filename,bonus_rules:{top_bonus_czk:rewards.top_bonus_czk||[],team_bonus:rewards.team_bonus_rules||null}},
+   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v23",filename:imp.filename,bonus_rules:{top_bonus_czk:rewards.top_bonus_czk||[],team_bonus:rewards.team_bonus_rules||null}},
    updated_at:new Date().toISOString()
   };
   const {error:sce}=await db.from("store_card_months").upsert(monthRow,{onConflict:"month"});
@@ -1429,7 +1504,7 @@ Deno.serve(async req=>{
    status:"imported",
    period_start:period.period_start,
    period_end:period.period_end,
-   parser_version:"store-card-monthly-v22",
+   parser_version:"store-card-monthly-v23",
    record_count:totalRecords,
    metadata:{
     ...(imp.metadata||{}),
@@ -1447,7 +1522,7 @@ Deno.serve(async req=>{
    ...common,
    preview:false,
    committed:true,
-   parser_stage:"store-card-monthly-committed-v22",
+   parser_stage:"store-card-monthly-committed-v23",
    observations_attempted:obs.length,
    observations_inserted:obsWritten,
    store_metrics_attempted:storeRows.length,
