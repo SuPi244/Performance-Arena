@@ -213,12 +213,12 @@ function parseRewards(layout:any[],people:any[],period:any,knownPeople:any[]=[])
     const k=key(name);if(!k)return null;
     const exact=canonical.get(k);
     if(exact&&exact.size===1)return [...exact][0];
-    // Historical layouts can leave a numeric KPI glued to the name. Accept only a
-    // unique canonical prefix, never a fuzzy multi-person guess.
+    // Historical layouts can glue medals, KPI values or payout amounts around the name.
+    // Match a unique canonical identity anywhere in the row; never guess across people.
     const candidates=new Set<string>();
     for(const [ck,pids] of canonical){
       if(ck.length<5)continue;
-      if(k.startsWith(ck)||ck.startsWith(k)){
+      if(k.includes(ck)||ck.includes(k)){
         for(const pid of pids)candidates.add(pid);
       }
     }
@@ -263,42 +263,97 @@ function parseRewards(layout:any[],people:any[],period:any,knownPeople:any[]=[])
   let team_effort_pct:number|null=null;
   let team40:number[]|null=null,team30:number[]|null=null;
   let thresholdHigh:number|null=null,thresholdMid:number|null=null;
+
+  const rowText=(r:any)=>(r.items||[]).map((i:any)=>String(i.text||"")).join(" ").replace(/\s+/g," ").trim();
+  const findLabeledRow=(re:RegExp)=>rows.find((r:any)=>re.test(rowText(r)))||null;
+  const rowNumbersAfterLabel=(r:any,labelRe:RegExp)=>{
+    if(!r)return [];
+    const label=(r.items||[]).find((i:any)=>labelRe.test(String(i.text||"")));
+    const lx=label?center(label):-Infinity;
+    return (r.items||[])
+      .filter((i:any)=>center(i)>lx+4)
+      .map((i:any)=>({x:center(i),v:n(i.text),t:String(i.text||"")}))
+      .filter((q:any)=>q.v!=null&&Number.isFinite(Number(q.v))&&q.v>=0&&q.v<=20000)
+      .sort((a:any,b:any)=>a.x-b.x)
+      .map((q:any)=>Number(q.v));
+  };
+
   for(const r of rows){
-    const all=r.items.map((i:any)=>String(i.text||"")).join(" ").replace(/\s+/g," ").trim();
+    const all=rowText(r);
     if(/Team effort AVG/i.test(all)){
       const perc=(all.match(/-?\d+(?:[.,]\d+)?\s*%/)||[])[0];
       team_effort_pct=perc?n(perc):null;
     }
+  }
 
-    // Threshold header: ">= 70 % | >= 65 % | < 65 %".
-    if(/[≥>]\s*\d+\s*%/.test(all)&&/[<]\s*\d+\s*%/.test(all)){
-      const nums=(all.match(/\d+(?:[.,]\d+)?/g)||[]).map(n).filter((x:any)=>x!=null);
-      if(nums.length>=2){
-        thresholdHigh=Number(nums[0]);
-        thresholdMid=Number(nums[1]);
-      }
-    }
+  const row40=findLabeledRow(/40h\s*\/\s*w/i);
+  const row30=findLabeledRow(/30h\s*\/\s*w/i);
+  if(row40){
+    const vals=rowNumbersAfterLabel(row40,/40h\s*\/\s*w/i);
+    if(vals.length>=3)team40=vals.slice(0,3);
+  }
+  if(row30){
+    const vals=rowNumbersAfterLabel(row30,/30h\s*\/\s*w/i);
+    if(vals.length>=3)team30=vals.slice(0,3);
+  }
 
-    if(/40h\/w/i.test(all)){
-      const vals=r.items.filter((i:any)=>center(i)>=420&&center(i)<540)
-        .map((i:any)=>n(i.text)).filter((x:any)=>x!=null&&Number.isFinite(Number(x)));
-      if(vals.length>=3)team40=vals.slice(0,3).map((x:any)=>Number(x));
+  // Pick the threshold row nearest the 40h row, then read only cells that actually
+  // contain a comparison sign + percentage. This avoids KPI values like 8.5 being
+  // mistaken for a bonus threshold on older cards.
+  const thresholdCandidates=rows
+    .filter((r:any)=>{
+      const all=rowText(r);
+      return /%/.test(all)&&(/[≥>]/.test(all)||/>=/.test(all))&&/</.test(all);
+    })
+    .sort((a:any,b:any)=>{
+      const ay=row40?Math.abs(Number(a.y)-Number(row40.y)):0;
+      const by=row40?Math.abs(Number(b.y)-Number(row40.y)):0;
+      return ay-by;
+    });
+  const tr=thresholdCandidates[0]||null;
+  if(tr){
+    const its=[...(tr.items||[])].sort((a:any,b:any)=>center(a)-center(b));
+    const thresholdVals:any[]=[];
+    for(let i=0;i<its.length;i++){
+      const v=n(its[i].text);
+      if(v==null||v<0||v>100)continue;
+      const x=center(its[i]);
+      const near=its.filter((z:any)=>Math.abs(center(z)-x)<20).map((z:any)=>String(z.text||"")).join(" ");
+      if(!/%/.test(near))continue;
+      if(!(/[≥><]/.test(near)||/>=|<=/.test(near)))continue;
+      thresholdVals.push({x,v:Number(v),near});
     }
-    if(/30h\/w/i.test(all)){
-      const vals=r.items.filter((i:any)=>center(i)>=420&&center(i)<540)
-        .map((i:any)=>n(i.text)).filter((x:any)=>x!=null&&Number.isFinite(Number(x)));
-      if(vals.length>=3)team30=vals.slice(0,3).map((x:any)=>Number(x));
+    thresholdVals.sort((a:any,b:any)=>a.x-b.x);
+    const unique:any[]=[];
+    for(const q of thresholdVals){
+      if(!unique.some((u:any)=>Math.abs(u.x-q.x)<8))unique.push(q);
+    }
+    if(unique.length>=2){
+      thresholdHigh=unique[0].v;
+      thresholdMid=unique[1].v;
     }
   }
 
-  // Fallback to the visible column positions if PDF text grouping split the threshold header.
+  // Geometry fallback for the common Store Card template.
   if(thresholdHigh==null||thresholdMid==null){
     for(const r of rows){
-      const left=txt(r,425,465),mid=txt(r,465,505),right=txt(r,505,540);
-      if(/[≥>]/.test(left)&&/%/.test(left)&&/[≥>]/.test(mid)&&/%/.test(mid)&&/</.test(right)&&/%/.test(right)){
+      const left=txt(r,420,465),mid=txt(r,465,505),right=txt(r,505,545);
+      if(/%/.test(left)&&/%/.test(mid)&&/%/.test(right)&&(/[≥>]/.test(left)||/>=/.test(left))&&(/[≥>]/.test(mid)||/>=/.test(mid))&&/</.test(right)){
         thresholdHigh=n(left);thresholdMid=n(mid);break;
       }
     }
+  }
+
+  // Second fallback: numbers in the 40h/30h rows by the three bonus-column centers.
+  if((!team40||team40.length<3)&&row40){
+    const vals=(row40.items||[]).map((i:any)=>({x:center(i),v:n(i.text)}))
+      .filter((q:any)=>q.v!=null&&q.x>420&&q.x<545).sort((a:any,b:any)=>a.x-b.x);
+    if(vals.length>=3)team40=vals.slice(0,3).map((q:any)=>Number(q.v));
+  }
+  if((!team30||team30.length<3)&&row30){
+    const vals=(row30.items||[]).map((i:any)=>({x:center(i),v:n(i.text)}))
+      .filter((q:any)=>q.v!=null&&q.x>420&&q.x<545).sort((a:any,b:any)=>a.x-b.x);
+    if(vals.length>=3)team30=vals.slice(0,3).map((q:any)=>Number(q.v));
   }
 
   let teamTier:number|null=null;
@@ -350,10 +405,12 @@ function parseRewards(layout:any[],people:any[],period:any,knownPeople:any[]=[])
   const payouts:any[]=[];
   const payoutSeen=new Set<string>();
   for(const r of rows){
+    // Payout table lives in the middle of page 1, while the main ranking table is on
+    // the left. Match a known person anywhere in that middle region.
     const nameCandidates=[
-      txt(r,220,320),
-      txt(r,225,330),
-      txt(r,230,345)
+      txt(r,185,395),
+      txt(r,200,380),
+      txt(r,220,360)
     ].filter(Boolean);
     let pid:string|null=null,sourceName="";
     for(const nm of nameCandidates){
@@ -362,9 +419,14 @@ function parseRewards(layout:any[],people:any[],period:any,knownPeople:any[]=[])
     }
     if(!pid)continue;
 
-    // Amount column shifted a little between historical sheets.
+    // Prefer integer-like CZK values in the payout amount band. Keep old windows as fallback.
+    const middleNums=(r.items||[])
+      .map((i:any)=>({x:center(i),v:n(i.text),t:String(i.text||"")}))
+      .filter((q:any)=>q.v!=null&&Number.isFinite(Number(q.v))&&q.x>=285&&q.x<390&&q.v>=0&&q.v<=20000)
+      .sort((a:any,b:any)=>a.x-b.x);
     const amountCandidates=[
-      val(r,305,350),val(r,300,365),val(r,315,375)
+      ...middleNums.map((q:any)=>Number(q.v)),
+      val(r,295,350),val(r,300,365),val(r,315,385)
     ].filter((x:any)=>x!=null&&Number.isFinite(Number(x))) as number[];
     const plausible=amountCandidates.find((x:any)=>x>=0&&x<=20000);
     if(plausible==null)continue;
@@ -732,7 +794,7 @@ Deno.serve(async req=>{
   };
 
   if(mode==="preview"){
-   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v11",
+   return J({...common,preview:true,parser_stage:"store-card-monthly-layout-v12",
     note:"Preview only. Existing identities are resolved by email/picker login. New historical people are shown before commit."});
   }
 
@@ -821,7 +883,7 @@ Deno.serve(async req=>{
    team_bonus_30h_czk:rewards.team_bonus_30h,
    source_import_id:import_id,
    status:"official",
-   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v11",filename:imp.filename,bonus_rules:{top_bonus_czk:rewards.top_bonus_czk||[],team_bonus:rewards.team_bonus_rules||null}},
+   metadata:{maxima:maxima||null,parser_version:"store-card-monthly-v12",filename:imp.filename,bonus_rules:{top_bonus_czk:rewards.top_bonus_czk||[],team_bonus:rewards.team_bonus_rules||null}},
    updated_at:new Date().toISOString()
   };
   const {error:sce}=await db.from("store_card_months").upsert(monthRow,{onConflict:"month"});
@@ -895,7 +957,7 @@ Deno.serve(async req=>{
    status:"imported",
    period_start:period.period_start,
    period_end:period.period_end,
-   parser_version:"store-card-monthly-v11",
+   parser_version:"store-card-monthly-v12",
    record_count:totalRecords,
    metadata:{
     ...(imp.metadata||{}),
@@ -913,7 +975,7 @@ Deno.serve(async req=>{
    ...common,
    preview:false,
    committed:true,
-   parser_stage:"store-card-monthly-committed-v11",
+   parser_stage:"store-card-monthly-committed-v12",
    observations_attempted:obs.length,
    observations_inserted:obsWritten,
    store_metrics_attempted:storeRows.length,
