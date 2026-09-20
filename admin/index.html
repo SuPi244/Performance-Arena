@@ -760,6 +760,7 @@ document.addEventListener('click',async e=>{
  }
  function batchSummary(){
   return batch.reduce(function(a,x){
+   if(x.state==='skipped')return a;
    const s=x.preflight&&x.preflight.summary||{};
    a.new+=Number(s.new||0);a.changed+=Number(s.changed||0);a.unchanged+=Number(s.unchanged||0);a.conflicts+=Number(s.conflicts||0);
    return a;
@@ -775,7 +776,7 @@ document.addEventListener('click',async e=>{
   }
   batch.forEach(function(x){
    const s=x.preflight&&x.preflight.summary||{};
-   let state=x.state==='loading'?'staging…':x.state==='staged'?'staged':x.state==='parsing'?'preview…':x.state==='ready'?(s.conflicts?'blokováno':'připraveno ✓'):x.state==='done'?'importováno ✓':x.state==='duplicate'?'beze změny ✓':'chyba';
+   let state=x.state==='loading'?'staging…':x.state==='staged'?'staged':x.state==='parsing'?'preview…':x.state==='ready'?(s.conflicts?'blokováno':'připraveno ✓'):x.state==='done'?'importováno ✓':x.state==='duplicate'?'beze změny ✓':x.state==='skipped'?'vynecháno':'chyba';
    let cls=x.state==='error'||s.conflicts?'err':(x.state==='ready'||x.state==='done'||x.state==='duplicate'?'ok':'muted');
    let details='';
    if(x.error)details='<div class="err">'+esc(x.error)+'</div>';
@@ -820,16 +821,18 @@ document.addEventListener('click',async e=>{
       '</div></details>';
    }
    html+='<div class="bulk-item"><div><div class="bulk-name">'+esc(x.file.name)+'</div><div class="bulk-type">'+esc(LABELS[x.report_type]||x.report_type)+(x.legacyReparse?' · reparse starého Store Card v2':x.skipCommit?' · exact duplicate':'')+'</div></div>'+
-    '<div class="'+cls+'">'+esc(state)+'</div><div class="bulk-counts">'+pill('nové',s.new||0,'ok')+pill('změněné',s.changed||0,'warn')+pill('stejné',s.unchanged||0,'')+pill('konflikty',s.conflicts||0,s.conflicts?'err':'')+'</div>'+details+'</div>';
+    '<div class="'+cls+'">'+esc(state)+'</div><div class="bulk-counts">'+pill('nové',x.state==='skipped'?0:(s.new||0),'ok')+pill('změněné',x.state==='skipped'?0:(s.changed||0),'warn')+pill('stejné',x.state==='skipped'?0:(s.unchanged||0),'')+pill('konflikty',x.state==='skipped'?0:(s.conflicts||0),x.state!=='skipped'&&s.conflicts?'err':'')+
+    '<button class="secondary batchSkip" data-item="'+batch.indexOf(x)+'" style="margin-left:6px">'+(x.state==='skipped'?'Vrátit do bulku':'Vynechat z bulku')+'</button></div>'+details+'</div>';
   });
   host.innerHTML=html||'<div class="muted">Fronta je prázdná.</div>';
   const analyze=$('#bulkAnalyze'),commit=$('#bulkCommit');
   if(analyze){
-   analyze.disabled=!batch.length||busy||batch.every(function(x){return x.state==='done'});
+   analyze.disabled=!batch.length||busy||batch.every(function(x){return x.state==='done'||x.state==='skipped'});
    analyze.textContent=busy?'Pracuji…':'2 · Analyzovat celý bulk';
   }
   if(commit){
-   const blocked=!batch.length||busy||batch.some(function(x){return x.state!=='ready'&&x.state!=='done'&&x.state!=='duplicate'})||batch.some(function(x){return Number(x.preflight&&x.preflight.summary&&x.preflight.summary.conflicts||0)>0});
+   const active=batch.filter(function(x){return x.state!=='skipped'});
+   const blocked=!active.length||busy||active.some(function(x){return x.state!=='ready'&&x.state!=='done'&&x.state!=='duplicate'})||active.some(function(x){return Number(x.preflight&&x.preflight.summary&&x.preflight.summary.conflicts||0)>0});
    commit.disabled=blocked;
    commit.textContent=busy?'Pracuji…':'3 · Importovat celý bulk';
   }
@@ -891,7 +894,7 @@ document.addEventListener('click',async e=>{
   try{
    await ensureIdentityPeople();
    for(const item of batch){
-    if(item.state==='done')continue;
+    if(item.state==='done'||item.state==='skipped')continue;
     item.error=null;
     try{
      await preview(item);
@@ -913,6 +916,7 @@ document.addEventListener('click',async e=>{
   busy=true;renderBatch();msg($('#uploadStatus'),'Potvrzuji bezpečný balík…','warn');
   try{
    for(const item of batch){
+    if(item.state==='skipped')continue;
     if(item.state==='done'||item.state==='duplicate'||item.skipCommit){item.state='done';renderBatch();continue}
     const src=item.report_type==='quinyx'?{layout_json:item.layout_json}:
       item.report_type==='store_card_monthly'?{layout_json:item.layout_json,filename:item.file.name}:{extracted_text:item.extracted_text};
@@ -943,6 +947,16 @@ document.addEventListener('click',async e=>{
   $('#bulkAnalyze').onclick=analyzeBatch;
   $('#bulkCommit').onclick=commitBatch;
   files.addEventListener('click',function(e){
+   const skip=e.target.closest('.batchSkip');
+   if(skip){
+    const i=Number(skip.dataset.item),item=batch[i];
+    if(item){
+     if(item.state==='skipped'){item.state=item.preflight?'ready':'staged'}
+     else item.state='skipped';
+     renderBatch();
+    }
+    return;
+   }
    const confirm=e.target.closest('.identityConfirm');if(confirm){confirmIdentity(confirm);return}
    const ignore=e.target.closest('.identityIgnore');if(ignore){ignoreIdentity(ignore);return}
   });
