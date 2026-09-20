@@ -164,8 +164,8 @@ function compareRecord(candidate:any,existing:any){
 
 async function existingByKeys(db:any,table:string,keys:string[]){
   const out:any[]=[];
-  for(let i=0;i<keys.length;i+=150){
-    const chunk=keys.slice(i,i+150);if(!chunk.length)continue;
+  for(let i=0;i<keys.length;i+=20){
+    const chunk=keys.slice(i,i+20);if(!chunk.length)continue;
     const cols=table==="shifts"?"source_record_key,scheduled_start,scheduled_end,actual_start,actual_end,scheduled_hours,worked_hours":
       "source_record_key,value,text_value";
     const {data,error}=await db.from(table).select(cols).in("source_record_key",chunk);
