@@ -9,7 +9,7 @@ const roster=[
  ["Pavel Kyselka","pavel-k"],["Daniel Sláma","daniel-s"],["Amir Uteshev","amir-u"]
 ];
 const boundaryNames=[
- "Miroslava Jaworská","Daniel Pešek","Proplusko Marketa","Adéla Růžičková","Alexandr Viola",
+ "Nick Schürrer","Miroslava Jaworská","Daniel Pešek","Proplusko Marketa","Adéla Růžičková","Alexandr Viola",
  "Danil Externí","Julie Husáková","Kateřina Bocková","Klára Absolonová","Kryštof Balhar",
  "Ladislav Čermák","Mia Traplová","Natália Rechtoríková","Patrik Dokladal","Sára Bendová",
  "David Doležel","Viktorie Elizabeth Truclová","Daniel Třeček","Kristína Szilvási","Markéta Weinertová","Šimon Císař"
@@ -266,7 +266,7 @@ Deno.serve(async req=>{
     date_debug:parsed.missingDateDebug
   };
 
-  if(mode==="preview")return J({ok:true,preview:true,parser_stage:"quinyx-layout-v24",shift_count:rows.length,
+  if(mode==="preview")return J({ok:true,preview:true,parser_stage:"quinyx-layout-v25",shift_count:rows.length,
     people_count:validation.people_count,period_start,period_end,validation,rows,
     note:"Preview only. V23 čte datum z Quinyx range, českých/anglických měsíců, číselného range nebo ISO week fallbacku. Nic se ještě nezapisuje."});
 
@@ -299,7 +299,7 @@ Deno.serve(async req=>{
     import_id,
     source_record_key:`shift|${pmap.get(r.person_key)}|${r.date}|${norm(r.role).replace(/\s+/g," ")}|${norm(r.shift_type).replace(/\s+/g," ")}`,
     metadata:{
-      source_type:"quinyx",parser_version:"quinyx-v24",source_name:r.name,page:r.page,
+      source_type:"quinyx",parser_version:"quinyx-v25",source_name:r.name,page:r.page,
       page_period_start:r.page_period_start,page_period_end:r.page_period_end,
       confidence:r.confidence,venue:"Holešovice, Prague",export_cutoff:new Date().toISOString().slice(0,10)
     }
@@ -310,7 +310,7 @@ Deno.serve(async req=>{
   if(we)return J({error:we.message},500);
 
   await db.from("imports").update({
-    status:"imported",period_start,period_end,parser_version:"quinyx-v24"
+    status:"imported",period_start,period_end,parser_version:"quinyx-v25"
   }).eq("id",import_id);
 
   return J({ok:true,committed:true,inserted_count:w?.length??0,attempted_count:payload.length,
