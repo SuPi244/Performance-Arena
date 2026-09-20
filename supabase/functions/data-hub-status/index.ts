@@ -224,9 +224,14 @@ async function preflight(db:any,reportType:string,p:any){
     if(teamBonusExists&&(thr.high_min_pct==null||thr.mid_min_pct==null||(tb.forty_h_czk||[]).length<3||(tb.thirty_h_czk||[]).length<3))conflicts.push({
       key:"store-card:team-bonus-rules",label:"Team Bonus",reason:"Team Bonus tabulka v PDF existuje, ale chybí hranice nebo částky 40h/30h"
     });
-    if(!(p.payouts||[]).length)conflicts.push({
-      key:"store-card:payout-table",label:"Payout tabulka",reason:"Nebyl spolehlivě napárován ani jeden oficiální payout — commit je blokovaný"
-    });
+    if(!(p.payouts||[]).length){
+      if(teamBonusExists)conflicts.push({
+        key:"store-card:payout-table",label:"Payout tabulka",reason:"Nebyl spolehlivě napárován ani jeden oficiální payout — u měsíce s Team Bonusem je commit zablokovaný"
+      });
+      else warnings.push({
+        reason:"Historický Store Card bez Team Bonusu: neznámé/staré zaměstnance ignoruji; známí lidé bez TOP payoutu budou potvrzeni jako 0 Kč."
+      });
+    }
   }
   if(reportType==="team_rating"){
     for(const x of p.conflicts||[])conflicts.push({key:"team-rating:"+String(x),label:String(x),reason:"Konflikt Team Rating parseru"});
