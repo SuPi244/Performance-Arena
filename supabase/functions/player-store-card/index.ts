@@ -61,6 +61,38 @@ function metricSeries(rows:any[],defs:Map<string,any>){
   }
   return out.sort((a,b)=>a.group.localeCompare(b.group)||a.label.localeCompare(b.label));
 }
+function dailyMetricSeries(rows:any[],defs:Map<string,any>){
+  const dailyRows=(rows||[]).filter((r:any)=>{
+    const ps=String(r.period_start||""),pe=String(r.period_end||r.period_start||"");
+    return ps&&ps===pe;
+  });
+  const ids=[...new Set(dailyRows.map((r:any)=>r.metric_id).filter(Boolean))];
+  const out:any[]=[];
+  for(const id of ids){
+    const d:any=defs.get(id)||{metric_id:id,label:id,unit:"number",category:"other",lower_is_better:null};
+    const buckets=new Map<string,number[]>();
+    for(const r of dailyRows.filter((x:any)=>x.metric_id===id)){
+      const key=String(r.period_start||"");const v=finite(r.value);
+      if(!key||v===null)continue;
+      if(!buckets.has(key))buckets.set(key,[]);
+      buckets.get(key)!.push(v);
+    }
+    const labels=[...buckets.keys()].sort();
+    const aggregation=d.unit==="count"?"sum":"average";
+    const values=labels.map(k=>{
+      const a=buckets.get(k)||[];
+      return round(aggregation==="sum"?sum(a):avg(a),d.unit==="count"?0:2);
+    });
+    if(values.some(v=>v!==null))out.push({
+      metric_id:id,label:d.label||id,unit:d.unit||"number",
+      category:d.category||classifyMetric(d.label||id,id,""),
+      group:classifyMetric(d.label||id,id,d.category||""),
+      lower_is_better:d.lower_is_better,
+      aggregation,granularity:"day",labels,values
+    });
+  }
+  return out.sort((a,b)=>a.group.localeCompare(b.group)||a.label.localeCompare(b.label));
+}
 function percentileScore(value:number|null,all:number[],lower=false){
   if(value===null||!all.length)return null;
   const a=all.filter(Number.isFinite).sort((x,y)=>x-y);
@@ -436,7 +468,24 @@ Deno.serve(async req=>{
       };
     }).filter((x:any)=>x.value!==null).sort((a:any,b:any)=>a.group.localeCompare(b.group)||a.label.localeCompare(b.label));
 
-    const metric_series=metricSeries(historyRows||[],defs);
+    const metric_series=metricSeries(historyRows||[],defs).map((s:any)=>({...s,granularity:"week"}));
+    const daily_metric_series=dailyMetricSeries(historyRows||[],defs);
+
+    // Daily synthetic output series use the same friendly metric IDs as the weekly chart,
+    // so the UI can switch granularity without changing the selected metric.
+    const dailyHistoryDates=[...new Set((historyRows||[])
+      .filter((r:any)=>String(r.period_start||"")===String(r.period_end||r.period_start||""))
+      .map((r:any)=>String(r.period_start||"")).filter(Boolean))].sort() as string[];
+    const dailyOutboundMap=preferredGroupedValues(historyRows||[],["daily_items_picked_count","daily_item_count_total"],(r:any)=>String(r.period_start||""));
+    const dailyOrdersMap=preferredGroupedValues(historyRows||[],["daily_picking_app_task_count"],(r:any)=>String(r.period_start||""));
+    const dailyInboundMap=summedGroupedValues(historyRows||[],["inbound_normal_units","inbound_icy_units","inbound_freez_units"],(r:any)=>String(r.period_start||""));
+    const synthDailyDates=[...new Set([...dailyOutboundMap.keys(),...dailyOrdersMap.keys(),...dailyInboundMap.keys()])].sort();
+    daily_metric_series.push(
+      {metric_id:"outbound_units_picked",label:"Outbound Units Picked",unit:"count",category:"output",group:"output",lower_is_better:false,aggregation:"sum",granularity:"day",labels:synthDailyDates,values:synthDailyDates.map(d=>dailyOutboundMap.has(d)?round(dailyOutboundMap.get(d),0):null)},
+      {metric_id:"outbound_orders",label:"Outbound Orders / Picking Tasks",unit:"count",category:"output",group:"output",lower_is_better:false,aggregation:"sum",granularity:"day",labels:synthDailyDates,values:synthDailyDates.map(d=>dailyOrdersMap.has(d)?round(dailyOrdersMap.get(d),0):null)},
+      {metric_id:"inbound_total_units_live",label:"Inbound Total Units",unit:"count",category:"output",group:"output",lower_is_better:false,aggregation:"sum",granularity:"day",labels:synthDailyDates,values:synthDailyDates.map(d=>dailyInboundMap.has(d)?round(dailyInboundMap.get(d),0):null)}
+    );
+
     // User-friendly synthetic series: avoid making employees choose between two
     // technical outbound counters. We prefer actual Items Picked Count.
     const synthWeeks=[...new Set((historyRows||[]).map((r:any)=>weekStart(r.period_start)).filter(Boolean))].sort() as string[];
@@ -458,9 +507,9 @@ Deno.serve(async req=>{
       return m.size?round(mapSum(m),0):null;
     });
     metric_series.push(
-      {metric_id:"outbound_units_picked",label:"Outbound Units Picked",unit:"count",category:"output",group:"output",lower_is_better:false,aggregation:"sum",labels:synthWeeks,values:synthOutboundValues},
-      {metric_id:"outbound_orders",label:"Outbound Orders / Picking Tasks",unit:"count",category:"output",group:"output",lower_is_better:false,aggregation:"sum",labels:synthWeeks,values:synthOrdersValues},
-      {metric_id:"inbound_total_units_live",label:"Inbound Total Units",unit:"count",category:"output",group:"output",lower_is_better:false,aggregation:"sum",labels:synthWeeks,values:synthInboundValues}
+      {metric_id:"outbound_units_picked",label:"Outbound Units Picked",unit:"count",category:"output",group:"output",lower_is_better:false,aggregation:"sum",granularity:"week",labels:synthWeeks,values:synthOutboundValues},
+      {metric_id:"outbound_orders",label:"Outbound Orders / Picking Tasks",unit:"count",category:"output",group:"output",lower_is_better:false,aggregation:"sum",granularity:"week",labels:synthWeeks,values:synthOrdersValues},
+      {metric_id:"inbound_total_units_live",label:"Inbound Total Units",unit:"count",category:"output",group:"output",lower_is_better:false,aggregation:"sum",granularity:"week",labels:synthWeeks,values:synthInboundValues}
     );
 
     // Weekly efficiency history for the graph selector.
@@ -510,11 +559,54 @@ Deno.serve(async req=>{
       return round(((g.outbound+g.inbound)/g.totalHours)*q,2);
     });
     const efficiency_series=[
-      {metric_id:"eff_total_units_per_hour",label:"Total Units / Worked Hour",unit:"number",group:"efficiency",lower_is_better:false,labels:effLabels,values:effVals("total")},
-      {metric_id:"eff_outbound_units_per_hour",label:"Outbound Units / Worked Hour",unit:"number",group:"efficiency",lower_is_better:false,labels:effLabels,values:effVals("outbound")},
-      {metric_id:"eff_inbound_units_per_hour",label:"Inbound Units / Worked Hour",unit:"number",group:"efficiency",lower_is_better:false,labels:effLabels,values:effVals("inbound")},
-      {metric_id:"eff_orders_per_hour",label:"Orders / Worked Hour",unit:"number",group:"efficiency",lower_is_better:false,labels:effLabels,values:effVals("orders")},
-      {metric_id:"eff_quality_adjusted_units_per_hour",label:"Quality-adjusted Units / Hour",unit:"number",group:"efficiency",lower_is_better:false,labels:effLabels,values:effVals("quality")}
+      {metric_id:"eff_total_units_per_hour",label:"Total Units / Worked Hour",unit:"number",group:"efficiency",lower_is_better:false,granularity:"week",labels:effLabels,values:effVals("total")},
+      {metric_id:"eff_outbound_units_per_hour",label:"Outbound Units / Worked Hour",unit:"number",group:"efficiency",lower_is_better:false,granularity:"week",labels:effLabels,values:effVals("outbound")},
+      {metric_id:"eff_inbound_units_per_hour",label:"Inbound Units / Worked Hour",unit:"number",group:"efficiency",lower_is_better:false,granularity:"week",labels:effLabels,values:effVals("inbound")},
+      {metric_id:"eff_orders_per_hour",label:"Orders / Worked Hour",unit:"number",group:"efficiency",lower_is_better:false,granularity:"week",labels:effLabels,values:effVals("orders")},
+      {metric_id:"eff_quality_adjusted_units_per_hour",label:"Quality-adjusted Units / Hour",unit:"number",group:"efficiency",lower_is_better:false,granularity:"week",labels:effLabels,values:effVals("quality")}
+    ];
+
+    // Daily efficiency history: exact day-level output + matching Quinyx worked hours.
+    // No weekly totals are spread across days; if a day-level source is missing the point stays null.
+    const histHoursByDay=new Map<string,number>();
+    const histShiftTypeByDay=new Map<string,string>();
+    for(const s of historyShifts||[]){
+      const d=String(s.shift_date||"");if(!d)continue;
+      const h=finite(s.worked_hours);
+      if(h!==null)histHoursByDay.set(d,(histHoursByDay.get(d)||0)+h);
+      if(s.shift_type&&!histShiftTypeByDay.has(d))histShiftTypeByDay.set(d,String(s.shift_type));
+    }
+    const histOutboundByDay=preferredGroupedValues(historyRows||[],["daily_items_picked_count","daily_item_count_total"],(r:any)=>String(r.period_start||""));
+    const histOrdersByDay=preferredGroupedValues(historyRows||[],["daily_picking_app_task_count"],(r:any)=>String(r.period_start||""));
+    const histInboundDaily=summedGroupedValues(historyRows||[],["inbound_normal_units","inbound_icy_units","inbound_freez_units"],(r:any)=>String(r.period_start||""));
+    const histMissingByDay=preferredGroupedValues(historyRows||[],["daily_undelivered_items_ratio"],(r:any)=>String(r.period_start||""));
+    const histQualityMissingByDay=preferredGroupedValues(historyRows||[],["missing_incorrect_items_rate"],(r:any)=>String(r.period_start||""));
+    const dailyEffLabels=[...new Set([
+      ...histOutboundByDay.keys(),...histOrdersByDay.keys(),...histInboundDaily.keys()
+    ])].sort();
+    const dailyEffValue=(kind:string)=>dailyEffLabels.map(d=>{
+      const h=histHoursByDay.get(d)||0;
+      const out=histOutboundByDay.get(d);
+      const ib=histInboundDaily.get(d);
+      const ord=histOrdersByDay.get(d);
+      if(kind==="outbound")return h>0&&out!=null?round(out/h,2):null;
+      if(kind==="inbound")return h>0&&ib!=null?round(ib/h,2):null;
+      if(kind==="orders")return h>0&&ord!=null?round(ord/h,2):null;
+      if(kind==="total"){
+        if(h<=0||out==null&&ib==null)return null;
+        return round((Number(out||0)+Number(ib||0))/h,2);
+      }
+      if(h<=0||out==null&&ib==null)return null;
+      const missing=Number(histQualityMissingByDay.get(d)||0),undel=Number(histMissingByDay.get(d)||0);
+      const q=Math.max(0,1-missing/100-undel/100);
+      return round(((Number(out||0)+Number(ib||0))/h)*q,2);
+    });
+    const daily_efficiency_series=[
+      {metric_id:"eff_total_units_per_hour",label:"Total Units / Worked Hour",unit:"number",group:"efficiency",lower_is_better:false,granularity:"day",labels:dailyEffLabels,values:dailyEffValue("total")},
+      {metric_id:"eff_outbound_units_per_hour",label:"Outbound Units / Worked Hour",unit:"number",group:"efficiency",lower_is_better:false,granularity:"day",labels:dailyEffLabels,values:dailyEffValue("outbound")},
+      {metric_id:"eff_inbound_units_per_hour",label:"Inbound Units / Worked Hour",unit:"number",group:"efficiency",lower_is_better:false,granularity:"day",labels:dailyEffLabels,values:dailyEffValue("inbound")},
+      {metric_id:"eff_orders_per_hour",label:"Orders / Worked Hour",unit:"number",group:"efficiency",lower_is_better:false,granularity:"day",labels:dailyEffLabels,values:dailyEffValue("orders")},
+      {metric_id:"eff_quality_adjusted_units_per_hour",label:"Quality-adjusted Units / Hour",unit:"number",group:"efficiency",lower_is_better:false,granularity:"day",labels:dailyEffLabels,values:dailyEffValue("quality")}
     ];
 
     // Personal efficiency / output / reliability from current-month canonical data + Quinyx.
@@ -1262,7 +1354,7 @@ Deno.serve(async req=>{
 
     return J({
       ok:true,
-      version:"player-store-card-v15",
+      version:"player-store-card-v16",
       person:{
         person_key:person.person_key,
         display_name:person.display_name,
@@ -1279,7 +1371,9 @@ Deno.serve(async req=>{
       live_store:liveStore,
       raw_metrics,
       metric_series,
+      daily_metric_series,
       efficiency_series,
+      daily_efficiency_series,
       efficiency,
       projection,
       scoring:{
