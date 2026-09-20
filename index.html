@@ -1480,6 +1480,15 @@ html[data-theme="light"] .employee-pulse-row{background:#f8fbf9}
 @media(min-width:1800px){.employee-pulse-row{padding:12px 14px}.employee-pulse-name strong{font-size:11px}.employee-pulse-kpi{font-size:9px}.employee-pulse-score{font-size:9px}}
 </style>
 
+
+<style id="home-trend-direction-v184">
+.home-trend-move{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:5px 8px;font-size:7px;font-weight:1000;letter-spacing:.035em;border:1px solid var(--line);white-space:nowrap}.home-trend-move.good{color:#86efac;background:rgba(34,197,94,.11);border-color:rgba(34,197,94,.28);box-shadow:0 0 18px rgba(34,197,94,.06)}.home-trend-move.bad{color:#fca5a5;background:rgba(239,68,68,.10);border-color:rgba(239,68,68,.28);box-shadow:0 0 18px rgba(239,68,68,.05)}.home-trend-move.neutral{color:#cbd5e1;background:rgba(148,163,184,.07)}
+.home-momentum-value-row{flex-wrap:wrap}.home-momentum-value-row #homeMomentumExplain{flex-basis:100%;margin-top:1px}.home-momentum-panel{transition:border-color .2s ease,box-shadow .2s ease}.home-momentum-panel.trend-good{border-color:rgba(34,197,94,.26);box-shadow:inset 0 0 0 1px rgba(34,197,94,.025)}.home-momentum-panel.trend-bad{border-color:rgba(239,68,68,.24);box-shadow:inset 0 0 0 1px rgba(239,68,68,.025)}
+.home-kpi-badges{display:flex;align-items:flex-end;gap:5px;flex-direction:column}.home-kpi-trend-card{transition:border-color .2s ease,box-shadow .2s ease}.home-kpi-trend-card.trend-good{border-color:rgba(34,197,94,.26);box-shadow:inset 0 0 0 1px rgba(34,197,94,.025)}.home-kpi-trend-card.trend-bad{border-color:rgba(239,68,68,.26);box-shadow:inset 0 0 0 1px rgba(239,68,68,.025)}
+@media(max-width:700px){.home-kpi-badges{align-items:flex-start}.home-kpi-trend-head{flex-wrap:wrap}.home-kpi-badges{flex-direction:row;width:100%}}
+@media(min-width:1800px){.home-trend-move{font-size:8.5px;padding:6px 9px}}
+</style>
+
 </head>
 <body><div class="ambient-particles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
 <div id="loginOverlay">
@@ -1495,7 +1504,7 @@ html[data-theme="light"] .employee-pulse-row{background:#f8fbf9}
 <div class="hidden" id="seasonRecapOverlay"><div class="season-recap-card"><div class="rundown-head"><div><div class="rundown-kicker">NOVÁ SEZÓNA</div><div class="rundown-title" id="seasonRecapTitle">Season Recap</div><div class="rundown-sub" id="seasonRecapSub">Tvoje poslední sezóna</div></div><button aria-label="Zavřít" class="rundown-close" id="seasonRecapClose">×</button></div><div class="season-recap-grid" id="seasonRecapStats"></div><div class="season-recap-section"><h4>🏆 Nejdůležitější výsledky</h4><div class="rundown-list" id="seasonRecapWins"></div></div><div class="season-recap-section"><h4>📈 Posun</h4><div class="rundown-list" id="seasonRecapProgress"></div></div><div class="rundown-actions"><button class="rundown-btn" id="seasonRecapContinue">Jdeme na novou sezónu</button></div></div></div>
 <div class="hidden" id="rundownOverlay"><div class="rundown-card"><div class="rundown-head"><div><div class="rundown-kicker">Tvoje poslední výsledky</div><div class="rundown-title" id="rundownTitle">Dobrá práce.</div><div class="rundown-sub" id="rundownSub">Rychlé shrnutí toho, co se ti povedlo.</div></div><button aria-label="Zavřít" class="rundown-close" id="rundownClose">×</button></div><div class="rundown-grid" id="rundownStats"></div><div class="rundown-section"><h4>🔥 Co se ti povedlo</h4><div class="rundown-list" id="rundownWins"></div></div><div class="rundown-section"><h4>🏆 Co jsi odemkl</h4><div class="rundown-achievements" id="rundownAchievements"></div></div><div class="rundown-section"><h4>🎯 Na čem můžeš ještě zabrat</h4><div class="rundown-list" id="rundownFocus"></div></div><div class="rundown-actions"><button class="rundown-btn" id="rundownContinue">Pokračovat do profilu</button></div></div></div>
 <div class="shell">
-<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V183</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
+<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V184</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
 <div class="layout">
 <aside class="sidebar">
 <div class="label" id="profileLabel">Profil</div><select class="select" id="workerSelect"></select>
@@ -1622,7 +1631,7 @@ html[data-theme="light"] .employee-pulse-row{background:#f8fbf9}
       <button class="home-momentum-preset" data-home-momentum="quality" onclick="renderHomeMomentum('quality')">Quality</button>
       <button class="home-momentum-preset" data-home-momentum="inbound" onclick="renderHomeMomentum('inbound')">Inbound</button>
     </div>
-    <div class="home-momentum-value-row"><strong id="homeMomentumValue">—</strong><span id="homeMomentumExplain">Načítám trend…</span></div>
+    <div class="home-momentum-value-row"><strong id="homeMomentumValue">—</strong><span class="home-trend-move neutral" id="homeMomentumMovement">—</span><span id="homeMomentumExplain">Načítám trend…</span></div>
     <div class="home-momentum-chart"><canvas id="homeMomentumChart"></canvas></div>
   </section>
   <section class="panel home-leaderboard-panel">
@@ -1635,10 +1644,10 @@ html[data-theme="light"] .employee-pulse-row{background:#f8fbf9}
 <div class="section home-kpi-trends-section">
   <div class="section-head home-priority-head"><div><span class="home-priority-kicker">KEY KPI TRENDS</span><h3>📊 HLAVNÍ KPI V ČASE</h3></div><span>trend + cílová hranice</span></div>
   <div class="home-kpi-trend-grid">
-    <section class="home-kpi-trend-card"><div class="home-kpi-trend-head"><div><span>💚 POFR</span><strong id="homeKpiPofrValue">—</strong></div><b id="homeKpiPofrStatus" class="home-kpi-status neutral">—</b></div><div class="home-kpi-mini-chart"><canvas id="homeKpiPofrChart"></canvas></div><small id="homeKpiPofrMeta">Cíl ≥ 98 %</small></section>
-    <section class="home-kpi-trend-card"><div class="home-kpi-trend-head"><div><span>🛡️ MISSING</span><strong id="homeKpiMissingValue">—</strong></div><b id="homeKpiMissingStatus" class="home-kpi-status neutral">—</b></div><div class="home-kpi-mini-chart"><canvas id="homeKpiMissingChart"></canvas></div><small id="homeKpiMissingMeta">Cíl ≤ 0,34 %</small></section>
-    <section class="home-kpi-trend-card"><div class="home-kpi-trend-head"><div><span>📡 SCANNER</span><strong id="homeKpiScannerValue">—</strong></div><b id="homeKpiScannerStatus" class="home-kpi-status neutral">—</b></div><div class="home-kpi-mini-chart"><canvas id="homeKpiScannerChart"></canvas></div><small id="homeKpiScannerMeta">Cíl ≥ 98 %</small></section>
-    <section class="home-kpi-trend-card"><div class="home-kpi-trend-head"><div><span>🎯 PICKING TIME</span><strong id="homeKpiPickingValue">—</strong></div><b id="homeKpiPickingStatus" class="home-kpi-status neutral">—</b></div><div class="home-kpi-mini-chart"><canvas id="homeKpiPickingChart"></canvas></div><small id="homeKpiPickingMeta">Cíl ≤ 2,57 min</small></section>
+    <section class="home-kpi-trend-card"><div class="home-kpi-trend-head"><div><span>💚 POFR</span><strong id="homeKpiPofrValue">—</strong></div><div class="home-kpi-badges"><b id="homeKpiPofrMove" class="home-trend-move neutral">—</b><b id="homeKpiPofrStatus" class="home-kpi-status neutral">—</b></div></div><div class="home-kpi-mini-chart"><canvas id="homeKpiPofrChart"></canvas></div><small id="homeKpiPofrMeta">Cíl ≥ 98 %</small></section>
+    <section class="home-kpi-trend-card"><div class="home-kpi-trend-head"><div><span>🛡️ MISSING</span><strong id="homeKpiMissingValue">—</strong></div><div class="home-kpi-badges"><b id="homeKpiMissingMove" class="home-trend-move neutral">—</b><b id="homeKpiMissingStatus" class="home-kpi-status neutral">—</b></div></div><div class="home-kpi-mini-chart"><canvas id="homeKpiMissingChart"></canvas></div><small id="homeKpiMissingMeta">Cíl ≤ 0,34 %</small></section>
+    <section class="home-kpi-trend-card"><div class="home-kpi-trend-head"><div><span>📡 SCANNER</span><strong id="homeKpiScannerValue">—</strong></div><div class="home-kpi-badges"><b id="homeKpiScannerMove" class="home-trend-move neutral">—</b><b id="homeKpiScannerStatus" class="home-kpi-status neutral">—</b></div></div><div class="home-kpi-mini-chart"><canvas id="homeKpiScannerChart"></canvas></div><small id="homeKpiScannerMeta">Cíl ≥ 98 %</small></section>
+    <section class="home-kpi-trend-card"><div class="home-kpi-trend-head"><div><span>🎯 PICKING TIME</span><strong id="homeKpiPickingValue">—</strong></div><div class="home-kpi-badges"><b id="homeKpiPickingMove" class="home-trend-move neutral">—</b><b id="homeKpiPickingStatus" class="home-kpi-status neutral">—</b></div></div><div class="home-kpi-mini-chart"><canvas id="homeKpiPickingChart"></canvas></div><small id="homeKpiPickingMeta">Cíl ≤ 2,57 min</small></section>
   </div>
 </div>
 
@@ -2734,27 +2743,53 @@ function renderHomeLeaderboardPreview(){
  const mine=list.find(function(x){return x.name===state.worker});
  setText('homeLeaderboardYou',mine?('Ty: #'+mine.rank+' z '+list.length+' · '+mine.elo+' ELO · '+(mine.tier||tier(Number(mine.elo)||0)[0])):'Aktuální profil zatím není v sezónním pořadí.');
 }
+function homeMomentumSeries(key){
+ const specs={
+  efficiency:{ids:['avg_picking_time','picking_time_per_item','daily_avg_picking_time'],tests:['avg picking time','picking time per item','picking time'],lower:true,unit:'number'},
+  output:{ids:['outbound_orders','picking_app_task_count','daily_picking_app_task_count'],tests:['picking app task count','orders picked','order count'],lower:false,unit:'count'},
+  quality:{ids:['missing_incorrect_items_rate','missing_items_ratio'],tests:['missing incorrect','missing items'],lower:true,unit:'percent'},
+  inbound:{ids:['inbound_total_units_live','inbound_normal_units','inbound_units'],tests:['inbound total','inbound units','inbound'],lower:false,unit:'count'}
+ };
+ const spec=specs[key]||specs.efficiency;
+ return homeKpiSeries(spec);
+}
+function homeTrendMovement(diff,lower,unit){
+ if(diff==null||!Number.isFinite(Number(diff)))return{cls:'neutral',label:'—',detail:'Zatím jen jeden dostupný bod.'};
+ if(Math.abs(diff)<0.0001)return{cls:'neutral',label:'→ BEZE ZMĚNY',detail:'Beze změny proti předchozímu týdnu.'};
+ const good=lower?diff<0:diff>0,raw=(diff>0?'+':'')+enhancedFmt(diff,unit);
+ return{cls:good?'good':'bad',label:(good?'↑ ZLEPŠENÍ ':'↓ ZHORŠENÍ ')+raw,detail:(good?'Zlepšení':'Zhoršení')+' proti předchozímu týdnu · '+raw};
+}
 function renderHomeMomentum(preset){
  const canvas=document.getElementById('homeMomentumChart');if(!canvas)return;
  const key=preset||document.querySelector('.home-momentum-preset.active')?.dataset.homeMomentum||'efficiency';
  document.querySelectorAll('.home-momentum-preset').forEach(function(b){b.classList.toggle('active',b.dataset.homeMomentum===key)});
- if(!state.storeCard){setText('homeMomentumValue','—');setText('homeMomentumExplain','Čekám na live Data Hub…');return;}
- const srs=chooseHubPreset(key);
- if(!srs){setText('homeMomentumValue','—');setText('homeMomentumExplain','Pro tento pohled zatím nejsou data.');destroyChart('homeMomentumChart');return;}
+ const srs=homeMomentumSeries(key);
+ if(!srs){
+   setText('homeMomentumValue','—');setText('homeMomentumExplain','Pro tento pohled zatím nejsou data.');
+   const badge=document.getElementById('homeMomentumMovement');if(badge){badge.className='home-trend-move neutral';badge.textContent='—'}
+   destroyChart('homeMomentumChart');return;
+ }
  destroyChart('homeMomentumChart');
  const values=(srs.values||[]).map(function(v){return v==null?null:Number(v)});
  const rawLabels=srs.labels||[];
- const labels=srs.granularity==='day'?rawLabels.map(function(x){const m=String(x).match(/^\d{4}-(\d{2})-(\d{2})$/);return m?(Number(m[2])+'. '+Number(m[1])+'.'):x}):rawLabels;
+ const labels=Array.isArray(srs.display_labels)&&srs.display_labels.length===rawLabels.length
+   ?srs.display_labels
+   :(srs.granularity==='day'?rawLabels.map(function(x){const m=String(x).match(/^\d{4}-(\d{2})-(\d{2})$/);return m?(Number(m[2])+'. '+Number(m[1])+'.'):x}):rawLabels);
+ const validIdx=values.map(function(v,i){return v!=null&&Number.isFinite(v)?i:-1}).filter(function(i){return i>=0});
+ const latestIdx=validIdx.at(-1),prevIdx=validIdx.length>1?validIdx.at(-2):null;
+ const latest=latestIdx!=null?values[latestIdx]:null,prev=prevIdx!=null?values[prevIdx]:null,diff=latest!=null&&prev!=null?latest-prev:null;
+ const move=homeTrendMovement(diff,!!srs.lower_is_better,srs.unit);
+ const pointRadius=values.map(function(v,i){return i===latestIdx?6:(v!=null?2.5:0)});
+ const pointBg=values.map(function(v,i){return i===latestIdx?(move.cls==='good'?'#22c55e':move.cls==='bad'?'#ef4444':'#94a3b8'):'#35E78A'});
  charts.homeMomentumChart=new Chart(canvas,{type:'line',data:{labels:labels,datasets:[
-  {label:srs.label,data:values,borderColor:'#35E78A',backgroundColor:'rgba(53,231,138,.09)',borderWidth:2.4,fill:true,tension:.32,pointRadius:srs.granularity==='day'?2.5:3,spanGaps:true},
+  {label:srs.label,data:values,borderColor:'#35E78A',backgroundColor:'rgba(53,231,138,.09)',borderWidth:2.4,fill:true,tension:.32,pointRadius:pointRadius,pointBackgroundColor:pointBg,pointBorderWidth:0,spanGaps:true},
   {label:'Trend',data:regressionLine(values),borderColor:'#f59e0b',borderDash:[5,5],borderWidth:1.5,fill:false,tension:0,pointRadius:0,spanGaps:true}
- ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#91a79b',maxTicksLimit:srs.granularity==='day'?10:7}},y:{ticks:{color:'#91a79b'}}}}});
- const vv=values.filter(function(v){return v!=null&&Number.isFinite(v)}),latest=vv.at(-1),prev=vv.length>1?vv.at(-2):null;
- const diff=latest!=null&&prev!=null?latest-prev:null;
- const good=diff==null?null:(srs.lower_is_better?diff<0:diff>0);
+ ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#91a79b',maxTicksLimit:8}},y:{ticks:{color:'#91a79b'}}}}});
  setText('homeMomentumValue',enhancedFmt(latest,srs.unit));
- setText('homeMomentumMeta',srs.label+' · '+(srs.granularity==='day'?'denně':'týdně'));
- setText('homeMomentumExplain',diff==null?'Zatím jen jeden dostupný bod.':((good?'↑ zlepšení ':'↓ zhoršení ')+(diff>0?'+':'')+enhancedFmt(diff,srs.unit)+' proti předchozímu období'));
+ setText('homeMomentumMeta',srs.label+' · týdně · '+(srs.source_mode||'Data Hub'));
+ setText('homeMomentumExplain',move.detail);
+ const badge=document.getElementById('homeMomentumMovement');if(badge){badge.className='home-trend-move '+move.cls;badge.textContent=move.label}
+ const panel=canvas.closest('.home-momentum-panel');if(panel){panel.classList.remove('trend-good','trend-bad','trend-neutral');panel.classList.add('trend-'+move.cls)}
 }
 
 function homeKpiSeries(spec){
@@ -2794,11 +2829,12 @@ function homeKpiSeries(spec){
  return hit?{...hit,source_mode:'Data Hub'}:null;
 }
 function renderHomeKpiTrend(spec){
- const series=homeKpiSeries(spec),canvas=document.getElementById(spec.canvasId),valueEl=document.getElementById(spec.valueId),statusEl=document.getElementById(spec.statusId),metaEl=document.getElementById(spec.metaId);
+ const series=homeKpiSeries(spec),canvas=document.getElementById(spec.canvasId),valueEl=document.getElementById(spec.valueId),statusEl=document.getElementById(spec.statusId),metaEl=document.getElementById(spec.metaId),moveEl=document.getElementById(spec.moveId);
  if(!canvas||!valueEl||!statusEl)return;
  destroyChart(spec.canvasId);
  if(!series){
    valueEl.textContent='—';statusEl.textContent='ČEKÁ NA DATA';statusEl.className='home-kpi-status neutral';
+   if(moveEl){moveEl.textContent='—';moveEl.className='home-trend-move neutral'}
    if(metaEl)metaEl.textContent=spec.targetCopy+' · trend zatím není dostupný';
    return;
  }
@@ -2810,26 +2846,29 @@ function renderHomeKpiTrend(spec){
  statusEl.textContent=good===null?'—':good?'NA CÍLI':'MIMO CÍL';
  statusEl.className='home-kpi-status '+(good===null?'neutral':good?'good':'bad');
  const diff=latest!=null&&prev!=null?latest-prev:null;
- if(metaEl){
-   const move=diff==null?'zatím bez srovnání':(((spec.lower?diff<0:diff>0)?'↑ zlepšení ':'↓ zhoršení ')+(diff>0?'+':'')+enhancedFmt(diff,series.unit));
-   metaEl.textContent=spec.targetCopy+' · '+move+' · '+(series.source_mode||'Data Hub');
- }
+ const movement=homeTrendMovement(diff,spec.lower,series.unit);
+ if(moveEl){moveEl.textContent=movement.label;moveEl.className='home-trend-move '+movement.cls}
+ if(metaEl)metaEl.textContent=spec.targetCopy+' · '+(series.source_mode||'Data Hub')+' · vs minulý týden';
+ const card=canvas.closest('.home-kpi-trend-card');if(card){card.classList.remove('trend-good','trend-bad','trend-neutral');card.classList.add('trend-'+movement.cls)}
  const rawLabels=series.labels||[];
  const labels=Array.isArray(series.display_labels)&&series.display_labels.length===rawLabels.length
    ?series.display_labels
    :(series.granularity==='day'?rawLabels.map(function(x){const m=String(x).match(/^\d{4}-(\d{2})-(\d{2})$/);return m?(Number(m[2])+'. '+Number(m[1])+'.'):x}):rawLabels);
  const targetData=values.map(function(v){return v==null?null:spec.target});
+ const validIdx=values.map(function(v,i){return v!=null&&Number.isFinite(v)?i:-1}).filter(function(i){return i>=0}),latestIdx=validIdx.at(-1);
+ const pointRadius=values.map(function(v,i){return i===latestIdx?5:(v!=null?2:0)});
+ const pointBg=values.map(function(v,i){return i===latestIdx?(movement.cls==='good'?'#22c55e':movement.cls==='bad'?'#ef4444':'#94a3b8'):'#35E78A'});
  charts[spec.canvasId]=new Chart(canvas,{type:'line',data:{labels:labels,datasets:[
-  {label:series.label,data:values,borderColor:'#35E78A',backgroundColor:'rgba(53,231,138,.07)',borderWidth:2,fill:true,tension:.32,pointRadius:2,spanGaps:true},
+  {label:series.label,data:values,borderColor:'#35E78A',backgroundColor:'rgba(53,231,138,.07)',borderWidth:2,fill:true,tension:.32,pointRadius:pointRadius,pointBackgroundColor:pointBg,pointBorderWidth:0,spanGaps:true},
   {label:'Cíl',data:targetData,borderColor:'#f59e0b',borderDash:[4,4],borderWidth:1.2,fill:false,tension:0,pointRadius:0,spanGaps:true}
  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{enabled:true}},scales:{x:{display:false},y:{ticks:{color:'#91a79b',maxTicksLimit:4,font:{size:9}},grid:{color:'rgba(145,167,155,.08)'}}}}});
 }
 function renderHomeKpiTrends(){
  const specs=[
-  {canvasId:'homeKpiPofrChart',valueId:'homeKpiPofrValue',statusId:'homeKpiPofrStatus',metaId:'homeKpiPofrMeta',ids:['perfect_order_fulfilment_ratio','pofr'],tests:['perfect order fulfilment','perfect order fulfillment','pofr'],target:98,lower:false,unit:'percent',targetCopy:'Cíl ≥ 98 %'},
-  {canvasId:'homeKpiMissingChart',valueId:'homeKpiMissingValue',statusId:'homeKpiMissingStatus',metaId:'homeKpiMissingMeta',ids:['missing_incorrect_items_rate','missing_items_ratio'],tests:['missing incorrect','missing items'],target:.34,lower:true,unit:'percent',targetCopy:'Cíl ≤ 0,34 %'},
-  {canvasId:'homeKpiScannerChart',valueId:'homeKpiScannerValue',statusId:'homeKpiScannerStatus',metaId:'homeKpiScannerMeta',ids:['items_picked_via_scanner_ratio','daily_items_picked_via_scanner_ratio','scan_to_pick_ratio'],tests:['scanner ratio','scan to pick','picked via scanner'],target:98,lower:false,unit:'percent',targetCopy:'Cíl ≥ 98 %'},
-  {canvasId:'homeKpiPickingChart',valueId:'homeKpiPickingValue',statusId:'homeKpiPickingStatus',metaId:'homeKpiPickingMeta',ids:['picking_time_per_item','avg_picking_time','daily_avg_picking_time'],tests:['picking time per item','avg picking time','picking time'],target:2.57,lower:true,unit:'number',targetCopy:'Cíl ≤ 2,57 min'}
+  {canvasId:'homeKpiPofrChart',valueId:'homeKpiPofrValue',statusId:'homeKpiPofrStatus',metaId:'homeKpiPofrMeta',moveId:'homeKpiPofrMove',ids:['perfect_order_fulfilment_ratio','pofr'],tests:['perfect order fulfilment','perfect order fulfillment','pofr'],target:98,lower:false,unit:'percent',targetCopy:'Cíl ≥ 98 %'},
+  {canvasId:'homeKpiMissingChart',valueId:'homeKpiMissingValue',statusId:'homeKpiMissingStatus',metaId:'homeKpiMissingMeta',moveId:'homeKpiMissingMove',ids:['missing_incorrect_items_rate','missing_items_ratio'],tests:['missing incorrect','missing items'],target:.34,lower:true,unit:'percent',targetCopy:'Cíl ≤ 0,34 %'},
+  {canvasId:'homeKpiScannerChart',valueId:'homeKpiScannerValue',statusId:'homeKpiScannerStatus',metaId:'homeKpiScannerMeta',moveId:'homeKpiScannerMove',ids:['items_picked_via_scanner_ratio','daily_items_picked_via_scanner_ratio','scan_to_pick_ratio'],tests:['scanner ratio','scan to pick','picked via scanner'],target:98,lower:false,unit:'percent',targetCopy:'Cíl ≥ 98 %'},
+  {canvasId:'homeKpiPickingChart',valueId:'homeKpiPickingValue',statusId:'homeKpiPickingStatus',metaId:'homeKpiPickingMeta',moveId:'homeKpiPickingMove',ids:['picking_time_per_item','avg_picking_time','daily_avg_picking_time'],tests:['picking time per item','avg picking time','picking time'],target:2.57,lower:true,unit:'number',targetCopy:'Cíl ≤ 2,57 min'}
  ];
  specs.forEach(renderHomeKpiTrend);
 }
@@ -3443,6 +3482,7 @@ function personalHubSeriesForMetric(metricName){
     {tests:['avg picking time','average picking time'],ids:['avg_picking_time']},
     {tests:['item count total','total units picked'],ids:['outbound_units_picked','item_count_total','daily_item_count_total']},
     {tests:['picking app task count','orders picked','order count'],ids:['outbound_orders','picking_app_task_count','daily_picking_app_task_count']},
+    {tests:['inbound total','inbound units','inbound'],ids:['inbound_total_units_live','inbound_normal_units','inbound_units']},
     {tests:['items picked via scanner ratio','scanner ratio','scan to pick'],ids:['items_picked_via_scanner_ratio','daily_items_picked_via_scanner_ratio']},
     {tests:['missing incorrect items rate','missing items rate'],ids:['missing_incorrect_items_rate']},
     {tests:['undelivered items'],ids:['daily_undelivered_items_ratio']},
