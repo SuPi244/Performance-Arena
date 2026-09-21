@@ -14,10 +14,6 @@ const report={
 };
 
 function safeName(s){return String(s).replace(/[^a-z0-9_-]+/gi,'-').replace(/^-|-$/g,'').toLowerCase()}
-function visible(el){
-  const s=getComputedStyle(el),r=el.getBoundingClientRect();
-  return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity)!==0&&r.width>0&&r.height>0;
-}
 async function getPasswords(page){
   const html=await page.content();
   const admin=html.match(/profile==='Admin'\s*&&\s*pass==='([^']+)'/)?.[1]||null;
@@ -48,7 +44,7 @@ async function login(page,profile,kind){
 async function inspect(page,scope,pageName,label){
   const runErrors=[];
   const selector='#nav [data-page="'+pageName+'"]';
-  const nav=page.locator(selector).filter({visible:true}).first();
+  const nav=page.locator(selector+':visible').first();
   if(await nav.count()){
     await nav.click().catch(e=>runErrors.push('nav click: '+e.message));
     await page.waitForTimeout(2200);
@@ -56,6 +52,11 @@ async function inspect(page,scope,pageName,label){
     runErrors.push('visible nav target missing: '+pageName);
   }
   const state=await page.evaluate(({pageName})=>{
+    const visible=(el)=>{
+      if(!el)return false;
+      const s=getComputedStyle(el),r=el.getBoundingClientRect();
+      return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity)!==0&&r.width>0&&r.height>0;
+    };
     const root=document.querySelector('#page-'+pageName);
     const rootVisible=!!root&&visible(root);
     const fatal=document.querySelector('#fatal');
