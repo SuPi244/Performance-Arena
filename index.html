@@ -1694,7 +1694,7 @@ tr.unknown .admin-status{color:var(--muted)!important;background:rgba(148,163,18
 <div class="hidden" id="seasonRecapOverlay"><div class="season-recap-card"><div class="rundown-head"><div><div class="rundown-kicker">NOVÁ SEZÓNA</div><div class="rundown-title" id="seasonRecapTitle">Season Recap</div><div class="rundown-sub" id="seasonRecapSub">Tvoje poslední sezóna</div></div><button aria-label="Zavřít" class="rundown-close" id="seasonRecapClose">×</button></div><div class="season-recap-grid" id="seasonRecapStats"></div><div class="season-recap-section"><h4>🏆 Nejdůležitější výsledky</h4><div class="rundown-list" id="seasonRecapWins"></div></div><div class="season-recap-section"><h4>📈 Posun</h4><div class="rundown-list" id="seasonRecapProgress"></div></div><div class="rundown-actions"><button class="rundown-btn" id="seasonRecapContinue">Jdeme na novou sezónu</button></div></div></div>
 <div class="hidden" id="rundownOverlay"><div class="rundown-card"><div class="rundown-head"><div><div class="rundown-kicker">Tvoje poslední výsledky</div><div class="rundown-title" id="rundownTitle">Dobrá práce.</div><div class="rundown-sub" id="rundownSub">Rychlé shrnutí toho, co se ti povedlo.</div></div><button aria-label="Zavřít" class="rundown-close" id="rundownClose">×</button></div><div class="rundown-grid" id="rundownStats"></div><div class="rundown-section"><h4>🔥 Co se ti povedlo</h4><div class="rundown-list" id="rundownWins"></div></div><div class="rundown-section"><h4>🏆 Co jsi odemkl</h4><div class="rundown-achievements" id="rundownAchievements"></div></div><div class="rundown-section"><h4>🎯 Na čem můžeš ještě zabrat</h4><div class="rundown-list" id="rundownFocus"></div></div><div class="rundown-actions"><button class="rundown-btn" id="rundownContinue">Pokračovat do profilu</button></div></div></div>
 <div class="shell">
-<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V205</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
+<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V206</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
 <div class="layout">
 <aside class="sidebar">
 <div class="label" id="profileLabel">Profil</div><select class="select" id="workerSelect"></select>
@@ -3488,6 +3488,64 @@ function homeSeasonOperationalRows(person,metricIds,frame){
  });
  return rows;
 }
+function homePlayerStoreCardOpsRows(metricIds,frame){
+ const d=state.storeCard||{},history=d.official_history||[],lp=d.live_personal||{},eff=d.efficiency||{},f=frame||getSeasonFrame();
+ const ids=metricIds||[],rows=[];
+ const officialField={inbound_normal:'inbound_normal_units',inbound_icy:'inbound_icy_units',inbound_freeze:'inbound_freeze_units',stock_count:'stock_count'};
+ const liveField={inbound_normal:'inbound_normal_units',inbound_icy:'inbound_icy_units',inbound_freeze:'inbound_freeze_units',stock_count:'stock_count'};
+ const addOfficial=function(r){
+   const ps=String(r.period_start||'').slice(0,10),pe=String(r.period_end||r.period_start||'').slice(0,10);
+   if(!ps||!pe)return;
+   if(f){
+     const days=inclusiveDays(ps,pe),overlap=rangeOverlapDays(ps,pe,f.start,f.end);
+     if(!days||overlap/days<.5)return;
+   }
+   const vals=ids.map(function(id){
+     const field=officialField[id],v=field?Number(r[field]):NaN;
+     return Number.isFinite(v)?v:null;
+   });
+   const good=vals.filter(function(v){return v!=null});
+   if(!good.length)return;
+   rows.push({
+     key:ps.slice(0,7),sort_date:ps,period_start:ps,period_end:pe,
+     value:good.reduce(function(a,b){return a+b},0),source:'store_card_official',granularity:'month',
+     display:csMonthLabel(ps)
+   });
+ };
+ history.forEach(addOfficial);
+
+ const month=String(lp.month||'').slice(0,7),ps=String(lp.period_start||((month&&month.length===7)?month+'-01':'')).slice(0,10);
+ const pe=String(lp.data_through||lp.through||'').slice(0,10);
+ if(month&&ps){
+   const monthStart=dateOnly(ps),monthEnd=new Date(monthStart.getFullYear(),monthStart.getMonth()+1,0);
+   const belongs=!f||rangeOverlapDays(monthStart,monthEnd,f.start,f.end)/inclusiveDays(monthStart,monthEnd)>=.5;
+   if(belongs){
+     const anyInbound=['inbound_normal','inbound_icy','inbound_freeze'].some(function(id){
+       const field=liveField[id],v=field?Number(lp[field]):NaN;return Number.isFinite(v);
+     });
+     const vals=ids.map(function(id){
+       const field=liveField[id],v=field?Number(lp[field]):NaN;
+       if(Number.isFinite(v))return v;
+       if(id!=='stock_count'&&anyInbound)return 0;
+       return null;
+     });
+     const good=vals.filter(function(v){return v!=null});
+     if(good.length){
+       let value=good.reduce(function(a,b){return a+b},0);
+       if(ids.length===3&&ids.includes('inbound_normal')&&ids.includes('inbound_icy')&&ids.includes('inbound_freeze')){
+         const exact=Number(eff.inbound_units);if(Number.isFinite(exact))value=exact;
+       }
+       const current={
+         key:month,sort_date:ps,period_start:ps,period_end:pe||String(lp.through||ps).slice(0,10),
+         value:value,source:'data_hub_mtd',granularity:'month',display:csMonthLabel(ps)+' · MTD'
+       };
+       const idx=rows.findIndex(function(r){return r.key===month});
+       if(idx>=0)rows[idx]=current;else rows.push(current);
+     }
+   }
+ }
+ return rows.sort(function(a,b){return a.period_start.localeCompare(b.period_start)});
+}
 function homeSeasonOperationalTeamAverage(metricIds,referenceRows,frame){
  const bucket=new Map();
  Object.values(state.unifiedData?.people||{}).forEach(function(p){
@@ -3527,7 +3585,7 @@ function homeMomentumSeries(key){
  if(ops&&state.unifiedData){
    const person=unifiedPersonByName(state.worker),frame=getSeasonFrame();
    if(person){
-     const rows=homeSeasonOperationalRows(person,ops.ids,frame);
+     const rows=homePlayerStoreCardOpsRows(ops.ids,frame);
      if(rows.length){
        return {
          metric_id:key+'_season_monthly',label:ops.label,unit:'count',lower_is_better:false,granularity:'month',
@@ -3536,7 +3594,7 @@ function homeMomentumSeries(key){
          values:rows.map(function(r){return r.value}),
          previous_season_value:null,
          team_values:homeSeasonOperationalTeamAverage(ops.ids,rows,frame),
-         source_mode:'Store Card totals + Data Hub MTD',
+         source_mode:'Store Card official + live Data Hub MTD',
          home_key:key,
          source_rows:rows,
          season_frame:frame
