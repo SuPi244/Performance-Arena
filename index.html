@@ -1679,6 +1679,21 @@ tr.unknown .admin-status{color:var(--muted)!important;background:rgba(148,163,18
 @media(min-width:1800px){.home-ops-chip span,.home-ops-chip small{font-size:8px}.home-ops-chip strong{font-size:15px}}
 </style>
 
+<style id="arena-audit-v207">
+.audit-only{display:none!important}
+body[data-login-role="audit"] .audit-only{display:block!important}
+.home-audit-debug{display:none;margin:10px 0 2px;border:1px solid rgba(96,165,250,.24);border-radius:12px;background:rgba(59,130,246,.055);padding:10px 11px;font-size:8px;color:var(--muted);line-height:1.55}
+body[data-login-role="audit"] .home-audit-debug{display:block}
+.home-audit-debug .audit-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:7px}
+.home-audit-debug .audit-head strong{color:#93c5fd;font-size:9px;letter-spacing:.07em;text-transform:uppercase}
+.home-audit-debug .audit-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+.home-audit-debug .audit-cell{border:1px solid var(--line);border-radius:8px;padding:6px;background:rgba(255,255,255,.02)}
+.home-audit-debug .audit-cell b{display:block;color:var(--text);font-size:9px;margin-bottom:2px}
+.home-audit-debug .audit-rows{margin-top:7px;display:grid;gap:4px}
+.home-audit-debug .audit-row{display:grid;grid-template-columns:minmax(95px,.8fr) minmax(70px,.5fr) minmax(120px,1fr) minmax(145px,1.2fr);gap:6px;border-top:1px solid var(--line);padding-top:4px}
+body[data-login-role="audit"] #profileLabel{color:#93c5fd}
+@media(max-width:800px){.home-audit-debug .audit-grid{grid-template-columns:1fr 1fr}.home-audit-debug .audit-row{grid-template-columns:1fr 1fr}}
+</style>
 </head>
 <body><div class="ambient-particles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
 <div id="loginOverlay">
@@ -1694,7 +1709,7 @@ tr.unknown .admin-status{color:var(--muted)!important;background:rgba(148,163,18
 <div class="hidden" id="seasonRecapOverlay"><div class="season-recap-card"><div class="rundown-head"><div><div class="rundown-kicker">NOVÁ SEZÓNA</div><div class="rundown-title" id="seasonRecapTitle">Season Recap</div><div class="rundown-sub" id="seasonRecapSub">Tvoje poslední sezóna</div></div><button aria-label="Zavřít" class="rundown-close" id="seasonRecapClose">×</button></div><div class="season-recap-grid" id="seasonRecapStats"></div><div class="season-recap-section"><h4>🏆 Nejdůležitější výsledky</h4><div class="rundown-list" id="seasonRecapWins"></div></div><div class="season-recap-section"><h4>📈 Posun</h4><div class="rundown-list" id="seasonRecapProgress"></div></div><div class="rundown-actions"><button class="rundown-btn" id="seasonRecapContinue">Jdeme na novou sezónu</button></div></div></div>
 <div class="hidden" id="rundownOverlay"><div class="rundown-card"><div class="rundown-head"><div><div class="rundown-kicker">Tvoje poslední výsledky</div><div class="rundown-title" id="rundownTitle">Dobrá práce.</div><div class="rundown-sub" id="rundownSub">Rychlé shrnutí toho, co se ti povedlo.</div></div><button aria-label="Zavřít" class="rundown-close" id="rundownClose">×</button></div><div class="rundown-grid" id="rundownStats"></div><div class="rundown-section"><h4>🔥 Co se ti povedlo</h4><div class="rundown-list" id="rundownWins"></div></div><div class="rundown-section"><h4>🏆 Co jsi odemkl</h4><div class="rundown-achievements" id="rundownAchievements"></div></div><div class="rundown-section"><h4>🎯 Na čem můžeš ještě zabrat</h4><div class="rundown-list" id="rundownFocus"></div></div><div class="rundown-actions"><button class="rundown-btn" id="rundownContinue">Pokračovat do profilu</button></div></div></div>
 <div class="shell">
-<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V206</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
+<header class="topbar"><div class="brand"><div class="logo">⚡</div><div><h1>Performance Arena</h1><small>Season Hub · Wolt Performance Dashboard · V207</small></div></div><div class="api-status"><i class="dot" id="apiDot"></i><span id="apiText">Online</span></div></header>
 <div class="layout">
 <aside class="sidebar">
 <div class="label" id="profileLabel">Profil</div><select class="select" id="workerSelect"></select>
@@ -1705,7 +1720,7 @@ tr.unknown .admin-status{color:var(--muted)!important;background:rgba(148,163,18
 <button class="role-nav employee" data-page="leaderboard">🏆 Leaderboard</button>
 <button class="role-nav employee" data-page="achievements">🎯 Challenges</button>
 <button class="role-nav employee" data-page="store">🏪 Team / Store</button>
-<details class="nav-more employee"><summary>••• More</summary><button data-page="efficiency">⚙️ Detailed metrics</button><button data-page="team">📊 Team trends</button><button data-page="bottlenecks">🩺 Diagnostics</button></details>
+<details class="nav-more employee"><summary>••• More</summary><button data-page="efficiency">⚙️ Detailed metrics</button><button data-page="team">📊 Team trends</button><button data-page="bottlenecks">🩺 Diagnostics</button><button class="audit-only" data-page="correlation">🔍 Correlations · audit</button></details>
 <button class="role-nav admin active" data-page="admin">📊 Dashboard</button>
 <button class="role-nav admin" data-page="bonuses">💰 Score Card</button>
 <button class="role-nav admin" data-page="team">📈 Trends</button>
@@ -1845,6 +1860,7 @@ tr.unknown .admin-status{color:var(--muted)!important;background:rgba(148,163,18
     <div class="home-ops-snapshot" id="homeOpsSnapshot"><span class="muted">Načítám Inbound / Stock historii…</span></div>
     <div class="home-momentum-value-row"><strong id="homeMomentumValue">—</strong><span class="home-trend-move neutral" id="homeMomentumMovement">—</span><span id="homeMomentumExplain">Načítám trend…</span></div>
     <div class="home-live-data-impact compact" id="homeMomentumDailyImpact"></div>
+    <div class="home-audit-debug" id="homeAuditDebug"></div>
     <div class="home-momentum-chart"><canvas id="homeMomentumChart"></canvas></div>
   </section>
   <section class="panel home-leaderboard-panel">
@@ -2038,6 +2054,8 @@ const API_URL='https://script.google.com/macros/s/AKfycbxC38rlABSICaLkd8X1hsqBuO
 const API_PROXY_URL='https://hidden-cake-595d.supi24.workers.dev/';
 const STORE_CARD_API_URL='https://yhpgqkklnymfiacrztqf.supabase.co/functions/v1/player-store-card';
 const UNIFIED_ARENA_API_URL='https://yhpgqkklnymfiacrztqf.supabase.co/functions/v1/arena-unified-data';
+const AUDIT_RPC_BASE='https://yhpgqkklnymfiacrztqf.supabase.co/rest/v1/rpc/';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_EA9Sbn8ayjr0eHaI2m0s6A_Yct2lL8a';
 const SYSTEM_TARGETS={picking:2.57,scanner:98,missing:.34,undelivered:.24,rating:4.7,notcollected:.24,pofr:98};
 const ARENA_EXCLUDED_WORKERS=new Set(['nicksch','nick schurrer']);
 function isArenaWorkerAllowed(name){return !ARENA_EXCLUDED_WORKERS.has(norm(String(name||'')));}
@@ -3664,6 +3682,19 @@ function renderHomeOpsSnapshot(){
    return '<button class="home-ops-chip" onclick="renderHomeMomentum(\''+d[0]+'\')"><span>'+d[2]+' '+d[1]+'</span><strong>'+(Number.isFinite(latest)?Math.round(latest).toLocaleString('cs-CZ'):'—')+'</strong><small>'+esc(Number.isFinite(latest)?src:'bez dat')+'</small></button>';
  }).join('');
 }
+function renderHomeAuditDebug(srs,key){
+ const box=document.getElementById('homeAuditDebug');if(!box)return;
+ if(loginRole!=='audit'){box.innerHTML='';return}
+ const rows=srs?.source_rows||[],labels=srs?.display_labels||srs?.labels||[],values=srs?.values||[];
+ const fallback=rows.length?rows:labels.map(function(label,i){return {display:label,value:values[i],source:srs?.source_mode||'series',period_start:srs?.labels?.[i]||label,period_end:''}});
+ const sourceRows=fallback.filter(function(r){return r?.value!=null&&Number.isFinite(Number(r.value))});
+ const sc=state.storeCard||{},lp=sc.live_personal||{};
+ const cards=[['Profil',state.worker||'—'],['Preset',srs?.label||key||'—'],['Zdroj',srs?.source_mode||sourceRows.at(-1)?.source||'—'],['Live through',lp.data_through||lp.through||'—']];
+ box.innerHTML='<div class="audit-head"><strong>🔎 Arena Audit · raw source</strong><span>READ ONLY</span></div>'+
+  '<div class="audit-grid">'+cards.map(function(x){return '<div class="audit-cell"><b>'+esc(x[0])+'</b><span>'+esc(x[1])+'</span></div>'}).join('')+'</div>'+
+  '<div class="audit-rows">'+(sourceRows.length?sourceRows.map(function(r){const period=[r.period_start||r.sort_date||'',r.period_end||''].filter(Boolean).join(' → ');return '<div class="audit-row"><span>'+esc(r.display||r.key||period||'—')+'</span><strong>'+esc(enhancedFmt(Number(r.value),srs?.unit||'count'))+'</strong><span>'+esc(r.source||srs?.source_mode||'—')+'</span><span>'+esc(period||'—')+'</span></div>'}).join(''):'<div class="audit-row"><span>Bez raw bodů</span><strong>—</strong><span>'+esc(srs?.source_mode||'—')+'</span><span>—</span></div>')+'</div>';
+}
+
 function renderHomeMomentum(preset){
  const canvas=document.getElementById('homeMomentumChart');if(!canvas)return;
  const key=preset||document.querySelector('.home-momentum-preset.active')?.dataset.homeMomentum||'efficiency';
@@ -3673,7 +3704,7 @@ function renderHomeMomentum(preset){
    setText('homeMomentumValue','—');setText('homeMomentumExplain','Pro tento pohled zatím nejsou data.');
    const badge=document.getElementById('homeMomentumMovement');if(badge){badge.className='home-trend-move neutral';badge.textContent='—'}
    const dailyHost=document.getElementById('homeMomentumDailyImpact');if(dailyHost){dailyHost.innerHTML='';dailyHost.style.display='none'}
-   destroyChart('homeMomentumChart');return;
+   destroyChart('homeMomentumChart');renderHomeAuditDebug(null,key);return;
  }
  destroyChart('homeMomentumChart');
  const values=(srs.values||[]).map(function(v){return v==null?null:Number(v)});
@@ -3716,6 +3747,7 @@ function renderHomeMomentum(preset){
 
  const badge=document.getElementById('homeMomentumMovement');if(badge){badge.className='home-trend-move '+move.cls;badge.textContent=move.label}
  const panel=canvas.closest('.home-momentum-panel');if(panel){panel.classList.remove('trend-good','trend-bad','trend-neutral');panel.classList.add('trend-'+move.cls)}
+ renderHomeAuditDebug(srs,key);
 }
 
 function homeKpiSeries(spec){
@@ -5780,7 +5812,7 @@ function renderAdminDashboard(){
  const tb=document.getElementById('adminTeamRows');if(tb)tb.innerHTML=visible.map(function(x){const sc=x.storeCard,scText=sc?(liveFmt(sc.points,'points')+' · #'+sc.rank):'—',statusText=x.status==='unknown'?'Bez dat':x.status==='attention'?x.misses+' KPI mimo':x.status==='watch'?'1 KPI mimo':'Na cíli';return'<tr class="'+x.status+'" data-admin-person="'+esc(x.name)+'"><td>#'+esc(x.lb.rank)+'</td><td class="admin-person-name"><strong>'+esc(x.name)+'</strong><span>'+esc(x.lb.tier||tier(Number(x.lb.elo)||0)[0])+'</span></td><td><strong>'+esc(x.lb.elo)+' ELO</strong></td><td>'+adminKpiCell(x.metrics.picking)+'</td><td>'+adminKpiCell(x.metrics.scanner)+'</td><td>'+adminKpiCell(x.metrics.missing)+'</td><td>'+adminKpiCell(x.metrics.pofr)+'</td><td>'+esc(scText)+'</td><td><span class="admin-status '+x.status+'">'+statusText+'</span></td></tr>'}).join('')||'<tr><td colspan="9" class="muted">Tomuto filtru neodpovídá žádný zaměstnanec.</td></tr>';
  document.querySelectorAll('#page-admin [data-admin-person]').forEach(function(el){el.onclick=function(){openDetail(el.getAttribute('data-admin-person')).catch(function(e){console.warn(e)})}});
 }
-async function openPage(page){if(loginRole!=='admin'&&(page==='correlation'||page==='admin'))return;document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-'+page).classList.add('active');document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));if(page==='personal'){if(!state.history)state.history=await api('player_history',{worker:state.worker});if(!state.team){try{state.team=await api('team_history')}catch(e){console.warn('team_history for personal average',e)}}buildMetricCards();renderPersonalFriendlySummary();}if(page==='admin'){await ensureTeam();renderAdminDashboard()}if(page==='home'){renderHome(); if(!state.team) ensureTeam().catch(()=>{}); if(!state.storeHistory) ensureStores().catch(()=>{}); refreshLiveArenaIfStale(false).catch(function(e){console.warn('Home live refresh',e)})}if(page==='efficiency'){renderStoreCardLive()}if(page==='bonuses'){try{state.storeCard=await loadStoreCardLive(state.worker,{force:true})}catch(e){console.warn('fresh bonus wallet reload',e)}renderStoreCardLive()}if(page==='achievements'){renderAchievements(); if(!state.team) ensureTeam().catch(()=>{}); if(!state.storeHistory) ensureStores().catch(()=>{})} if(page==='team'){await ensureTeam();await loadUnifiedArenaData();await renderTeam()}if(page==='correlation'){await loadUnifiedArenaData();await renderCorrelation()}if(page==='bottlenecks'){await loadUnifiedArenaData();await renderBottlenecks()}if(page==='leaderboard'){if(state.lbMode==='people'){await ensureTeam();if(state.worker){try{state.storeCard=await loadStoreCardLive(state.worker,{force:true})}catch(e){console.warn('live leaderboard refresh',e)}}}else{await loadUnifiedArenaData();await ensureStores()}state.leaderMetric=null;renderLeaderboard()}if(page==='store'){await loadUnifiedArenaData();await ensureStores();renderStoreCardLive();drawStore();renderStoreQuests().catch(()=>{})}}
+async function openPage(page){if(page==='admin'&&loginRole!=='admin')return;if(page==='correlation'&&!canInspectProfiles())return;document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-'+page).classList.add('active');document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));if(page==='personal'){if(!state.history)state.history=await api('player_history',{worker:state.worker});if(!state.team){try{state.team=await api('team_history')}catch(e){console.warn('team_history for personal average',e)}}buildMetricCards();renderPersonalFriendlySummary();}if(page==='admin'){await ensureTeam();renderAdminDashboard()}if(page==='home'){renderHome(); if(!state.team) ensureTeam().catch(()=>{}); if(!state.storeHistory) ensureStores().catch(()=>{}); refreshLiveArenaIfStale(false).catch(function(e){console.warn('Home live refresh',e)})}if(page==='efficiency'){renderStoreCardLive()}if(page==='bonuses'){try{state.storeCard=await loadStoreCardLive(state.worker,{force:true})}catch(e){console.warn('fresh bonus wallet reload',e)}renderStoreCardLive()}if(page==='achievements'){renderAchievements(); if(!state.team) ensureTeam().catch(()=>{}); if(!state.storeHistory) ensureStores().catch(()=>{})} if(page==='team'){await ensureTeam();await loadUnifiedArenaData();await renderTeam()}if(page==='correlation'){await loadUnifiedArenaData();await renderCorrelation()}if(page==='bottlenecks'){await loadUnifiedArenaData();await renderBottlenecks()}if(page==='leaderboard'){if(state.lbMode==='people'){await ensureTeam();if(state.worker){try{state.storeCard=await loadStoreCardLive(state.worker,{force:true})}catch(e){console.warn('live leaderboard refresh',e)}}}else{await loadUnifiedArenaData();await ensureStores()}state.leaderMetric=null;renderLeaderboard()}if(page==='store'){await loadUnifiedArenaData();await ensureStores();renderStoreCardLive();drawStore();renderStoreQuests().catch(()=>{})}}
 
 function syncDateBounds(){const startInput=document.getElementById('personalDateStart'),endInput=document.getElementById('personalDateEnd');if(startInput&&endInput&&state.history?.weeks?.length){const spans=historyWeekSpans(state.history),first=spans[0]?.start,last=spans.at(-1)?.end;if(first){const v=first.toISOString().slice(0,10);startInput.min=v;endInput.min=v}if(last){const v=last.toISOString().slice(0,10);startInput.max=v;endInput.max=v}}}
 function setLoading(stage,progress,tip){const el=document.getElementById('loadingStage'),bar=document.getElementById('loadingProgress'),t=document.getElementById('loadingTip');if(el)el.textContent=stage||'';if(bar)bar.style.width=Math.max(4,Math.min(100,progress||0))+'%';if(t&&tip)t.textContent=tip;}
@@ -5799,6 +5831,23 @@ document.querySelectorAll('.lb-mode').forEach(b=>b.onclick=async()=>{document.qu
 let loginProfile='';
 let loginRole='user';
 let loginBootstrap=null;
+
+function canInspectProfiles(){return loginRole==='admin'||loginRole==='audit'}
+async function auditRpc(name,payload){
+ const r=await fetch(AUDIT_RPC_BASE+name,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json','apikey':SUPABASE_PUBLISHABLE_KEY},body:JSON.stringify(payload||{})});
+ const d=await r.json().catch(()=>null);
+ if(!r.ok)throw new Error(d?.message||d?.error||('Audit auth HTTP '+r.status));
+ return d;
+}
+async function auditSessionValid(token){
+ if(!token)return false;
+ try{return (await auditRpc('arena_audit_verify',{p_token:token}))===true}catch(e){console.warn('Audit session verify',e);return false}
+}
+async function auditLogin(password){
+ const d=await auditRpc('arena_audit_login',{p_username:'arena-audit',p_password:String(password||'')});
+ if(!d?.ok||!d?.token)throw new Error(d?.error||'Audit login failed');
+ return d;
+}
 
 function showLoginError(msg){const el=document.getElementById('loginError');if(el)el.textContent=msg||'';}
 function closeRundown(){document.getElementById('rundownOverlay')?.classList.add('hidden');}
@@ -5868,25 +5917,60 @@ function enterAppAfterLogin(){
   sessionStorage.setItem('arenaLoginRole',loginRole);
   startArenaApp(loginBootstrap, loginProfile);
 }
-function setupLogin(b){
+async function setupLogin(b){
   loginBootstrap=b;
   const sel=document.getElementById('loginProfile');
   const names=[...(b.workers||[])].filter(isArenaWorkerAllowed);
   const opts=[];
   opts.push('<option value="Admin">Admin</option>');
+  opts.push('<option value="Arena Audit">Arena Audit · read-only</option>');
   names.filter(n=>n!=='Admin').forEach(n=>opts.push('<option value="'+esc(n)+'">'+esc(n)+'</option>'));
   sel.innerHTML=opts.join('');
-  const saved=sessionStorage.getItem('arenaLoginProfile');
-  if(saved && (saved==='Admin' || names.includes(saved))) sel.value=saved;
-  const submit=()=>{
-    const profile=sel.value;
-    const pass=document.getElementById('loginPassword').value;
-    const ok=(profile==='Admin' && pass==='Admin123!') || (profile!=='Admin' && pass==='1234');
-    if(!ok){showLoginError('Nesprávné heslo.');return;}
-    loginProfile=profile;
-    loginRole=profile==='Admin'?'admin':'user';document.body.dataset.loginRole=loginRole;
+
+  const savedAuditToken=localStorage.getItem('arenaAuditToken');
+  if(savedAuditToken){
+   const valid=await auditSessionValid(savedAuditToken);
+   if(valid){
+    loginProfile='Arena Audit';
+    loginRole='audit';
+    document.body.dataset.loginRole='audit';
+    sel.value='Arena Audit';
     showLoginError('');
     enterAppAfterLogin();
+    return;
+   }
+   localStorage.removeItem('arenaAuditToken');
+  }
+
+  const saved=sessionStorage.getItem('arenaLoginProfile');
+  if(saved&&(saved==='Admin'||saved==='Arena Audit'||names.includes(saved)))sel.value=saved;
+
+  const submit=async()=>{
+   const profile=sel.value;
+   const pass=document.getElementById('loginPassword').value;
+   const btn=document.getElementById('loginSubmit');
+   if(btn){btn.disabled=true;btn.textContent='Ověřuji…'}
+   try{
+    if(profile==='Arena Audit'){
+     const auth=await auditLogin(pass);
+     localStorage.setItem('arenaAuditToken',auth.token);
+     loginProfile='Arena Audit';
+     loginRole='audit';
+    }else{
+     const ok=(profile==='Admin'&&pass==='Admin123!')||(profile!=='Admin'&&pass==='1234');
+     if(!ok){showLoginError('Nesprávné heslo.');return}
+     loginProfile=profile;
+     loginRole=profile==='Admin'?'admin':'user';
+    }
+    document.body.dataset.loginRole=loginRole;
+    showLoginError('');
+    enterAppAfterLogin();
+   }catch(e){
+    showLoginError(profile==='Arena Audit'?'Audit přihlášení se nepodařilo.':'Nesprávné heslo.');
+    console.warn('Login',e);
+   }finally{
+    if(btn){btn.disabled=false;btn.textContent='Přihlásit se'}
+   }
   };
   document.getElementById('loginSubmit').onclick=submit;
   document.getElementById('loginPassword').onkeydown=e=>{if(e.key==='Enter')submit()};
@@ -5894,11 +5978,11 @@ function setupLogin(b){
 
 async function startArenaApp(preloadedBootstrap, forcedWorker){
   init();setLoading('Připojuji data…',12,'Kontroluji dostupnost aktuálního profilu.');try{
-const t0=performance.now(),b=preloadedBootstrap||await api('bootstrap'),sec=((performance.now()-t0)/1000).toFixed(1);if(!b||b.ok===false)throw new Error(b?.error||'bootstrap');b.workers=(b.workers||[]).filter(isArenaWorkerAllowed);state.bootstrap=b;setLoading('Profil připraven…',34,'Načítám aktuální výkon a připravuji dashboard.');setText('workersCount',b.workers.length);setText('weeksCount',b.weeks.length);setText('metricsCount',b.metrics.length);setText('storesCount',b.stores.length);const sel=document.getElementById('workerSelect');sel.innerHTML=b.workers.map(w=>`<option>${esc(w)}</option>`).join('');state.worker=(loginRole==='admin'?(b.workers[0]||''):((forcedWorker&&isArenaWorkerAllowed(forcedWorker)?forcedWorker:null)||b.workers[0]||''));sel.value=state.worker;setText('profileLabel',loginRole==='admin'?'Prohlížet zaměstnance':'Profil');sel.onchange=()=>{if(loginRole!=='admin')return;loadPlayer(sel.value).then(()=>renderAdminDashboard())};
-    document.querySelectorAll('#nav button[data-page=\"correlation\"],#nav button[data-page=\"bottlenecks\"]').forEach(btn=>{btn.style.display=loginRole==='admin'?'':'none';});
+const t0=performance.now(),b=preloadedBootstrap||await api('bootstrap'),sec=((performance.now()-t0)/1000).toFixed(1);if(!b||b.ok===false)throw new Error(b?.error||'bootstrap');b.workers=(b.workers||[]).filter(isArenaWorkerAllowed);state.bootstrap=b;setLoading('Profil připraven…',34,'Načítám aktuální výkon a připravuji dashboard.');setText('workersCount',b.workers.length);setText('weeksCount',b.weeks.length);setText('metricsCount',b.metrics.length);setText('storesCount',b.stores.length);const sel=document.getElementById('workerSelect');sel.innerHTML=b.workers.map(w=>`<option>${esc(w)}</option>`).join('');const inspect=canInspectProfiles();state.worker=(inspect?(b.workers[0]||''):((forcedWorker&&isArenaWorkerAllowed(forcedWorker)?forcedWorker:null)||b.workers[0]||''));sel.value=state.worker;setText('profileLabel',loginRole==='audit'?'Audit · prohlížet zaměstnance':loginRole==='admin'?'Prohlížet zaměstnance':'Profil');sel.onchange=()=>{if(!canInspectProfiles())return;loadPlayer(sel.value).then(()=>{if(loginRole==='admin')renderAdminDashboard()})};
+    document.querySelectorAll('#nav button[data-page=\"correlation\"]').forEach(btn=>{if(!btn.classList.contains('audit-only'))btn.style.display=loginRole==='admin'?'':'none';});
     const profileBtn=document.getElementById('profileBtn');
-    if(profileBtn) profileBtn.style.display=loginRole==='admin'?'':'none';
-    if(loginRole!=='admin'){sel.disabled=true;}populateCompare();document.getElementById('compareSelect').onchange=async e=>{state.compareWorker=e.target.value;state.playerCompare=null;state.compareHistory=null;if(state.compareWorker){try{state.playerCompare=await api('player',{worker:state.compareWorker});state.compareHistory=await api('player_history',{worker:state.compareWorker});}catch(err){console.warn(err)}}buildMetricCards();};const choices=document.getElementById('profileChoices');choices.innerHTML=b.workers.map((w,i)=>`<div class="team-row profile-choice" data-name="${esc(w)}"><div class="rank">${i+1}</div><div class="who"><strong>${esc(w)}</strong><span>Player profile</span></div><div class="pill">OPEN</div></div>`).join('');choices.querySelectorAll('.profile-choice').forEach(row=>row.onclick=()=>{if(loginRole!=='admin')return;document.getElementById('profileOverlay').classList.remove('show');loadPlayer(row.dataset.name)});const tm=document.getElementById('teamMetric');if(tm&&!tm.options.length)tm.innerHTML=(b.metrics||[]).filter(m=>!isIgnored(m.name)).map(m=>`<option value="${esc(m.name)}">${esc(cleanMetricName(m.name))}</option>`).join('');setText('apiText','Online');document.getElementById('apiDot').classList.remove('bad');setLoading('Načítám data…',58,'Načítám profil, tým, store data a žebříček.');
+    if(profileBtn) profileBtn.style.display=inspect?'':'none';
+    sel.disabled=!inspect;populateCompare();document.getElementById('compareSelect').onchange=async e=>{state.compareWorker=e.target.value;state.playerCompare=null;state.compareHistory=null;if(state.compareWorker){try{state.playerCompare=await api('player',{worker:state.compareWorker});state.compareHistory=await api('player_history',{worker:state.compareWorker});}catch(err){console.warn(err)}}buildMetricCards();};const choices=document.getElementById('profileChoices');choices.innerHTML=b.workers.map((w,i)=>`<div class="team-row profile-choice" data-name="${esc(w)}"><div class="rank">${i+1}</div><div class="who"><strong>${esc(w)}</strong><span>Player profile</span></div><div class="pill">OPEN</div></div>`).join('');choices.querySelectorAll('.profile-choice').forEach(row=>row.onclick=()=>{if(!canInspectProfiles())return;document.getElementById('profileOverlay').classList.remove('show');loadPlayer(row.dataset.name)});const tm=document.getElementById('teamMetric');if(tm&&!tm.options.length)tm.innerHTML=(b.metrics||[]).filter(m=>!isIgnored(m.name)).map(m=>`<option value="${esc(m.name)}">${esc(cleanMetricName(m.name))}</option>`).join('');setText('apiText','Online');document.getElementById('apiDot').classList.remove('bad');setLoading('Načítám data…',58,'Načítám profil, tým, store data a žebříček.');
       const startupResults=await Promise.allSettled([
         loadPlayer(state.worker),
         api('leaderboard').then(lb=>{if(Array.isArray(lb?.players))lb.players=lb.players.filter(x=>isArenaWorkerAllowed(x?.name));state.quickLeaderboard=lb;renderHome();return lb;}),
@@ -5914,6 +5998,8 @@ const t0=performance.now(),b=preloadedBootstrap||await api('bootstrap'),sec=((pe
         renderStoreCardLive();
         renderAdminDashboard();
         await openPage('admin');
+      }else if(loginRole==='audit'){
+        await openPage('home');
       }else{
         checkSeasonTransition();
         await buildPostLoginRundown();
