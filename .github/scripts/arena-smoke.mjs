@@ -28,7 +28,13 @@ async function waitApp(page){
     const login=document.querySelector('#loginOverlay');
     return login && getComputedStyle(login).display==='none';
   },{timeout:60000});
-  await page.waitForTimeout(2500);
+  await page.waitForFunction(()=>{
+    const loading=document.querySelector('#loadingOverlay');
+    return !loading || getComputedStyle(loading).display==='none' || loading.classList.contains('done');
+  },{timeout:60000}).catch(()=>{});
+  await page.locator('#rundownClose:visible').click({timeout:2500}).catch(()=>{});
+  await page.locator('#seasonRecapClose:visible').click({timeout:1500}).catch(()=>{});
+  await page.waitForTimeout(500);
 }
 async function login(page,profile,kind){
   await page.goto(BASE+'?e2e='+Date.now(),{waitUntil:'domcontentloaded',timeout:60000});
@@ -87,14 +93,13 @@ async function inspectHomeMomentum(page){
 
 async function inspect(page,scope,pageName,label){
   const runErrors=[];
-  const selector='#nav [data-page="'+pageName+'"]';
-  const nav=page.locator(selector+':visible').first();
-  if(await nav.count()){
-    await nav.click().catch(e=>runErrors.push('nav click: '+e.message));
-    await page.waitForTimeout(2200);
-  } else if(pageName!=='home'){
-    runErrors.push('visible nav target missing: '+pageName);
-  }
+  try{
+    await page.evaluate(async(pageName)=>{
+      if(typeof openPage!=='function')throw new Error('openPage is not available');
+      await openPage(pageName);
+    },pageName);
+  }catch(e){runErrors.push('openPage: '+e.message)}
+  await page.waitForTimeout(900);
   const state=await page.evaluate(({pageName})=>{
     const visible=(el)=>{
       if(!el)return false;
