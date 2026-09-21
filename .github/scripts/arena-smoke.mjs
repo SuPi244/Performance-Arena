@@ -36,11 +36,55 @@ async function login(page,profile,kind){
   const pw=await getPasswords(page);
   const pass=kind==='admin'?pw.admin:pw.user;
   if(!pass)throw new Error('Could not discover '+kind+' login password from deployed source');
-  await page.selectOption('#loginProfile',{label:kind==='admin'?'Admin':profile});
+  const targetLabel=kind==='admin'?'Admin':profile;
+  const optionLabels=await page.locator('#loginProfile option').allTextContents();
+  if(!optionLabels.includes(targetLabel))throw new Error('PROFILE_MISSING: '+targetLabel+' · available='+optionLabels.join(','));
+  await page.selectOption('#loginProfile',{label:targetLabel});
   await page.fill('#loginPassword',pass);
   await page.click('#loginSubmit');
   await waitApp(page);
 }
+async function inspectHomeMomentum(page){
+  const out={presets:{},snapshot:null,season:{}};
+  out.snapshot=await page.locator('#homeOpsSnapshot').innerText().catch(()=>null);
+  for(const key of ['efficiency','output','quality','inbound','inbound_normal','inbound_icy','inbound_freeze','stock']){
+    const btn=page.locator('[data-home-momentum="'+key+'"]');
+    if(!await btn.count())continue;
+    await btn.click();
+    await page.waitForTimeout(350);
+    out.presets[key]=await page.evaluate((key)=>{
+      const canvas=document.getElementById('homeMomentumChart');
+      const chart=canvas&&window.Chart?Chart.getChart(canvas):null;
+      const personal=chart?.data?.datasets?.[0];
+      const ys=(personal?.data||[]).map(p=>typeof p==='object'&&p!==null?p.y:p).filter(v=>v!==null&&v!==undefined&&Number.isFinite(Number(v))).map(Number);
+      const xs=(personal?.data||[]).map(p=>typeof p==='object'&&p!==null?p.x:null).filter(v=>v!==null&&v!==undefined);
+      return {
+        key,
+        value:document.getElementById('homeMomentumValue')?.textContent?.trim()||null,
+        movement:document.getElementById('homeMomentumMovement')?.textContent?.trim()||null,
+        explain:document.getElementById('homeMomentumExplain')?.textContent?.trim()||null,
+        meta:document.getElementById('homeMomentumMeta')?.textContent?.trim()||null,
+        y:ys,x:xs,
+        datasetLabel:personal?.label||null
+      };
+    },key);
+  }
+  out.season=await page.evaluate(()=>{
+    const read=(id)=>{
+      const ch=window.Chart?Chart.getChart(document.getElementById(id)):null;
+      const ds=ch?.data?.datasets?.[0];
+      const pts=ds?.data||[];
+      return {
+        label:ds?.label||null,
+        y:pts.map(p=>typeof p==='object'&&p!==null?p.y:p).filter(v=>v!=null&&Number.isFinite(Number(v))).map(Number),
+        x:pts.map(p=>typeof p==='object'&&p!==null?p.x:null).filter(v=>v!=null)
+      };
+    };
+    return {elo:read('homeSeasonEloChart'),performance:read('homeSeasonPerfChart')};
+  });
+  return out;
+}
+
 async function inspect(page,scope,pageName,label){
   const runErrors=[];
   const selector='#nav [data-page="'+pageName+'"]';
@@ -97,7 +141,10 @@ async function runRole(browser,{scope,kind,profile,pages,viewport}){
   try{
     await login(page,profile,kind);
     result.login_ok=true;
-    for(const p of pages)result.pages[p]=await inspect(page,scope,p,profile);
+    for(const p of pages){
+      result.pages[p]=await inspect(page,scope,p,profile);
+      if(p==='home'&&profile==='MartinPo')result.homeMomentum=await inspectHomeMomentum(page);
+    }
   }catch(e){
     result.fatal=String(e);
     await page.screenshot({path:path.join(OUT,safeName(scope+'-'+profile+'-fatal')+'.png'),fullPage:true}).catch(()=>{});
@@ -111,7 +158,7 @@ try{
   const employeePages=['home','bonuses','personal','efficiency','achievements','team','bottlenecks','leaderboard','store'];
   await runRole(browser,{scope:'desktop-martin',kind:'user',profile:'MartinPo',pages:employeePages,viewport:{width:1440,height:1100}});
   await runRole(browser,{scope:'desktop-pavel',kind:'user',profile:'PavelK',pages:['home','personal','leaderboard'],viewport:{width:1440,height:1100}});
-  await runRole(browser,{scope:'desktop-julie',kind:'user',profile:'JulieH',pages:['home','personal','leaderboard'],viewport:{width:1440,height:1100}});
+  await runRole(browser,{scope:'desktop-nataliia',kind:'user',profile:'NataliiaHa',pages:['home','personal','leaderboard'],viewport:{width:1440,height:1100}});
   await runRole(browser,{scope:'mobile-martin',kind:'user',profile:'MartinPo',pages:employeePages,viewport:{width:390,height:844}});
   await runRole(browser,{scope:'admin',kind:'admin',profile:'Admin',pages:['admin','bonuses','team','leaderboard','bottlenecks','correlation','store','home'],viewport:{width:1440,height:1100}});
 } finally {
@@ -131,6 +178,20 @@ for(const run of report.runs){
   }
   for(const e of run.pageErrors||[])issues.push(run.scope+': pageerror '+e);
   for(const e of run.consoleErrors||[])issues.push(run.scope+': console.error '+e);
+}
+for(const run of report.runs){
+  if(run.profile!=='MartinPo'||!run.homeMomentum)continue;
+  const p=run.homeMomentum.presets||{};
+  if(p.efficiency?.value&&/min/i.test(p.efficiency.value))issues.push(run.scope+'/home: Efficiency still rendered as minutes: '+p.efficiency.value);
+  const icy=p.inbound_icy?.y||[];
+  if(!icy.some(v=>Math.round(v)===1780)||!icy.some(v=>Math.round(v)===1016))issues.push(run.scope+'/home: ICY closed-month history missing; y='+JSON.stringify(icy));
+  const stock=p.stock?.y||[];
+  if(!stock.some(v=>Math.round(v)===2905)||!stock.some(v=>Math.round(v)===1631))issues.push(run.scope+'/home: Stock closed-month history missing; y='+JSON.stringify(stock));
+  if(stock.at(-1)===0)issues.push(run.scope+'/home: Stock missing MTD is rendered as zero');
+  const eloX=run.homeMomentum.season?.elo?.x||[];
+  const perfX=run.homeMomentum.season?.performance?.x||[];
+  if(eloX.length&&Math.max(...eloX)<65)issues.push(run.scope+'/home: Season ELO appears stale before September; last day offset='+Math.max(...eloX));
+  if(perfX.length&&Math.max(...perfX)<65)issues.push(run.scope+'/home: Season Performance appears stale before September; last day offset='+Math.max(...perfX));
 }
 report.issues=issues;
 report.finished_at=new Date().toISOString();
