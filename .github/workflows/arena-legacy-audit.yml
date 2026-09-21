@@ -1,0 +1,48 @@
+name: Arena legacy data audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/arena-legacy-audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fetch legacy Arena APIs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p legacy-audit
+          BASE='https://hidden-cake-595d.supi24.workers.dev/'
+          curl -fsSL --retry 3 --get "$BASE" --data-urlencode api=1 --data-urlencode action=bootstrap > legacy-audit/bootstrap.json
+          curl -fsSL --retry 3 --get "$BASE" --data-urlencode api=1 --data-urlencode action=team_history > legacy-audit/team_history.json
+          curl -fsSL --retry 3 --get "$BASE" --data-urlencode api=1 --data-urlencode action=player_history --data-urlencode worker=MartinPo > legacy-audit/martin_history.json
+          python - <<'PY'
+          import json, pathlib
+          p=pathlib.Path('legacy-audit')
+          b=json.loads((p/'bootstrap.json').read_text())
+          t=json.loads((p/'team_history.json').read_text())
+          h=json.loads((p/'martin_history.json').read_text())
+          summary={
+            'bootstrap_workers':b.get('workers'),
+            'team_labels':t.get('labels'),
+            'team_headers':t.get('headers'),
+            'team_people':list((t.get('people') or {}).keys()),
+            'martin_weeks':[w.get('week',{}).get('label') for w in h.get('weeks',[])],
+            'martin_metric_definitions':h.get('metricDefinitions'),
+          }
+          (p/'summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2))
+          print(json.dumps(summary,ensure_ascii=False,indent=2))
+          PY
+      - name: Upload legacy audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: arena-legacy-audit
+          path: legacy-audit
+          retention-days: 7
