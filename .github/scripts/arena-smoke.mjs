@@ -120,10 +120,14 @@ async function inspect(page,scope,pageName,label){
     const selects=[...document.querySelectorAll('#page-'+pageName+' select')].filter(visible).map(x=>({id:x.id,options:x.options.length,value:x.value}));
     const text=(root?.innerText||'').replace(/\s+/g,' ').trim();
     const viewportOverflow=document.documentElement.scrollWidth-window.innerWidth;
+    const overflowing=[...document.querySelectorAll('#page-'+pageName+' *')].filter(visible).map(el=>{
+      const r=el.getBoundingClientRect();
+      return {tag:el.tagName,id:el.id||null,cls:String(el.className||'').slice(0,120),left:Math.round(r.left),right:Math.round(r.right),width:Math.round(r.width),scrollWidth:el.scrollWidth,clientWidth:el.clientWidth};
+    }).filter(x=>x.right>window.innerWidth+8||x.left<-8).sort((a,b)=>b.right-a.right).slice(0,20);
     const emptyMajor=[...document.querySelectorAll('#page-'+pageName+' .metric-grid, #page-'+pageName+' .cards, #page-'+pageName+' .enhanced-kpi-grid')].filter(visible).filter(el=>!el.children.length).map(x=>x.id||x.className);
     return {
       rootVisible,fatal:fatalVisible||null,visibleErrors,loading,canvases,badCanvas,buttons,selects,
-      viewportOverflow,emptyMajor,textSample:text.slice(0,800),
+      viewportOverflow,overflowing,emptyMajor,textSample:text.slice(0,800),
       version:[...document.scripts].map(s=>s.textContent||'').join('\n').match(/Wolt Performance Dashboard · V\d+/)?.[0]||null,
       worker:document.querySelector('#workerSelect')?.value||null
     };
