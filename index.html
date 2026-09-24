@@ -2909,10 +2909,13 @@ function unifiedHybridRowsForPerson(person,metricId,frame=null){
    // If the month is already covered by at least three detailed weeks, the
    // Store Card stops being a fallback and is omitted.
    if(detailed>=3)return;
+   const def=unifiedMetricDef(metricId);
+   const weeklyEquivalent=def?.unit==='count';
    rows.push({
      key:pe+'|M',sort_date:pe,period_start:ps,period_end:pe,
-     value:raw*7/days,raw_value:raw,source:'store_card_monthly',
-     granularity:'month',display:csMonthLabel(ps)+' · Store Card'
+     value:weeklyEquivalent?raw*7/days:raw,raw_value:raw,source:'store_card_monthly',
+     granularity:'month',display:csMonthLabel(ps)+' · Store Card',
+     normalized_weekly_equivalent:weeklyEquivalent
    });
  });
  return rows.sort(function(a,b){return a.sort_date.localeCompare(b.sort_date)||(a.granularity==='month'?-1:1)});
@@ -5005,9 +5008,31 @@ function personalDataHubWeeklySeries(){
 }
 function personalHubSeriesForMetric(metricName){
   const wanted=norm(metricName);
+  const person=unifiedPersonByName(state.worker);
+  const def=(state.unifiedData?.metrics||[]).find(function(d){
+    const names=[d.label,...(d.legacy_names||[]),String(d.id||'').replaceAll('_',' ')].map(norm).filter(Boolean);
+    return names.some(function(x){return x===wanted||x.includes(wanted)||wanted.includes(x)});
+  });
+  if(def&&person){
+    const rows=unifiedHybridRowsForPerson(person,def.id);
+    if(rows.length){
+      return {
+        metric_id:def.id,label:def.label,unit:def.unit,group:def.category,lower_is_better:def.lower_is_better,
+        granularity:'hybrid',
+        labels:rows.map(function(x){return x.sort_date}),
+        values:rows.map(function(x){return x.value}),
+        display_labels:rows.map(function(x){return x.display}),
+        period_starts:rows.map(function(x){return x.period_start}),
+        period_ends:rows.map(function(x){return x.period_end}),
+        point_sources:rows.map(function(x){return x.source}),
+        source:'arena_unified_data'
+      };
+    }
+  }
+
   const all=personalDataHubWeeklySeries();
   const aliases=[
-    {tests:['avg picking time','average picking time'],ids:['avg_picking_time']},
+    {tests:['avg picking time','average picking time','average collection time'],ids:['avg_picking_time','daily_avg_collection_time']},
     {tests:['item count total','total units picked'],ids:['outbound_units_picked','item_count_total','daily_item_count_total']},
     {tests:['picking app task count','orders picked','order count'],ids:['outbound_orders','picking_app_task_count','daily_picking_app_task_count']},
     {tests:['inbound total','inbound units','inbound'],ids:['inbound_total_units_live','inbound_normal_units','inbound_units']},
@@ -5019,7 +5044,6 @@ function personalHubSeriesForMetric(metricName){
     {tests:['average rating of goods','avg goods rating'],ids:['average_rating_of_goods']},
     {tests:['venue related cs tickets'],ids:['venue_related_cs_tickets_ratio']},
     {tests:['average accepted time','avg accepted time'],ids:['daily_avg_accepted_time']},
-    {tests:['average collection time','avg collection time'],ids:['daily_avg_collection_time']},
     {tests:['average start collection time','avg start collection time'],ids:['daily_avg_start_collection_time']},
     {tests:['average acknowledged time','avg acknowledged time'],ids:['daily_avg_acknowledged_time']},
     {tests:['average ready for pickup time','avg ready for pickup time'],ids:['daily_avg_ready_for_pickup_time']},
@@ -5035,70 +5059,67 @@ function personalHubSeriesForMetric(metricName){
     {tests:['avg packing time','average packing time'],ids:['avg_packing_time']},
     {tests:['total production time'],ids:['daily_total_production_time']}
   ];
-  const rule=aliases.find(r=>r.tests.some(t=>wanted===t||wanted.includes(t)||t.includes(wanted)));
+  const rule=aliases.find(function(r){return r.tests.some(function(t){return wanted===t||wanted.includes(t)||t.includes(wanted)})});
   if(rule){
     for(const id of rule.ids){
-      const hit=all.find(s=>String(s.metric_id||'')===id&&(s.values||[]).some(v=>v!=null&&Number.isFinite(Number(v))));
+      const hit=all.find(function(s){return String(s.metric_id||'')===id&&(s.values||[]).some(function(v){return v!=null&&Number.isFinite(Number(v))})});
       if(hit)return hit;
     }
   }
-  const exact=all.find(s=>norm(s.label)===wanted&&(s.values||[]).some(v=>v!=null&&Number.isFinite(Number(v))));
-  if(exact)return exact;
-
-  // Store Card exposes only the live/scoring subset. Fall back to the unified
-  // Supabase history so every Data Hub metric can refresh the personal graphs.
-  const person=unifiedPersonByName(state.worker);
-  const def=(state.unifiedData?.metrics||[]).find(function(d){
-    const names=[d.label,...(d.legacy_names||[]),String(d.id||'').replaceAll('_',' ')].map(norm).filter(Boolean);
-    return names.some(function(x){return x===wanted||x.includes(wanted)||wanted.includes(x)});
-  });
-  const us=def&&person?.weekly?.[def.id];
-  if(us&&(us.values||[]).some(v=>v!=null&&Number.isFinite(Number(v)))){
-    return {...us,metric_id:def.id,label:def.label,unit:def.unit,granularity:'week',source:'arena_unified_data'};
-  }
-  return null;
+  return all.find(function(s){return norm(s.label)===wanted&&(s.values||[]).some(function(v){return v!=null&&Number.isFinite(Number(v))})})||null;
 }
 function mergedPersonalMetricSeries(legacyValues,legacyLabels,legacySpans,metricName){
-  const byWeek=new Map();
-  (legacyValues||[]).forEach((v,i)=>{
-    const key=personalWeekKey(legacySpans?.[i]?.start);
-    if(!key)return;
-    byWeek.set(key,{key,label:personalWeekLabel(key),value:v,source:'legacy'});
+  const rowsById=new Map();
+  (legacyValues||[]).forEach(function(v,i){
+    const start=personalWeekKey(legacySpans?.[i]?.start);if(!start)return;
+    const end=personalWeekKey(legacySpans?.[i]?.end)||start;
+    rowsById.set(start+'|W',{id:start+'|W',key:start,label:personalWeekLabel(start),value:v,source:'datahub_weekly',period_start:start,period_end:end});
   });
   const hub=personalHubSeriesForMetric(metricName);
   if(hub){
-    (hub.labels||[]).forEach((lab,i)=>{
-      const d=dateOnly(String(lab||'')),key=personalWeekKey(d);
-      if(!key)return;
-      const raw=hub.values?.[i];
-      const value=raw==null?null:normalizeMetricValue(Number(raw),metricName);
+    (hub.labels||[]).forEach(function(lab,i){
+      const key=String(lab||'').slice(0,10);if(!dateOnly(key))return;
+      const raw=hub.values?.[i],value=raw==null?null:normalizeMetricValue(Number(raw),metricName);
       if(value==null)return;
-      const old=byWeek.get(key);
-      byWeek.set(key,{key,label:personalWeekLabel(key),value,source:old?'merged':'datahub'});
+      const ps=String(hub.period_starts?.[i]||key).slice(0,10);
+      const pe=String(hub.period_ends?.[i]||key).slice(0,10);
+      const source=hub.point_sources?.[i]||hub.source||'datahub';
+      const id=key+'|'+(source==='store_card_monthly'?'M':'W');
+      rowsById.set(id,{id,key,label:hub.display_labels?.[i]||personalWeekLabel(key),value,source,period_start:ps,period_end:pe});
     });
   }
-  const rows=[...byWeek.values()].sort((a,b)=>a.key.localeCompare(b.key));
+  const rows=[...rowsById.values()].sort(function(a,b){return a.key.localeCompare(b.key)||a.id.localeCompare(b.id)});
   return {
-    labels:rows.map(x=>x.label),
-    arr:rows.map(x=>x.value),
-    keys:rows.map(x=>x.key),
+    labels:rows.map(function(x){return x.label}),
+    arr:rows.map(function(x){return x.value}),
+    keys:rows.map(function(x){return x.key}),
+    period_starts:rows.map(function(x){return x.period_start}),
+    period_ends:rows.map(function(x){return x.period_end}),
+    point_sources:rows.map(function(x){return x.source}),
     hasDataHub:!!hub,
     dataHubMetricId:hub?.metric_id||null
   };
 }
 function sliceUnifiedPersonalSeries(series){
-  let idx=series.keys.map((_,i)=>i);
+  let idx=series.keys.map(function(_,i){return i});
   if(state.rangeStart||state.rangeEnd){
     const s=state.rangeStart?dateOnly(state.rangeStart):null,e=state.rangeEnd?dateOnly(state.rangeEnd):null;
-    idx=idx.filter(i=>{
-      const ws=dateOnly(series.keys[i]);if(!ws)return false;
-      const we=addDays(ws,6);
-      return (!s||we>=s)&&(!e||ws<=e);
+    idx=idx.filter(function(i){
+      const ps=dateOnly(series.period_starts?.[i]||series.keys[i]);
+      const pe=dateOnly(series.period_ends?.[i]||series.keys[i]);
+      if(!ps||!pe)return false;
+      return (!s||pe>=s)&&(!e||ps<=e);
     });
   }else if(state.range!=='all'){
     idx=idx.slice(Math.max(0,idx.length-Number(state.range)));
   }
-  return {labels:idx.map(i=>series.labels[i]),arr:idx.map(i=>series.arr[i]),keys:idx.map(i=>series.keys[i])};
+  return {
+    labels:idx.map(function(i){return series.labels[i]}),
+    arr:idx.map(function(i){return series.arr[i]}),
+    keys:idx.map(function(i){return series.keys[i]}),
+    period_starts:idx.map(function(i){return series.period_starts?.[i]||series.keys[i]}),
+    period_ends:idx.map(function(i){return series.period_ends?.[i]||series.keys[i]})
+  };
 }
 function alignLegacySeriesToKeys(values,labels,spans,targetKeys,metricName){
   const map=new Map();
@@ -5185,7 +5206,7 @@ function buildMetricCards(){
   const shown=cards.length?Math.max(...cards.map(c=>c.sliced.labels.length)):0;
   const rangeTxt=(state.rangeStart||state.rangeEnd)?` ${state.rangeStart||'…'} – ${state.rangeEnd||'…'}`:(range==='all'?'celá historie':`posledních ${range} týdnů`);
   const mergedCount=cards.filter(x=>x.unified.hasDataHub).length;
-  setText('personalMeta',shown+' týdnů · '+defs.length+' metrik · '+mergedCount+' napojených na Data Hub · '+rangeTxt);
+  setText('personalMeta',shown+' období · '+defs.length+' metrik · '+mergedCount+' z Data Hubu · '+rangeTxt);
 }
 async function renderInbound(){
   const box=document.getElementById('personalInbound');
