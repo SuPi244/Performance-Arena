@@ -220,6 +220,24 @@ for(const run of report.runs){
   for(const e of run.consoleErrors||[])issues.push(run.scope+': console.error '+e);
 }
 for(const run of report.runs){
+  if(run.profile!=='MartinPo'||run.scope!=='desktop-martin')continue;
+  const p=run.pages?.personal,dbg=p?.dataHubDebug,series=dbg?.series||{};
+  if(dbg?.unified_version!=='arena-unified-data-v13')issues.push(run.scope+'/personal: Unified endpoint is '+String(dbg?.unified_version)+' instead of v13');
+  const weeklyCount=(id)=>series[id]?.weekly?.labels?.length||0;
+  const monthlyCount=(id)=>series[id]?.monthly?.labels?.length||0;
+  const chartPoints=(id,label)=>{
+    const ch=(p?.chartData||[]).find(x=>x.id===id);
+    const ds=(ch?.datasets||[]).find(x=>!label||x.label===label);
+    return ds?.points||0;
+  };
+  if(weeklyCount('missing_rate')<3)issues.push(run.scope+'/personal: Missing weekly history truncated; points='+weeklyCount('missing_rate'));
+  if(weeklyCount('scanner_ratio')<3)issues.push(run.scope+'/personal: Scanner weekly history truncated; points='+weeklyCount('scanner_ratio'));
+  if(monthlyCount('inbound_normal')<6)issues.push(run.scope+'/personal: Inbound monthly history truncated; points='+monthlyCount('inbound_normal'));
+  if(monthlyCount('stock_count')<6)issues.push(run.scope+'/personal: Stock monthly history truncated; points='+monthlyCount('stock_count'));
+  if(chartPoints('personalInboundHistoryChart','Total')<6)issues.push(run.scope+'/personal: Inbound History chart still sparse; points='+chartPoints('personalInboundHistoryChart','Total'));
+  if(chartPoints('personalStockHistoryChart')<6)issues.push(run.scope+'/personal: Stock History chart still sparse; points='+chartPoints('personalStockHistoryChart'));
+}
+for(const run of report.runs){
   if(run.profile!=='MartinPo'||!run.homeMomentum)continue;
   const p=run.homeMomentum.presets||{};
   if(p.efficiency?.value&&/min/i.test(p.efficiency.value))issues.push(run.scope+'/home: Efficiency still rendered as minutes: '+p.efficiency.value);
