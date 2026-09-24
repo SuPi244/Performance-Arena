@@ -53,6 +53,18 @@ async function login(page,profile,kind){
 async function inspectHomeMomentum(page){
   const out={presets:{},snapshot:null,season:{}};
   out.snapshot=await page.locator('#homeOpsSnapshot').innerText().catch(()=>null);
+  out.questDebug=await page.evaluate(()=>{
+    const activeWeek=typeof latestCompleteQuestWeek==='function'?latestCompleteQuestWeek():null;
+    const key=typeof questWeekKey==='function'?questWeekKey(activeWeek):null;
+    const q=activeWeek&&typeof questDefsForWeek==='function'?questDefsForWeek(activeWeek):[];
+    const zero=(q||[]).find(x=>x.id==='mi')||null;
+    return {
+      active_week:key,
+      zero_miss:zero?{display:zero.display,done:zero.done,val:zero.val}:null,
+      home_text:document.getElementById('homeQuestList')?.innerText||null,
+      quest_text:document.getElementById('questList')?.innerText||null
+    };
+  });
   for(const key of ['efficiency','output','quality','inbound','inbound_normal','inbound_icy','inbound_freeze','stock']){
     const btn=page.locator('[data-home-momentum="'+key+'"]');
     if(!await btn.count())continue;
@@ -239,6 +251,9 @@ for(const run of report.runs){
 }
 for(const run of report.runs){
   if(run.profile!=='MartinPo'||!run.homeMomentum)continue;
+  const qd=run.homeMomentum.questDebug||{};
+  if(qd.active_week!=='2026-09-14')issues.push(run.scope+'/home: weekly quests use '+String(qd.active_week)+' instead of latest complete KPI week 2026-09-14');
+  if(!qd.zero_miss||Number(qd.zero_miss.val)!==0||qd.zero_miss.done!==true)issues.push(run.scope+'/home: Zero-Miss Hunt is not completed from 2026-09-14 Missing=0; '+JSON.stringify(qd.zero_miss));
   const p=run.homeMomentum.presets||{};
   if(p.efficiency?.value&&/min/i.test(p.efficiency.value))issues.push(run.scope+'/home: Efficiency still rendered as minutes: '+p.efficiency.value);
   const icy=p.inbound_icy?.y||[];
