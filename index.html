@@ -3406,21 +3406,54 @@ function renderPersonalFriendlySummary(){
   );
  }
 }
+function unifiedPersonalTrendSeries(mode='auto'){
+ const person=unifiedPersonByName(state.worker),defs=state.unifiedData?.metrics||[];
+ if(!person)return[];
+ const out=[];
+ defs.forEach(function(def){
+   const makeDaily=function(){
+     const s=person?.daily?.[def.id];if(!s)return null;
+     const values=(s.values||[]).map(function(v){const x=Number(v);return Number.isFinite(x)?x:null});
+     if(!values.some(function(v){return v!==null}))return null;
+     return{metric_id:def.id,label:def.label,unit:def.unit,group:def.category==='volume'?'output':def.category,lower_is_better:def.lower_is_better,granularity:'day',labels:s.labels||[],values:values,source:'data_hub'};
+   };
+   const makeHybrid=function(){
+     const rows=unifiedHybridRowsForPerson(person,def.id);
+     if(!rows.length)return null;
+     return{
+       metric_id:def.id,label:def.label,unit:def.unit,group:def.category==='volume'?'output':def.category,
+       lower_is_better:def.lower_is_better,granularity:'hybrid',
+       labels:rows.map(function(x){return x.sort_date}),
+       display_labels:rows.map(function(x){return x.display}),
+       values:rows.map(function(x){return x.value}),
+       point_sources:rows.map(function(x){return x.source}),
+       source:'data_hub'
+     };
+   };
+   if(mode==='day'){const x=makeDaily();if(x)out.push(x);return}
+   if(mode==='week'){const x=makeHybrid();if(x)out.push(x);return}
+   const d=makeDaily(),h=makeHybrid();
+   const dailyPoints=d?.values?.filter(function(v){return v!==null}).length||0;
+   const chosen=dailyPoints>=4?d:(h||d);if(chosen)out.push(chosen);
+ });
+ return out;
+}
 function hubTrendSeries(mode=state.hubTrendGranularity||'auto'){
  const d=state.storeCard||{};
- const weekly=[...(d.efficiency_series||[]),...(d.metric_series||[])].map(s=>({...s,granularity:s.granularity||'week'}));
- const daily=[...(d.daily_efficiency_series||[]),...(d.daily_metric_series||[])].map(s=>({...s,granularity:'day'}));
- const usable=a=>a.filter(s=>Array.isArray(s.values)&&s.values.filter(v=>v!=null&&Number.isFinite(Number(v))).length>=1);
- if(mode==='day')return usable(daily);
- if(mode==='week')return usable(weekly);
- const dm=new Map(usable(daily).map(s=>[s.metric_id,s]));
- const wm=new Map(usable(weekly).map(s=>[s.metric_id,s]));
- const ids=[...new Set([...wm.keys(),...dm.keys()])];
- return ids.map(id=>{
-   const dd=dm.get(id),ww=wm.get(id);
-   const dailyPoints=dd?.values?.filter(v=>v!=null&&Number.isFinite(Number(v))).length||0;
-   return dailyPoints>=2?dd:(ww||dd);
- }).filter(Boolean);
+ const legacyWeekly=[...(d.efficiency_series||[]),...(d.metric_series||[])].map(function(s){return{...s,granularity:s.granularity||'week'}});
+ const legacyDaily=[...(d.daily_efficiency_series||[]),...(d.daily_metric_series||[])].map(function(s){return{...s,granularity:'day'}});
+ const usable=function(a){return a.filter(function(s){return Array.isArray(s.values)&&s.values.filter(function(v){return v!=null&&Number.isFinite(Number(v))}).length>=1})};
+ const unified=unifiedPersonalTrendSeries(mode);
+ const extras=mode==='day'?usable(legacyDaily):mode==='week'?usable(legacyWeekly):usable([...legacyWeekly,...legacyDaily]);
+ const byId=new Map();
+ extras.forEach(function(s){byId.set(String(s.metric_id||s.label),s)});
+ unified.forEach(function(s){
+   const key=String(s.metric_id||s.label),old=byId.get(key);
+   const np=(s.values||[]).filter(function(v){return v!=null&&Number.isFinite(Number(v))}).length;
+   const op=(old?.values||[]).filter(function(v){return v!=null&&Number.isFinite(Number(v))}).length;
+   if(!old||np>=op)byId.set(key,s);
+ });
+ return [...byId.values()];
 }
 function chooseHubPreset(preset){
  const all=hubTrendSeries(), tests={
@@ -3447,9 +3480,11 @@ function renderHubTrend(forceId){
  destroyChart('hubTrendChart');
  const valid=s.values.map(v=>v==null?null:Number(v));
  const rawLabels=s.labels||[];
- const labels=s.granularity==='day'
-   ?rawLabels.map(x=>{const m=String(x).match(/^\d{4}-(\d{2})-(\d{2})$/);return m?(Number(m[2])+'. '+Number(m[1])+'.'):x})
-   :rawLabels;
+ const labels=Array.isArray(s.display_labels)&&s.display_labels.length===rawLabels.length
+   ?s.display_labels
+   :s.granularity==='day'
+     ?rawLabels.map(x=>{const m=String(x).match(/^\d{4}-(\d{2})-(\d{2})$/);return m?(Number(m[2])+'. '+Number(m[1])+'.'):x})
+     :rawLabels.map(function(x){return personalWeekLabel(String(x).slice(0,10))});
  charts.hubTrendChart=new Chart(canvas,{type:'line',data:{labels,datasets:[
   {label:s.label,data:valid,borderColor:'#35E78A',backgroundColor:'rgba(53,231,138,.08)',borderWidth:2,fill:true,tension:.3,pointRadius:s.granularity==='day'?3:3,spanGaps:true},
   {label:'Trend',data:regressionLine(valid),borderColor:'#7C5CFF',borderDash:[5,5],borderWidth:1.5,fill:false,tension:0,pointRadius:0,spanGaps:true}
@@ -3458,8 +3493,8 @@ function renderHubTrend(forceId){
  setText('hubTrendValue',enhancedFmt(latest,s.unit));
  const diff=latest!=null&&prev!=null?latest-prev:null;
  const good=diff==null?null:(s.lower_is_better?diff<0:diff>0);
- const periodText=s.granularity==='day'?'předchozímu dostupnému dni':'minulému týdnu';
- setText('hubTrendExplain',(s.granularity==='day'?'Denní Data Hub trend':'Týdenní agregace')+' · '+(diff==null?'zatím jen jeden datový bod.':((good?'zlepšení':'zhoršení')+' proti '+periodText+' · '+(diff>0?'+':'')+enhancedFmt(diff,s.unit))));
+ const periodText=s.granularity==='day'?'předchozímu dostupnému dni':s.granularity==='hybrid'?'předchozímu dostupnému období':'minulému týdnu';
+ setText('hubTrendExplain',(s.granularity==='day'?'Denní Data Hub trend':s.granularity==='hybrid'?'Historie Data Hub · měsíční Store Card + detailní týdny':'Týdenní agregace')+' · '+(diff==null?'zatím jen jeden datový bod.':((good?'zlepšení':'zhoršení')+' proti '+periodText+' · '+(diff>0?'+':'')+enhancedFmt(diff,s.unit))));
 }
 
 function renderStoreCardLive(){
