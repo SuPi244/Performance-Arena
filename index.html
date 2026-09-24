@@ -2145,7 +2145,7 @@ function targetForMetric(name){const k=norm(cleanMetricName(name));if(k.includes
 const IGNORED=['packing time per item','venue related cs tickets ratio','merchant rejection ratio','avg packing time'];
 const state={bootstrap:null,worker:null,player:null,history:null,team:null,stores:null,storeHistory:null,storeCard:null,unifiedData:null,unifiedLoading:null,quickLeaderboard:null,teamMetric:null,teamMetricCache:{},teamMetricLoading:{},range:'all',rangeStart:'',rangeEnd:'',storeRangeStart:'',storeRangeEnd:'',teamMode:'all',teamGranularity:'auto',lbMode:'people',compareWorker:'',compareStore:'',storeRange:'all',inbound:null,leaderMetric:null,achievementMode:'all',hubTrendGranularity:'auto'};
 let charts={};
-const CACHE_PREFIX='arena_cache_v18_';
+const CACHE_PREFIX='arena_cache_v19_';
 const CACHE_TTLS={bootstrap:30*60*1000,player:5*60*1000,player_history:20*60*1000,leaderboard:10*60*1000,team_metric:30*60*1000,team_history:30*60*1000,stores_history:30*60*1000,store_history:30*60*1000,player_inbound:20*60*1000};
 const cacheInFlight={};
 function cacheKey(action,params={}){return CACHE_PREFIX+action+'|'+Object.keys(params).sort().map(k=>k+'='+String(params[k])).join('&')}
@@ -4409,6 +4409,32 @@ function getMetricValFromWeek(week,aliases){
  }
  return null;
 }
+function questCoreValues(week){
+ return [
+  getMetricValFromWeek(week,['Avg Picking Time','Picking Time']),
+  getMetricValFromWeek(week,['Items Picked Via Scanner Ratio','Scanner Ratio']),
+  getMetricValFromWeek(week,['Missing Incorrect Items Rate','Missing Incorrect']),
+  getMetricValFromWeek(week,['Perfect Order Fulfilment Ratio','Perfect Order Fulfillment Ratio','POFR'])
+ ];
+}
+function latestCompleteQuestWeek(){
+ const weeks=currentQuestWeeks();
+ // Weekly quests are evaluated on the newest CLOSED KPI week. Daily Picking
+ // can already create the current week's Picking/Scanner aggregate while GA
+ // Missing/POFR are not published yet; using weeks.at(-1) made those quests
+ // look empty even though the previous closed week was complete.
+ for(let i=weeks.length-1;i>=0;i--){
+  if(questCoreValues(weeks[i]).every(function(x){return x?.value!=null&&Number.isFinite(Number(x.value))}))return weeks[i];
+ }
+ // Historical gaps should not blank the whole quest surface. Prefer the week
+ // with the most available core KPIs, newest on ties.
+ let best=null,bestCount=-1;
+ weeks.forEach(function(w){
+  const count=questCoreValues(w).filter(function(x){return x?.value!=null&&Number.isFinite(Number(x.value))}).length;
+  if(count>=bestCount){best=w;bestCount=count}
+ });
+ return best;
+}
 function questDefsForWeek(week){
   const weeks=currentQuestWeeks(),weekKey=questWeekKey(week);
   const found=weeks.findIndex(function(w){return questWeekKey(w)===weekKey});
@@ -4742,11 +4768,13 @@ let homeStoreQuestMode='active';
 function renderHomeQuests(){
   const box=document.getElementById('homeQuestList'); if(!box)return;
   const weeks=currentQuestWeeks(); if(!weeks.length){box.innerHTML='<div class="notice">Čeká se na historii.</div>';return;}
-  const current=questDefsForWeek(weeks.at(-1));
+  const activeWeek=latestCompleteQuestWeek()||weeks.at(-1);
+  const activeIndex=Math.max(0,weeks.findIndex(function(w){return questWeekKey(w)===questWeekKey(activeWeek)}));
+  const current=questDefsForWeek(activeWeek);
   let items=current;
   if(homeQuestMode==='history'){
     const hist=[];
-    weeks.slice(-8,-1).reverse().forEach((w,idx)=>{const qs=questDefsForWeek(w).filter(q=>q.done);qs.forEach(q=>hist.push({...q,week:w.week?.label||('Týden '+(weeks.length-idx-1))}))});
+    weeks.slice(Math.max(0,activeIndex-7),activeIndex).reverse().forEach((w,idx)=>{const qs=questDefsForWeek(w).filter(q=>q.done);qs.forEach(q=>hist.push({...q,week:w.week?.label||('Týden '+(activeIndex-idx))}))});
     items=hist.slice(0,8);
     box.innerHTML=items.length?items.map(q=>`<div class="quest completed has-tip" tabindex="0"><div class="quest-head"><div class="quest-title"><span class="quest-icon">${q.icon}</span><span class="quest-copy"><span class="quest-name">${esc(q.title)}</span><span class="quest-meta">${esc(q.week||'Dokončeno')}</span></span><span class="quest-tip">?</span></div><div class="quest-badge">${esc(q.reward)}</div></div><div class="quest-tooltip"><strong>CO JE CÍL?</strong>${esc(q.desc)}<div class="tip-reward">Odměna · ${esc(q.reward)}</div></div><div class="quest-line"><span>DOKONČENO</span><span>${esc(q.reward)}</span></div></div>`).join(''):'<div class="notice">Žádné splněné mise z předchozích týdnů.</div>';
     return;
@@ -4807,7 +4835,7 @@ function renderHomeBreakdown(){
  renderSeasonHistory();
 }
 function renderQuests(){
- const seasonWeeks=currentQuestWeeks(),week=seasonWeeks.at(-1)||null;
+ const seasonWeeks=currentQuestWeeks(),week=latestCompleteQuestWeek()||seasonWeeks.at(-1)||null;
  const pick=week?getMetricValFromWeek(week,['Avg Picking Time','Picking Time']):null,scan=week?getMetricValFromWeek(week,['Items Picked Via Scanner Ratio','Scanner Ratio']):null,mi=week?getMetricValFromWeek(week,['Missing Incorrect Items Rate','Missing Incorrect']):null;
  const pickVal=pick?.value??null,scanVal=scan?.value??null,miVal=mi?.value??null;
  const weekly=[
