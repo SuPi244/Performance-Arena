@@ -118,6 +118,17 @@ async function inspect(page,scope,pageName,label){
     const badCanvas=canvases.filter(x=>x.w<30||x.h<30);
     const buttons=[...document.querySelectorAll('#page-'+pageName+' button')].filter(visible).length;
     const selects=[...document.querySelectorAll('#page-'+pageName+' select')].filter(visible).map(x=>({id:x.id,options:x.options.length,value:x.value}));
+    const chartData=canvases.map(function(x){
+      const ch=window.Chart?Chart.getChart(document.getElementById(x.id)):null;
+      return {
+        id:x.id,
+        datasets:(ch?.data?.datasets||[]).map(function(ds){
+          const vals=(ds.data||[]).map(function(p){return typeof p==='object'&&p!==null?p.y:p}).filter(function(v){return v!=null&&Number.isFinite(Number(v))}).map(Number);
+          return {label:ds.label||null,points:vals.length,first:vals[0]??null,last:vals.at(-1)??null};
+        })
+      };
+    });
+    const seasonFrame=typeof getSeasonFrame==='function'?getSeasonFrame():null;
     const text=(root?.innerText||'').replace(/\s+/g,' ').trim();
     const viewportOverflow=document.documentElement.scrollWidth-window.innerWidth;
     const overflowing=[...document.querySelectorAll('#page-'+pageName+' *')].filter(visible).map(el=>{
@@ -126,7 +137,8 @@ async function inspect(page,scope,pageName,label){
     }).filter(x=>x.right>window.innerWidth+8||x.left<-8).sort((a,b)=>b.right-a.right).slice(0,20);
     const emptyMajor=[...document.querySelectorAll('#page-'+pageName+' .metric-grid, #page-'+pageName+' .cards, #page-'+pageName+' .enhanced-kpi-grid')].filter(visible).filter(el=>!el.children.length).map(x=>x.id||x.className);
     return {
-      rootVisible,fatal:fatalVisible||null,visibleErrors,loading,canvases,badCanvas,buttons,selects,
+      rootVisible,fatal:fatalVisible||null,visibleErrors,loading,canvases,badCanvas,buttons,selects,chartData,
+      seasonFrame:seasonFrame?{seasonIndex:seasonFrame.seasonIndex,start:seasonFrame.start?.toISOString?.(),end:seasonFrame.end?.toISOString?.(),daysLeft:seasonFrame.daysLeft}:null,
       viewportOverflow,overflowing,emptyMajor,textSample:text.slice(0,800),
       version:[...document.scripts].map(s=>s.textContent||'').join('\n').match(/Wolt Performance Dashboard · V\d+/)?.[0]||null,
       worker:document.querySelector('#workerSelect')?.value||null
