@@ -2504,6 +2504,41 @@ function currentSeasonWeeks(){
   const hs=state.history,weeks=hs?.weeks||[];if(!weeks.length)return[];
   return currentSeasonIndexes(weeks.map(function(w){return w.week?.label||''}),hs.weekMeta||null).map(function(i){return weeks[i]}).filter(Boolean);
 }
+function questWeekKey(week){
+  if(!week)return null;
+  if(week.__arenaWeekKey)return String(week.__arenaWeekKey);
+  const weeks=state.history?.weeks||[],idx=weeks.indexOf(week);
+  if(idx>=0){
+    const span=historyWeekSpans(state.history)?.[idx];
+    if(span?.start)return personalWeekKey(span.start);
+  }
+  const direct=week?.week?.startDate||week?.week?.period_start||week?.week?.start||null;
+  if(direct){
+    const d=dateOnly(direct);if(d)return personalWeekKey(d);
+  }
+  return null;
+}
+function currentQuestWeeks(){
+  const frame=getSeasonFrame(),rows=new Map();
+  const legacy=currentSeasonWeeks(),spans=historyWeekSpans(state.history);
+  const allWeeks=state.history?.weeks||[];
+  legacy.forEach(function(w){
+    const idx=allWeeks.indexOf(w),key=idx>=0&&spans?.[idx]?.start?personalWeekKey(spans[idx].start):questWeekKey(w);
+    if(key)rows.set(key,{...w,__arenaWeekKey:key});
+  });
+  const p=unifiedPersonByName(state.worker);
+  ['avg_picking_time','scanner_ratio','missing_rate','pofr'].forEach(function(id){
+    const s=p?.weekly?.[id];
+    (s?.labels||[]).forEach(function(k,i){
+      const v=Number(s.values?.[i]),d=dateOnly(k);if(!Number.isFinite(v)||!d)return;
+      const end=addDays(d,6);
+      if(frame&&((end<frame.start)||(d>frame.end)))return;
+      const key=String(k);
+      if(!rows.has(key))rows.set(key,{week:{label:personalWeekLabel(key),startDate:key,endDate:personalWeekKey(end)},metrics:{},__arenaWeekKey:key,__dataHub:true});
+    });
+  });
+  return [...rows.entries()].sort(function(a,b){return a[0].localeCompare(b[0])}).map(function(x){return x[1]});
+}
 function currentSeasonHistory(){
   const hs=state.history;if(!hs?.weeks?.length)return hs;
   const idx=currentSeasonIndexes(hs.weeks.map(function(w){return w.week?.label||''}),hs.weekMeta||null);
@@ -3116,7 +3151,7 @@ function operationalQuestDefs(){
   {id:'op_eff',icon:'⚙️',title:'Efficiency Boost',reward:'MONTHLY · +220 XP',desc:'Zlepši Total Units / Worked Hour alespoň o 5 % proti předchozím 7 dnům.',display:Number.isFinite(delta)?(delta>=0?('+'+fmt(delta,1)+' %'):'0 % progress'):'—',target:'Cíl: +5 % vs předchozích 7 dní',status:Number.isFinite(delta)?(delta>=5?'Splněno ✓':delta>=0?(fmt(delta/5*100,0)+' % k cíli'):('Aktuální trend '+fmt(delta,1)+' %')):'Čeká na data',pct:Number.isFinite(delta)?Math.min(100,Math.max(0,(delta/5)*100)):0,done:Number.isFinite(delta)&&delta>=5,tone:Number.isFinite(delta)?(delta>=5?'good':delta<0?'bad':'warn'):'neutral'},
   {id:'op_time',icon:'⏰',title:'On-Time Operator',reward:'MONTHLY · +180 XP',desc:'Měj alespoň 95 % započítaných směn v toleranci do 5 minut; počítá se od 3 směn.',display:oti.display,target:'Cíl: ≥ 95 % · tolerance 5 min',status:oti.status,pct:Number.isFinite(oti.pct)?pct(oti.pct,95):0,done:oti.sample>=3&&Number.isFinite(oti.pct)&&oti.pct>=95,tone:oti.sample<3?'neutral':Number.isFinite(oti.pct)?(oti.pct>=95?'good':oti.pct>=85?'warn':'bad'):'neutral'},
   {id:'op_quality',icon:'🧪',title:'Quality Engine',reward:'MONTHLY · +250 XP',desc:'Udrž Quality Factor alespoň 99,4 % při reálném outputu.',display:Number.isFinite(quality)?fmt(quality,2)+' %':'—',target:'Cíl: ≥ 99,4 % Quality Factor',status:(eff.total_units||0)<=0?'Čeká na reálný output':Number.isFinite(quality)?(quality>=99.4?'Splněno ✓':('Chybí '+fmt(99.4-quality,2)+' p. b.')):'Čeká na data',pct:Number.isFinite(quality)?pct(quality,99.4):0,done:(eff.total_units||0)>0&&Number.isFinite(quality)&&quality>=99.4,tone:(eff.total_units||0)<=0?'neutral':Number.isFinite(quality)?(quality>=99.4?'good':quality>=98.5?'warn':'bad'):'neutral'},
-  {id:'op_inbound',icon:'📦',title:'Inbound Contributor',reward:'MONTHLY · +220 XP',desc:'Dosáhni alespoň 80 % svého posledního oficiálního měsíčního Inboundu (nebo 500 units, pokud historii nemáš).',display:Number.isFinite(inbound)?Math.round(inbound).toLocaleString('cs-CZ')+' units':'—',target:'Cíl: '+inboundTarget.toLocaleString('cs-CZ')+' units',status:Number.isFinite(inbound)?(inbound>=inboundTarget?'Splněno ✓ · '+fmt(inbound/inboundTarget*100,0)+' % cíle':fmt(inbound/inboundTarget*100,0)+' % k cíli'):'Čeká na data',pct:Number.isFinite(inbound)?pct(inbound,inboundTarget):0,done:Number.isFinite(inbound)&&inbound>=inboundTarget,tone:Number.isFinite(inbound)?(inbound>=inboundTarget?'good':inbound>=inboundTarget*.65?'warn':'bad'):'neutral'},
+  {id:'op_inbound',icon:'📦',title:'Inbound Contributor',reward:'MONTHLY · +220 XP',desc:'Aktuální měsíční Inbound z Data Hubu (Normal + ICY + FREEZE). Dosáhni alespoň 80 % svého posledního oficiálního měsíčního Inboundu (nebo 500 units, pokud historii nemáš).',display:Number.isFinite(inbound)?Math.round(inbound).toLocaleString('cs-CZ')+' units':'—',target:'Cíl: '+inboundTarget.toLocaleString('cs-CZ')+' units',status:Number.isFinite(inbound)?(inbound>=inboundTarget?'Splněno ✓ · '+fmt(inbound/inboundTarget*100,0)+' % cíle':fmt(inbound/inboundTarget*100,0)+' % k cíli'):'Čeká na data',pct:Number.isFinite(inbound)?pct(inbound,inboundTarget):0,done:Number.isFinite(inbound)&&inbound>=inboundTarget,tone:Number.isFinite(inbound)?(inbound>=inboundTarget?'good':inbound>=inboundTarget*.65?'warn':'bad'):'neutral'},
   {id:'op_card',icon:'🎯',title:'Store Card Threshold',reward:'MONTHLY · +300 XP',desc:'Průběžný Store Card odhad je alespoň na aktuálním threshold bodů. Potvrzuje se až uzávěrkou.',display:Number.isFinite(points)?fmt(points,1)+' bodů':'—',target:'Cíl: '+fmt(threshold,1)+' b.',status:Number.isFinite(points)?(points>=threshold?(Number(pr.confidence_percent||0)>=35?'Splněno ✓':'Body splněny · čeká se na coverage'):(fmt(points/threshold*100,0)+' % k cíli')):'Čeká na data',pct:Number.isFinite(points)&&threshold>0?pct(points,threshold):0,done:Number.isFinite(points)&&points>=threshold&&Number(pr.confidence_percent||0)>=35,tone:Number.isFinite(points)?(points>=threshold?'good':points>=threshold*.7?'warn':'bad'):'neutral'}
  ];
 }
@@ -4050,15 +4085,16 @@ function renderEmployeeTeamPulse(){
    box.innerHTML='<div class="notice">Týmový přehled se načte spolu s týmovou historií.</div>';
    if(summary)summary.innerHTML='';if(toggle)toggle.style.display='none';return;
  }
- const pulseScope={mode:'employee-current',indices:currentSeasonIndexes(state.team.labels||[],state.team.weekMeta||null),aggregate:false,label:'Aktuální stav'};
- const rows=adminSnapshots(pulseScope).slice().filter(function(x){return x.known>0}).sort(function(a,b){
+ const pulseTeam=buildSeasonAugmentedTeam(getSeasonFrame())||state.team;
+ const pulseScope={mode:'employee-current',indices:(pulseTeam.labels||[]).map(function(_,i){return i}),aggregate:false,label:'Aktuální stav'};
+ const rows=adminSnapshots(pulseScope,pulseTeam).slice().filter(function(x){return x.known>0}).sort(function(a,b){
    if(a.name===state.worker)return-1;if(b.name===state.worker)return 1;
    return a.name.localeCompare(b.name,'cs');
  });
  const full=rows.filter(function(x){return x.known>0&&x.misses===0}).length;
  const almost=rows.filter(function(x){return x.known>0&&x.misses===1}).length;
  if(summary)summary.innerHTML='<span class="good">✓ '+full+' lidí · všechna známá KPI na cíli</span><span>'+almost+' lidí · 1 KPI mimo</span><span>'+rows.length+' aktivních lidí</span>';
- setText('employeeTeamPulseMeta','AKTUÁLNÍ STAV · poslední dostupné KPI v aktuální sezóně · není season average');
+ setText('employeeTeamPulseMeta','AKTUÁLNÍ STAV · Data Hub + historie · poslední dostupné KPI v aktuální sezóně');
  const shown=employeeTeamPulseExpanded?rows:rows.slice(0,5);
  box.innerHTML=shown.map(function(x){
    const good=Math.max(0,x.known-x.misses),score=x.known?good+'/'+x.known:'—',tone=x.known&&x.misses===0?'full':x.misses<=1?'mid':'low',me=x.name===state.worker;
@@ -4156,9 +4192,31 @@ function renderHomePriority(){
 
 function renderHome(){if(!state.player)return;renderHomeOpsSnapshot();renderSeasonCountdown();const p=state.player,lb=playerSeasonData(state.worker),sc=performanceScoreFromLatest(p),st=streak(currentSeasonHistory()||state.history),life=lifetimeProgressFor(state.worker),xp=life.xp,lvl=life.level,within=xp%1000,t=tier(lb.elo);document.body.dataset.tier=t[0];setText('homeName',p.worker);setText('homeTier',t[0]);setText('homeRank','#'+lb.rank);const rankIcon=t[0]==='MASTER'?'💎':t[0]==='GOLD'?'🥇':t[0]==='SILVER'?'🛡️':'🔰';setText('rankCrest',rankIcon);setText('rankHeadline',t[0]==='UNRANKED'?'UNRANKED':t[0]);setText('sElo',lb.elo+' b.');setText('sRank',t[0]==='UNRANKED'?'—':`${t[0]}${lb.status&&lb.status!=='FULL'?' · '+lb.status:''} · #${lb.rank}`);setText('sRankIcon',rankIcon);setText('sPerf',sc==null?'—':fmt(sc,1));setText('sStreak',st);setText('homeLevel','LVL '+lvl);setText('homeXp',within+' / 1000 XP');document.getElementById('xpBar').style.width=(within/10)+'%';const seasonWeeksCount=seasonScopedTeam(state.team)?.labels?.length||currentSeasonWeeks().length;setText('seasonMeta',seasonWeeksCount?('Rank: aktuální sezóna · Level: celoživotní XP · '+seasonWeeksCount+' týdnů v sezóně'):'Aktuální rank · sezónní detail se dopočítá při otevření žebříčku');const rankBar=document.getElementById('rankBar');const rankMin=900,rankMax=1200;const rankPct=Math.min(100,Math.max(0,((lb.elo-rankMin)/(rankMax-rankMin))*100));rankBar.style.width=rankPct+'%';setText('rankProgressText',t[0]==='UNRANKED'?'—':t[0]);setText('rankFrom','');setText('rankTo','');document.querySelectorAll('.rank-rail .rank-stop').forEach((el,i)=>{const min=Number(el.dataset.rankMin||0);el.classList.toggle('active',lb.elo>=min);el.classList.toggle('current',(i===0&&lb.elo<1000)||(i===1&&lb.elo>=1000&&lb.elo<1100)||(i===2&&lb.elo>=1100&&lb.elo<1200)||(i===3&&lb.elo>=1200));});const b=badges(state.worker);document.getElementById('badgeList').innerHTML=b.map(x=>`<span class="badge" data-emoji="${esc(x[0])}" data-title="${esc(x[1])}" title="${esc(x[1])}">${x[0]} ${esc(x[1])}</span>`).join('')||'<span class="empty-badges">Zatím žádné sezónní odznaky</span>';renderQuests();renderHomeScanStrip();renderHomeBreakdown();renderAchievements();renderStoreCardLive();renderStoreQuests().catch(e=>{console.warn('store quests',e);const b=document.getElementById('homeStoreQuestList');if(b)b.innerHTML='<div class=\"notice error\">Store Challenges se nepodařilo načíst.</div>';});animateWidth('xpBar',within/10,850);const rankPct2=Math.min(100,Math.max(0,((lb.elo-900)/(1200-900))*100));animateWidth('rankBar',rankPct2,1000);animateCards('badgeList');animateCards('homeQuestList');animateCards('homeStoreQuestList');renderHomePriority()}
 function seasonMetricPoints(name,mine,teamValues){ return seasonMetricContribution(name,mine,teamValues); }
-function getMetricValFromWeek(week,aliases){const defs=state.history?.metricDefinitions||[];for(const a of aliases.map(norm)){const d=defs.find(x=>norm(x.name)===a||norm(x.name).includes(a));if(d&&week?.metrics?.[d.key]?.value!=null)return {value:normalizeMetricValue(week.metrics[d.key].value,d.name),name:d.name};}return null}
+function getMetricValFromWeek(week,aliases){
+ const wanted=(aliases||[]).map(norm),key=questWeekKey(week),person=unifiedPersonByName(state.worker);
+ const specs=[
+  {id:'avg_picking_time',tests:['avg picking time','picking time']},
+  {id:'scanner_ratio',tests:['items picked via scanner ratio','scanner ratio','scan to pick','scanner']},
+  {id:'missing_rate',tests:['missing incorrect items rate','missing items rate','missing incorrect','missing']},
+  {id:'pofr',tests:['perfect order fulfilment ratio','perfect order fulfillment ratio','pofr']}
+ ];
+ const spec=specs.find(function(s){return s.tests.some(function(t){const z=norm(t);return wanted.some(function(a){return a===z||a.includes(z)||z.includes(a)})})});
+ if(spec&&key&&person?.weekly?.[spec.id]){
+   const s=person.weekly[spec.id],i=(s.labels||[]).indexOf(key),v=i>=0?Number(s.values?.[i]):NaN;
+   if(Number.isFinite(v)){
+     const def=unifiedMetricDef(spec.id);
+     return {value:v,name:def?.label||spec.id,source:'data_hub',week_key:key};
+   }
+ }
+ const defs=state.history?.metricDefinitions||[];
+ for(const a of wanted){
+   const d=defs.find(x=>norm(x.name)===a||norm(x.name).includes(a));
+   if(d&&week?.metrics?.[d.key]?.value!=null)return {value:normalizeMetricValue(week.metrics[d.key].value,d.name),name:d.name,source:'legacy',week_key:key};
+ }
+ return null;
+}
 function questDefsForWeek(week){
-  const weeks=currentSeasonWeeks();
+  const weeks=currentQuestWeeks();
   const idx=Math.max(0,weeks.indexOf(week));
   const prev=idx>0?weeks[idx-1]:null;
   const pick=getMetricValFromWeek(week,['Avg Picking Time','Picking Time']);
@@ -4488,7 +4546,7 @@ let homeQuestMode='active';
 let homeStoreQuestMode='active';
 function renderHomeQuests(){
   const box=document.getElementById('homeQuestList'); if(!box)return;
-  const weeks=currentSeasonWeeks(); if(!weeks.length){box.innerHTML='<div class="notice">Čeká se na historii.</div>';return;}
+  const weeks=currentQuestWeeks(); if(!weeks.length){box.innerHTML='<div class="notice">Čeká se na historii.</div>';return;}
   const current=questDefsForWeek(weeks.at(-1));
   let items=current;
   if(homeQuestMode==='history'){
@@ -4554,7 +4612,7 @@ function renderHomeBreakdown(){
  renderSeasonHistory();
 }
 function renderQuests(){
- const seasonWeeks=currentSeasonWeeks(),week=seasonWeeks.at(-1)||null;
+ const seasonWeeks=currentQuestWeeks(),week=seasonWeeks.at(-1)||null;
  const pick=week?getMetricValFromWeek(week,['Avg Picking Time','Picking Time']):null,scan=week?getMetricValFromWeek(week,['Items Picked Via Scanner Ratio','Scanner Ratio']):null,mi=week?getMetricValFromWeek(week,['Missing Incorrect Items Rate','Missing Incorrect']):null;
  const pickVal=pick?.value??null,scanVal=scan?.value??null,miVal=mi?.value??null;
  const weekly=[
@@ -5926,8 +5984,8 @@ function drawStore(){
 }
 
 let adminTeamFilter='all',adminTeamSearch='',adminPeriodMode='current',adminPeriodStart='',adminPeriodEnd='';
-function adminMetricIndex(aliases){
- const headers=state.team?.headers||[];
+function adminMetricIndex(aliases,team=state.team){
+ const headers=team?.headers||[];
  return headers.findIndex(function(h){const k=norm(h);return aliases.some(function(a){const z=norm(a);return k===z||k.includes(z)||z.includes(k)})});
 }
 function adminPeriodScope(mode=adminPeriodMode){
@@ -5972,8 +6030,8 @@ function applyAdminCustomPeriod(){
  if(adminPeriodStart&&adminPeriodEnd&&adminPeriodStart>adminPeriodEnd){const x=adminPeriodStart;adminPeriodStart=adminPeriodEnd;adminPeriodEnd=x}
  adminPeriodMode='custom';renderAdminDashboard();
 }
-function adminMetricPoint(person,aliases,offset,scope){
- const headers=state.team?.headers||[],idx=adminMetricIndex(aliases);if(idx<0||!person)return null;
+function adminMetricPoint(person,aliases,offset,scope,team=state.team){
+ const headers=team?.headers||[],idx=adminMetricIndex(aliases,team);if(idx<0||!person)return null;
  const arr=person.history?.[idx]||[],cfg=scope||adminPeriodScope(),indices=(cfg.indices||[]).filter(function(i){return i>=0&&i<arr.length});
  if(cfg.aggregate){
    const vals=indices.map(function(i){return normalizeMetricValue(arr[i],headers[idx])}).filter(function(v){return v!=null});
@@ -5984,7 +6042,7 @@ function adminMetricPoint(person,aliases,offset,scope){
  for(let z=indices.length-1;z>=0;z--){const i=indices[z],v=normalizeMetricValue(arr[i],headers[idx]);if(v==null)continue;if(found===(offset||0))return{value:v,name:headers[idx],index:i};found++}
  return null;
 }
-function adminPersonSnapshot(name,person,scope){
+function adminPersonSnapshot(name,person,scope,team=state.team){
  const lb=playerSeasonData(name),cfg=scope||adminPeriodScope();
  const defs=[
   {key:'picking',label:'Picking',aliases:['avg picking time','picking time per item','picking time'],target:2.57,lower:true},
@@ -5993,15 +6051,15 @@ function adminPersonSnapshot(name,person,scope){
   {key:'pofr',label:'POFR',aliases:['perfect order fulfilment ratio','perfect order fulfillment ratio','pofr'],target:98,lower:false}
  ];
  const metrics={};let known=0,misses=0;
- defs.forEach(function(d){const cur=adminMetricPoint(person,d.aliases,0,cfg),prev=cfg.aggregate?null:adminMetricPoint(person,d.aliases,1,cfg),value=cur?.value??null;const good=value==null?null:(d.lower?value<=d.target:value>=d.target);if(good!==null){known++;if(!good)misses++}let improving=null;if(value!=null&&prev?.value!=null){const diff=value-prev.value;improving=Math.abs(diff)<.0001?null:(d.lower?diff<0:diff>0)}metrics[d.key]={...d,value,good,prev:prev?.value??null,improving,aggregate:!!cur?.aggregate}});
+ defs.forEach(function(d){const cur=adminMetricPoint(person,d.aliases,0,cfg,team),prev=cfg.aggregate?null:adminMetricPoint(person,d.aliases,1,cfg,team),value=cur?.value??null;const good=value==null?null:(d.lower?value<=d.target:value>=d.target);if(good!==null){known++;if(!good)misses++}let improving=null;if(value!=null&&prev?.value!=null){const diff=value-prev.value;improving=Math.abs(diff)<.0001?null:(d.lower?diff<0:diff>0)}metrics[d.key]={...d,value,good,prev:prev?.value??null,improving,aggregate:!!cur?.aggregate}});
  const pr=(state.storeCard?.projection?.leaderboard||[]).find(function(x){return norm(x.display_name)===norm(name)})||null;
  const status=known===0?'unknown':misses>=2?'attention':misses===1?'watch':'ok',reasons=defs.filter(function(d){return metrics[d.key].good===false}).map(function(d){return d.label});
  return{name,lb,metrics,known,misses,status,reasons,storeCard:pr};
 }
-function adminSnapshots(scope){
- if(!state.team?.people)return[];
+function adminSnapshots(scope,team=state.team){
+ if(!team?.people)return[];
  const cfg=scope||adminPeriodScope();
- return currentArenaTeamEntries(state.team).map(function(x){return adminPersonSnapshot(x[0],x[1],cfg)}).sort(function(a,b){const order={attention:0,watch:1,ok:2,unknown:3};return(order[a.status]-order[b.status])||(Number(a.lb.rank)||999)-(Number(b.lb.rank)||999)});
+ return currentArenaTeamEntries(team).map(function(x){return adminPersonSnapshot(x[0],x[1],cfg,team)}).sort(function(a,b){const order={attention:0,watch:1,ok:2,unknown:3};return(order[a.status]-order[b.status])||(Number(a.lb.rank)||999)-(Number(b.lb.rank)||999)});
 }
 function adminKpiCell(m){
  if(!m||m.value==null)return'<span class="admin-kpi neutral">—</span>';
