@@ -2130,8 +2130,9 @@ body[data-login-role="admin"] .employee-team-pulse-section{display:none!importan
 <div class="badge-legend-overlay" id="badgeLegendOverlay"><div class="badge-legend-modal" role="dialog" aria-modal="true" aria-labelledby="badgeLegendTitle"><div class="badge-legend-head"><div><h3 id="badgeLegendTitle">🏅 LEGENDA ODZNAKŮ</h3><p>Co jednotlivé odznaky znamenají a jak je získat</p></div><button class="badge-legend-close" id="closeBadgeLegend" aria-label="Zavřít">✕</button></div><p class="badge-legend-tip">Klikni na libovolný odznak v profilu pro otevření této legendy.</p><div class="badge-legend-grid" id="badgeLegendGrid"></div></div></div><div class="overlay" id="detailOverlay"><div class="modal player-modal"><div class="modal-head player-modal-head"><div><div class="eyebrow">Player profile</div><h2 id="detailName" class="player-profile-name">—</h2><div id="detailSubtitle" class="player-profile-sub">Season performance · posledních 13 týdnů</div></div><button class="close" id="closeDetail">✕</button></div><div class="profile-top player-profile-top"><div class="profile-hero player-identity-card"><div class="player-rank-line"><span class="profile-kicker">SEASON RANK</span><span id="detailTier" class="player-tier">—</span></div><div class="player-rank-main"><span id="detailRankCrest" class="player-rank-crest">🏆</span><div><div id="detailRank" class="player-rank-value">—</div><div id="detailElo" class="player-elo-value">—</div></div></div><div class="player-rank-track"><span id="detailRankFill"></span></div><div id="rankUpBurst" class="rank-up-burst" aria-hidden="true"><div class="rank-up-inner"><div class="rank-up-title">RANK UP!</div><div id="rankUpBurstSub" class="rank-up-sub">—</div></div></div></div><div class="profile-hero player-badges-card"><div class="player-card-head"><span class="profile-kicker">BADGES</span><span id="detailBadgeCount" class="player-card-count">0</span></div><div class="badge-row player-detail-badges" id="detailBadges"></div></div></div><div class="profile-grid player-profile-grid" id="detailStats"></div><div class="section player-live-section"><div class="section-head"><h3>AKTUÁLNÍ VÝKON</h3><span id="detailLiveOpsMeta">aktuální měsíc</span></div><div class="metric-grid detail-live-grid" id="detailLiveOps"><div class="notice">Načítám live data…</div></div></div><div class="section player-insights-section"><div class="section-head"><h3>VÝKONNOSTNÍ PROFIL</h3><span>sezónní průměr vs. tým</span></div><div class="detail-insights" id="detailInsights"><div class="insight"><strong>Silná stránka</strong><span>—</span></div><div class="insight"><strong>Největší rezerva</strong><span>—</span></div></div></div><div class="section player-breakdown-section"><div class="section-head"><h3>SEASON BREAKDOWN</h3><span>13týdenní průměr · barva = výkon vs. tým</span></div><div class="breakdown-list" id="detailBreakdown"></div></div></div></div>
 <div class="loading-overlay" id="loadingOverlay"><div class="loading-card"><div class="loader-orb"><span></span></div><div class="loading-title">Načítám Performance Arena</div><div class="loading-sub" id="loadingStage">Připravuji profil…</div><div class="loading-progress"><span id="loadingProgress"></span></div><div class="loading-tip" id="loadingTip"></div></div></div>
 <script>
-const API_URL='https://script.google.com/macros/s/AKfycbxC38rlABSICaLkd8X1hsqBuOHYhgtg7naei1UyyRPKyHIqW818K4jSIbd74zG-nMqy/exec';
-const API_PROXY_URL='https://hidden-cake-595d.supi24.workers.dev/';
+const API_URL=''; // retired: Player Hub is Data Hub / Supabase only
+const API_PROXY_URL=''; // retired: no Sheets/Apps Script fallback
+const DATA_HUB_ONLY=true;
 const STORE_CARD_API_URL='https://yhpgqkklnymfiacrztqf.supabase.co/functions/v1/player-store-card';
 const UNIFIED_ARENA_API_URL='https://yhpgqkklnymfiacrztqf.supabase.co/functions/v1/arena-unified-data';
 const AUDIT_RPC_BASE='https://yhpgqkklnymfiacrztqf.supabase.co/rest/v1/rpc/';
@@ -2144,36 +2145,18 @@ function targetForMetric(name){const k=norm(cleanMetricName(name));if(k.includes
 const IGNORED=['packing time per item','venue related cs tickets ratio','merchant rejection ratio','avg packing time'];
 const state={bootstrap:null,worker:null,player:null,history:null,team:null,stores:null,storeHistory:null,storeCard:null,unifiedData:null,unifiedLoading:null,quickLeaderboard:null,teamMetric:null,teamMetricCache:{},teamMetricLoading:{},range:'all',rangeStart:'',rangeEnd:'',storeRangeStart:'',storeRangeEnd:'',teamMode:'all',teamGranularity:'auto',lbMode:'people',compareWorker:'',compareStore:'',storeRange:'all',inbound:null,leaderMetric:null,achievementMode:'all',hubTrendGranularity:'auto'};
 let charts={};
-const CACHE_PREFIX='arena_cache_v15_';
+const CACHE_PREFIX='arena_cache_v16_';
 const CACHE_TTLS={bootstrap:30*60*1000,player:5*60*1000,player_history:20*60*1000,leaderboard:10*60*1000,team_metric:30*60*1000,team_history:30*60*1000,stores_history:30*60*1000,store_history:30*60*1000,player_inbound:20*60*1000};
 const cacheInFlight={};
 function cacheKey(action,params={}){return CACHE_PREFIX+action+'|'+Object.keys(params).sort().map(k=>k+'='+String(params[k])).join('&')}
 function readCache(action,params={}){try{const x=JSON.parse(localStorage.getItem(cacheKey(action,params))||'null');return x&&x.data?x:null}catch(e){return null}}
 function writeCache(action,params,data){try{localStorage.setItem(cacheKey(action,params),JSON.stringify({ts:Date.now(),data}))}catch(e){}}
 function apiRaw(action,params={}){
-  if(API_PROXY_URL && !API_PROXY_URL.includes('PASTE_YOUR_CLOUDFLARE_WORKER_URL_HERE')){
-    const u=new URL(API_PROXY_URL);
-    Object.entries({api:'1',action,...params,_cb:String(Date.now())+Math.random().toString(36).slice(2)}).forEach(([k,v])=>u.searchParams.set(k,String(v)));
-    return fetch(u.toString(),{method:'GET',cache:'no-store',credentials:'omit',headers:{'Accept':'application/json'}})
-      .then(r=>{if(!r.ok)throw new Error('API HTTP '+r.status);return r.json()})
-      .then(d=>{if(!d||d.ok===false)throw new Error(d?.error||('API '+action+' error'));return d});
-  }
-  return new Promise((resolve,reject)=>{
-    const cb='__arena_cb_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2);
-    const s=document.createElement('script');
-    let done=false;
-    const finish=(err,data)=>{if(done)return;done=true;clearTimeout(timer);try{delete window[cb]}catch(e){};if(s.parentNode)s.parentNode.removeChild(s);err?reject(err):resolve(data)};
-    const timer=setTimeout(()=>finish(new Error('API timeout after 30s')),30000);
-    window[cb]=(data)=>finish(null,data);
-    s.async=false;s.defer=false;s.type='text/javascript';s.charset='utf-8';s.referrerPolicy='no-referrer';
-    s.onerror=()=>finish(new Error('API request failed'));
-    const q=new URLSearchParams({api:'1',action,callback:cb,_cb:String(Date.now()),...params});
-    s.src=API_URL+'?'+q.toString();
-    (document.head||document.documentElement).appendChild(s);
-  })
+  return dataHubApi(action,params,true);
 }
-
-function api(action,params={}){const cached=readCache(action,params);const ttl=CACHE_TTLS[action]||10*60*1000;if(cached){if(Date.now()-cached.ts>ttl&&!cacheInFlight[cacheKey(action,params)]){cacheInFlight[cacheKey(action,params)]=apiRaw(action,params).then(d=>{if(d&&d.ok!==false)writeCache(action,params,d)}).catch(()=>{}).finally(()=>delete cacheInFlight[cacheKey(action,params)]);}return Promise.resolve(cached.data)}if(cacheInFlight[cacheKey(action,params)])return cacheInFlight[cacheKey(action,params)];const job=apiRaw(action,params).then(d=>{if(!d||d.ok===false)throw new Error(d?.error||('API '+action+' error'));writeCache(action,params,d);return d}).finally(()=>delete cacheInFlight[cacheKey(action,params)]);cacheInFlight[cacheKey(action,params)]=job;return job}
+function api(action,params={}){
+  return dataHubApi(action,params,false);
+}
 function norm(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/fulfilmen\s+t/g,'fulfilment').replace(/preparati\s+on/g,'preparation').replace(/purchase\s+s/g,'purchases').replace(/\s+/g,' ').trim()}
 function esc(s){return String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
 function setText(id,v){const e=document.getElementById(id);if(e)e.textContent=v;return e}
@@ -2237,7 +2220,7 @@ function parseFlexibleDate(v,kind='week'){
   const parsed=Date.parse(s); if(!isNaN(parsed))return new Date(parsed);
   return null;
 }
-const DASHBOARD_FIRST_WEEK_START='2026-03-30';
+const DASHBOARD_FIRST_WEEK_START='2026-01-01';
 function dateOnly(v){const d=parseFlexibleDate(v);return d?new Date(d.getFullYear(),d.getMonth(),d.getDate()):null}
 function addDays(base,n){const d=new Date(base);d.setDate(d.getDate()+n);return d}
 function weekSpans(labels,weekMeta){return (labels||[]).map((label,i)=>{const meta=weekMeta&&weekMeta[i];const start=(meta&&meta.startDate&&dateOnly(meta.startDate))||addDays(new Date(2026,2,30),i*7);const end=(meta&&meta.endDate&&dateOnly(meta.endDate))||addDays(start,6);return{start,end}})}
@@ -2709,6 +2692,185 @@ function unifiedPersonByName(name){
    });
  })||null;
 }
+
+function dataHubPersonName(p){return String(p?.display_name||p?.person_key||p?.full_name||p?.name||'').trim()}
+function dataHubPeople(u){return Object.values(u?.people||{}).filter(function(p){return dataHubPersonName(p)&&isArenaWorkerAllowed(dataHubPersonName(p))})}
+function dataHubPerson(u,name){
+ const t=norm(name),k=arenaIdentityKey(name);
+ return dataHubPeople(u).find(function(p){
+   return [p.display_name,p.full_name,p.name,p.person_key].some(function(v){return norm(v)===t||arenaIdentityKey(v)===k});
+ })||null;
+}
+function dataHubWeeklyDefs(u){
+ return (u?.metrics||[]).filter(function(d){return d.weekly_available===true}).map(function(d,i){
+   return {...d,index:i,key:String(d.id),name:d.label};
+ });
+}
+function dataHubWeekKeys(u,person=null){
+ const defs=dataHubWeeklyDefs(u),keys=new Set();
+ const people=person?[person]:dataHubPeople(u);
+ people.forEach(function(p){
+   defs.forEach(function(d){
+     (p?.weekly?.[d.id]?.labels||[]).forEach(function(k,i){
+       const v=Number(p.weekly[d.id].values?.[i]);
+       if(Number.isFinite(v))keys.add(String(k));
+     });
+   });
+ });
+ return [...keys].sort();
+}
+function dataHubValue(series,key){
+ if(!series)return null;
+ const i=(series.labels||[]).indexOf(key),v=i>=0?Number(series.values?.[i]):NaN;
+ return Number.isFinite(v)?v:null;
+}
+function buildDataHubPlayerHistory(u,worker){
+ const p=dataHubPerson(u,worker);if(!p)return null;
+ const defs=dataHubWeeklyDefs(u),keys=dataHubWeekKeys(u,p);
+ const weekMeta=keys.map(function(k,i){
+   const d=dateOnly(k),end=d?personalWeekKey(addDays(d,6)):k;
+   return{label:personalWeekLabel(k),startDate:k,endDate:end,index:i+1};
+ });
+ const weeks=keys.map(function(k,i){
+   const metrics={};
+   defs.forEach(function(d){
+     const v=dataHubValue(p?.weekly?.[d.id],k);
+     if(v!==null)metrics[d.key]={value:v,name:d.label,metric_id:d.id,source:'data_hub'};
+   });
+   return{week:{label:personalWeekLabel(k),startDate:k,endDate:weekMeta[i].endDate},metrics:metrics};
+ });
+ return{
+   ok:true,version:'data-hub-player-history-v1',source:'supabase_data_hub',
+   worker:dataHubPersonName(p),person_key:p.person_key,
+   metricDefinitions:defs.map(function(d){return{index:d.index,key:d.key,name:d.label,id:d.id,unit:d.unit,category:d.category,lower_is_better:d.lower_is_better}}),
+   weekMeta:weekMeta,weeks:weeks
+ };
+}
+function buildDataHubPlayer(u,worker){
+ const p=dataHubPerson(u,worker);if(!p)return null;
+ const h=buildDataHubPlayerHistory(u,worker);if(!h)return null;
+ const metrics={};let latestKey=null;
+ (h.metricDefinitions||[]).forEach(function(d){
+   const s=p?.weekly?.[d.id];if(!s)return;
+   for(let i=(s.labels||[]).length-1;i>=0;i--){
+     const v=Number(s.values?.[i]);if(!Number.isFinite(v))continue;
+     const k=String(s.labels[i]);metrics[d.key]={value:v,name:d.name,metric_id:d.id,source:'data_hub'};
+     if(!latestKey||k>latestKey)latestKey=k;
+     break;
+   }
+ });
+ return{
+   ok:true,version:'data-hub-player-v1',source:'supabase_data_hub',
+   worker:dataHubPersonName(p),person_key:p.person_key,full_name:p.full_name,active:p.active,
+   employment_type:p.employment_type,team_effort_eligible:p.team_effort_eligible===true,
+   metricDefinitions:h.metricDefinitions,
+   latest:{week:{label:latestKey?personalWeekLabel(latestKey):'—',startDate:latestKey},metrics:metrics}
+ };
+}
+function buildDataHubTeam(u){
+ const defs=dataHubWeeklyDefs(u),keys=dataHubWeekKeys(u),labels=keys.map(personalWeekLabel);
+ const weekMeta=keys.map(function(k,i){
+   const d=dateOnly(k);return{label:labels[i],startDate:k,endDate:d?personalWeekKey(addDays(d,6)):k,index:i+1};
+ });
+ const people={};
+ dataHubPeople(u).forEach(function(p){
+   const name=dataHubPersonName(p);
+   people[name]={
+     name:name,display_name:p.display_name,full_name:p.full_name,person_key:p.person_key,
+     employment_type:p.employment_type,team_effort_eligible:p.team_effort_eligible===true,
+     headers:defs.map(function(d){return d.label}),
+     history:defs.map(function(d){return keys.map(function(k){return dataHubValue(p?.weekly?.[d.id],k)})})
+   };
+ });
+ return{
+   ok:true,version:'data-hub-team-history-v1',source:'supabase_data_hub',
+   labels:labels,weekKeys:keys,weekMeta:weekMeta,
+   headers:defs.map(function(d){return d.label}),
+   metricIds:defs.map(function(d){return d.id}),
+   people:people
+ };
+}
+function buildDataHubBootstrap(u){
+ const defs=dataHubWeeklyDefs(u),keys=dataHubWeekKeys(u),workers=dataHubPeople(u).map(dataHubPersonName).sort(function(a,b){return a.localeCompare(b,'cs')});
+ const stores=Object.values(u?.store?.stores||{}).map(function(s){return s.name}).filter(Boolean).sort(function(a,b){return a.localeCompare(b,'cs')});
+ return{
+   ok:true,version:'data-hub-bootstrap-v1',source:'supabase_data_hub',
+   workers:workers,
+   weeks:keys.map(function(k,i){return{label:personalWeekLabel(k),startDate:k,index:i+1}}),
+   metrics:defs.map(function(d,i){return{index:i,key:d.id,id:d.id,name:d.label,unit:d.unit,category:d.category,lower_is_better:d.lower_is_better}}),
+   stores:stores
+ };
+}
+function buildDataHubTeamMetric(u,metricName){
+ const wanted=norm(metricName);
+ const def=(u?.metrics||[]).find(function(d){
+   const names=[d.id,d.label,...(d.legacy_names||[])].map(norm);
+   return names.some(function(x){return x===wanted||x.includes(wanted)||wanted.includes(x)});
+ });
+ if(!def)throw new Error('Metrika není v Data Hubu: '+metricName);
+ const keys=new Set();
+ dataHubPeople(u).forEach(function(p){(p?.weekly?.[def.id]?.labels||[]).forEach(function(k){keys.add(String(k))})});
+ const ordered=[...keys].sort(),people={};
+ dataHubPeople(u).forEach(function(p){
+   const s=p?.weekly?.[def.id];if(!s)return;
+   const history=ordered.map(function(k){return dataHubValue(s,k)});
+   if(history.some(function(v){return v!==null}))people[dataHubPersonName(p)]={history:history};
+ });
+ const vals=Object.values(people).flatMap(function(p){return p.history}).filter(function(v){return v!==null&&Number.isFinite(Number(v))}).map(Number);
+ const sorted=vals.slice().sort(function(a,b){return def.lower_is_better?a-b:b-a});
+ return{
+   ok:true,version:'data-hub-team-metric-v1',source:'supabase_data_hub',
+   metric:def.label,metric_id:def.id,labels:ordered.map(personalWeekLabel),weekKeys:ordered,people:people,
+   summary:{average:vals.length?vals.reduce(function(a,b){return a+b},0)/vals.length:null,best:sorted[0]??null,count:Object.keys(people).length}
+ };
+}
+function buildDataHubStoresHistory(u){
+ const defs=u?.store?.metrics||[],storesRaw=Object.values(u?.store?.stores||{}),months=new Set();
+ storesRaw.forEach(function(st){defs.forEach(function(d){(st?.metrics?.[d.id]||[]).forEach(function(r){if(r.period_start)months.add(String(r.period_start).slice(0,7))})})});
+ const labels=[...months].sort(),stores={};
+ storesRaw.forEach(function(st){
+   const history=defs.map(function(d){
+     const byMonth=new Map();
+     (st?.metrics?.[d.id]||[]).forEach(function(r){const k=String(r.period_start||'').slice(0,7),v=Number(r.value);if(k&&Number.isFinite(v))byMonth.set(k,v)});
+     return labels.map(function(k){return byMonth.has(k)?byMonth.get(k):null});
+   });
+   stores[st.name]={name:st.name,key:st.key,history:history};
+ });
+ return{
+   ok:true,version:'data-hub-stores-history-v1',source:'supabase_data_hub',
+   labels:labels,headers:defs.map(function(d){return d.label}),metricIds:defs.map(function(d){return d.id}),stores:stores
+ };
+}
+function syncDataHubDerivedState(u){
+ if(!u)return;
+ state.bootstrap=buildDataHubBootstrap(u);
+ state.team=buildDataHubTeam(u);
+ state.storeHistory=buildDataHubStoresHistory(u);
+ if(state.worker){
+   const p=buildDataHubPlayer(u,state.worker),h=buildDataHubPlayerHistory(u,state.worker);
+   if(p)state.player=p;if(h)state.history=h;
+ }
+ if(state.compareWorker){
+   state.playerCompare=buildDataHubPlayer(u,state.compareWorker);
+   state.compareHistory=buildDataHubPlayerHistory(u,state.compareWorker);
+ }
+ state.teamMetricCache={};state.teamMetricLoading={};state.leaderMetric=null;
+}
+async function dataHubApi(action,params={},force=false){
+ const u=await loadUnifiedArenaData(!!force);
+ if(action==='bootstrap')return buildDataHubBootstrap(u);
+ if(action==='player'){
+   const d=buildDataHubPlayer(u,params.worker);if(!d)throw new Error('Player not found in Data Hub');return d;
+ }
+ if(action==='player_history'){
+   const d=buildDataHubPlayerHistory(u,params.worker);if(!d)throw new Error('Player history not found in Data Hub');return d;
+ }
+ if(action==='team_history')return buildDataHubTeam(u);
+ if(action==='team_metric')return buildDataHubTeamMetric(u,params.metric);
+ if(action==='stores_history'||action==='store_history')return buildDataHubStoresHistory(u);
+ if(action==='leaderboard')return{ok:true,version:'data-hub-leaderboard-bootstrap-v1',source:'supabase_data_hub',players:[]};
+ throw new Error('Unsupported Data Hub action: '+action);
+}
 function seriesMap(series){const m=new Map();if(!series)return m;(series.labels||[]).forEach((k,i)=>{const v=Number(series.values?.[i]);if(Number.isFinite(v))m.set(String(k),v)});return m}
 function csMonthLabel(iso){
  const d=dateOnly(iso);if(!d)return String(iso||'—');
@@ -2877,6 +3039,7 @@ async function refreshLiveArenaIfStale(force=false){
  ];
  const out=await Promise.all(jobs);
  if(out[0])state.storeCard=out[0];
+ if(out[1])syncDataHubDerivedState(out[1]);
 
  // One refresh path for every surface. Data Hub writes can no longer update
  // Home while leaving Personal/Team/Efficiency charts on an older snapshot.
@@ -4516,7 +4679,7 @@ async function renderStoreQuests(){
   if(!box||!meta)return;
   try{
     if(!state.storeHistory){if(context)context.textContent='Načítám store data…';box.innerHTML='<div class="notice">Store výzvy se načítají…</div>';await ensureStores();}
-    if(!state.team){ try{ state.team=await api('team_history'); }catch(e){ console.warn('team_history for player benchmarks',e); } }
+    if(!state.team)state.team=buildDataHubTeam(state.unifiedData);
     const names=Object.keys(state.storeHistory?.stores||{}), selected=findHolesoviceName();
     if(!selected){if(context)context.textContent='WM Holešovice nebyl nalezen.';box.innerHTML='<div class="notice error">Pro Store Challenges nebyl nalezen WM Holešovice.</div>';return;}
     const st=state.storeHistory.stores[selected], labels=state.storeHistory.labels||[], latestIdx=Math.max(0,labels.length-1);
@@ -4707,7 +4870,7 @@ function buildGeneratedSeries(opts={}){
       const keys=spans.map(function(s,i){return personalWeekKey(s?.start)||labels[i]});
       const displays=keys.map(function(k){return personalWeekLabel(k)});
       const pack=function(arr){return{arr:arr,labels:displays,keys:keys}};
-      return{elo:pack(eloPersonal),eloTeam:pack(eloTeam),perf:pack(personalPerf),perfTeam:pack(teamPerf),source_mode:'Legacy weekly + Data Hub closed weeks'};
+      return{elo:pack(eloPersonal),eloTeam:pack(eloTeam),perf:pack(personalPerf),perfTeam:pack(teamPerf),source_mode:'Data Hub / Supabase'};
     }
   }
 
@@ -4744,7 +4907,7 @@ function buildGeneratedSeries(opts={}){
     const keys=base.labels.map(function(label,j){const i=selected[j];return i!=null?personalWeekKey(spans[i]?.start):label});
     return{arr:base.arr,labels:keys.map(function(k,j){return dateOnly(k)?personalWeekLabel(k):base.labels[j]}),keys:keys};
   };
-  return{elo:slice(eloPersonal),eloTeam:slice(eloTeam),perf:slice(personalPerf),perfTeam:slice(teamPerf),source_mode:'Legacy history'};
+  return{elo:slice(eloPersonal),eloTeam:slice(eloTeam),perf:slice(personalPerf),perfTeam:slice(teamPerf),source_mode:'Data Hub / Supabase'};
 }
 function renderGeneratedTrendCharts(){
   const eloCanvas=document.getElementById('personalEloChart'),perfCanvas=document.getElementById('personalPerfChart');
@@ -5000,7 +5163,7 @@ function buildMetricCards(){
     const compareDelta=c.compObj&&c.avg!=null?c.avg-c.compObj.value:null;
     const compareGood=compareDelta!=null?(lowerBetter(c.d.name)?compareDelta<0:compareDelta>0):null;
     const compareLabel=c.compObj?`Srovnání: ${formatNormVal(c.compObj.value,c.d.name)}${compareDelta!=null?` · ${compareGood?'lepší':'horší'} o ${formatNormVal(Math.abs(compareDelta),c.d.name)}`:''}`:((state.rangeStart||state.rangeEnd)?`Období ${state.rangeStart||'…'} – ${state.rangeEnd||'…'}`:range==='all'?'Celá dostupná historie':`Posledních ${range} týdnů`);
-    const sourceCaption=c.unified.hasDataHub?'historie + aktuální Data Hub':'historie';
+    const sourceCaption='Data Hub / Supabase';
     wrap.innerHTML=`<div class="metric-top"><div class="metric-title">${esc(cleanMetricName(c.d.name))}</div>${c.tr?`<span class="trend ${c.tr.cls}">${c.tr.text}</span>`:''}</div><div class="metric-main">${formatNormVal(c.avg,c.d.name)}</div><div class="metric-sub">${compareLabel}</div><div class="spark"><canvas id="${c.canvasId}"></canvas></div><div class="personal-trend-caption"><span>Vývoj · ${sourceCaption}${state.compareWorker?` · ${esc(state.compareWorker)}`:''}</span><span class="trend-line-key"><i></i> trend</span>${c.teamSliced?.arr?.some(v=>n(v)!=null)?`<span class="trend-line-key team-key"><i></i> týmový průměr</span>`:''}</div>${movementHtml(movementFor(c.sliced.arr,c.d.name),c.d.name)}`;
     const target=kpiNames.some(k=>norm(c.d.name)===k)?document.getElementById('personalKpis'):document.getElementById('personalMetrics');
     target.appendChild(wrap);
@@ -5941,7 +6104,7 @@ function seasonMetricWeightedPoints(name,mine,teamValues){
 async function ensureTeam(){if(state.team){renderHomeBreakdown();renderAchievements();if(loginRole==='admin')renderAdminDashboard();return state.team;}return api('team_history').then(d=>{state.team=filterInactiveTeamPeople(d);renderHome();renderHomeBreakdown();renderAchievements();if(loginRole==='admin')renderAdminDashboard();return state.team})}
 async function ensureStores(){
  await loadUnifiedArenaData();
- if(!state.storeHistory){try{state.storeHistory=await api('stores_history')}catch(e){console.warn('legacy stores_history only for quests unavailable',e)}}
+ if(!state.storeHistory)state.storeHistory=buildDataHubStoresHistory(state.unifiedData);
  renderStores();renderStoreQuests().catch(()=>{});renderAchievements();return state.unifiedData?.store;
 }
 async function renderStores(){
