@@ -1374,7 +1374,7 @@ html[data-theme="light"] .sc-you-badge{color:#166534;background:rgba(34,197,94,.
 @media(max-width:520px){.team-rating-people{grid-template-columns:1fr}.team-rating-person{padding:10px 11px}}
 </style>
 <style id="unified-ui-v175">
-/* V175 — one visual language across legacy Sheets + Data Hub surfaces */
+/* V175 — one visual language across Data Hub / Supabase surfaces */
 .storecard-wallet-grid,.projection-grid,.friendly-summary-grid{gap:9px}
 .storecard-wallet-card,.projection-card,.friendly-summary-card,.enhanced-kpi,.summary-card,.small-stat{
   border:1px solid var(--line)!important;
@@ -4161,7 +4161,7 @@ function homeKpiSeries(spec){
        unit:spec.unit||hub?.unit||(isPct(legacyDef.name)?'percent':'number'),
        granularity:'week',
        lower_is_better:spec.lower,
-       source_mode:merged.hasDataHub?'Sheets + Data Hub':'Google Sheets'
+       source_mode:'Data Hub / Supabase'
      });
    }
  }
@@ -4504,7 +4504,7 @@ function normalizeStoreMetricValue(v,name){
   if(x===null)return null;
   const title=cleanMetricName(name);
   const key=norm(title);
-  // Store UI/MI values can arrive from Sheets either as percentage points
+  // Store UI/MI values in historical Data Hub imports can be percentage points
   // (e.g. 0.40 = 0.40%) or as fractional ratios (e.g. 0.004 = 0.40%).
   // Only very small values are treated as fractions so normal 0.40% values
   // are not incorrectly turned into 40%.
@@ -6038,8 +6038,7 @@ async function renderTeam(){
   if(sel.innerHTML!==html)sel.innerHTML=html;
   if(old&&metrics.some(m=>m.id===old))sel.value=old;else sel.value=(metrics.find(m=>m.id==='avg_picking_time')||metrics[0]).id;
   const def=metrics.find(m=>m.id===sel.value)||metrics[0],requested=state.teamGranularity||'auto';
-  // Auto intentionally prefers weekly: this is the only granularity that can
-  // merge the legacy Google Sheets era with the new Data Hub era.
+  // Auto prefers weekly for consistent cross-person comparison from Data Hub.
   const actual=requested==='auto'?'week':(requested==='day'&&!def.daily_available?'week':requested);
   document.querySelectorAll('.team-gran').forEach(b=>b.classList.toggle('active',b.dataset.gran===requested));
   const dayBtn=document.querySelector('.team-gran[data-gran="day"]');if(dayBtn)dayBtn.disabled=!def.daily_available;
@@ -6056,7 +6055,7 @@ async function renderTeam(){
     ?d.display_labels
     :(d.labels||[]).map(k=>actual==='day'?(fmtDate(dateOnly(k))||k):personalWeekLabel(String(k).split('|')[0]));
   charts.team=new Chart(document.getElementById('teamChart'),{type:'line',data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:true,labels:{boxWidth:10,font:{size:9}}}},scales:{x:{ticks:{color:'#91A79B',font:{size:8}},grid:{color:'rgba(134,239,172,.06)'}},y:{ticks:{color:'#91A79B',font:{size:8},callback:v=>formatNormVal(v,def.label)},grid:{color:'rgba(134,239,172,.06)'}}}}});
-  setText('globalNotice','Team Trends · '+def.label+' · '+(d.hybrid?'Store Card fallback + týdenní Data Hub · Store Card přepočtená na 7 dní':actual==='day'?'denní Data Hub':'týdenní · Sheets + Data Hub')+' · '+validPeople.length+' pracovníků');
+  setText('globalNotice','Team Trends · '+def.label+' · '+(d.hybrid?'Store Card fallback + týdenní Data Hub · Store Card přepočtená na 7 dní':actual==='day'?'denní Data Hub':'týdenní Data Hub')+' · '+validPeople.length+' pracovníků');
  }catch(err){destroyChart('team');setText('globalNotice','Týmová data se nepodařilo načíst: '+(err?.message||err));console.warn('renderTeam',err)}
 }
 function hasAnyUsableMetricData(person,headers){
