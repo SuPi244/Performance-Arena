@@ -129,6 +129,24 @@ async function inspect(page,scope,pageName,label){
       };
     });
     const seasonFrame=typeof getSeasonFrame==='function'?getSeasonFrame():null;
+    const dataHubDebug=pageName==='personal'&&typeof unifiedPersonByName==='function'?(function(){
+      const p=unifiedPersonByName(state.worker);
+      const ids=['avg_picking_time','scanner_ratio','missing_rate','pofr','inbound_normal','inbound_icy','inbound_freeze','stock_count'];
+      const series={};
+      ids.forEach(function(id){
+        const h=typeof unifiedHybridRowsForPerson==='function'&&p?unifiedHybridRowsForPerson(p,id):[];
+        series[id]={
+          weekly:p?.weekly?.[id]||null,
+          monthly:p?.monthly?.[id]||null,
+          hybrid:h
+        };
+      });
+      return {
+        unified_version:state.unifiedData?.version||null,
+        range:state.range,rangeStart:state.rangeStart,rangeEnd:state.rangeEnd,
+        worker:state.worker,person_name:p?.name||null,series
+      };
+    })():null;
     const text=(root?.innerText||'').replace(/\s+/g,' ').trim();
     const viewportOverflow=document.documentElement.scrollWidth-window.innerWidth;
     const overflowing=[...document.querySelectorAll('#page-'+pageName+' *')].filter(visible).map(el=>{
@@ -139,6 +157,7 @@ async function inspect(page,scope,pageName,label){
     return {
       rootVisible,fatal:fatalVisible||null,visibleErrors,loading,canvases,badCanvas,buttons,selects,chartData,
       seasonFrame:seasonFrame?{seasonIndex:seasonFrame.seasonIndex,start:seasonFrame.start?.toISOString?.(),end:seasonFrame.end?.toISOString?.(),daysLeft:seasonFrame.daysLeft}:null,
+      dataHubDebug,
       viewportOverflow,overflowing,emptyMajor,textSample:text.slice(0,800),
       version:[...document.scripts].map(s=>s.textContent||'').join('\n').match(/Wolt Performance Dashboard · V\d+/)?.[0]||null,
       worker:document.querySelector('#workerSelect')?.value||null
