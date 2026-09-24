@@ -1096,7 +1096,7 @@ document.addEventListener('click',async e=>{
   try{
    const out=await status('coverage',{month:month.value}),cov=out.coverage||{},sources=cov.sources||[];
    $('#coverageOverall').textContent=(cov.overall_percent==null?'—':cov.overall_percent+' %');
-   $('#coverageThrough').textContent=(cov.through?'stav k '+cov.through:'')+(cov.staged_total?' · '+cov.staged_total+' souborů staged':'');
+   $('#coverageThrough').textContent=(cov.through?'stav k '+cov.through:'')+(cov.staged_total?' · '+cov.staged_total+' souborů staged':'')+(cov.model_version?' · '+cov.model_version:'');
    host.innerHTML=sources.map(function(s){
     const seg=(s.segments||[]).map(function(x){return '<span class="coverage-seg '+esc(x.state)+'" title="'+esc((x.label||x.key)+' · '+stateLabel(x.state)+(x.range?' · '+x.range:''))+'"></span>'}).join('');
     const missing=(s.missing||[]);
@@ -1120,15 +1120,17 @@ document.addEventListener('click',async e=>{
     }else{
       mainMeta='Časové pokrytí: '+esc(s.covered)+' / '+esc(s.expected)+' '+esc(s.cadence==='week'?'období':s.cadence==='month'?'měsíců':'záznamů');
     }
+    const dueNote=s.counts_toward_overall===false?'<div class="coverage-meta warn">ℹ '+esc(s.due_label||'Zatím se nezapočítává do Overall')+'</div>':'';
+    const formula=s.coverage_formula?'<div class="coverage-meta">Coverage model: '+esc(s.coverage_formula)+(s.time_percentage!=null?' · čas '+esc(s.time_percentage)+' %':'')+'</div>':'';
     return '<div class="coverage-source"><div class="coverage-head"><b>'+esc(s.label)+'</b><span class="pill '+(s.state==='complete'?'ok':s.state==='missing'?'err':'warn')+'">'+esc(stateLabel(s.state))+' · '+esc(s.percentage)+' %</span></div>'+
      '<div class="coverage-bar"><span style="width:'+Math.max(0,Math.min(100,Number(s.percentage||0)))+'%"></span></div><div class="coverage-segments">'+seg+'</div>'+
-     '<div class="coverage-meta">'+mainMeta+(s.unresolved?' · unresolved '+esc(s.unresolved):'')+'</div>'+metricLine+history+staged+miss+'</div>';
+     '<div class="coverage-meta">'+mainMeta+(s.unresolved?' · unresolved '+esc(s.unresolved):'')+'</div>'+formula+dueNote+metricLine+history+staged+miss+'</div>';
    }).join('');
   }catch(e){host.innerHTML='<div class="err">Coverage se nepodařilo načíst: '+esc(e.message||e)+'</div>'}
  }
  function setupCoverage(){
   const card=coverageCard();if(!card)return;
-  card.innerHTML='<div class="coverage-top"><div><h2 style="margin-bottom:4px">Data Coverage <span class="v152-badge">V174</span></h2><p class="muted" style="margin-bottom:0">% = skutečně zapsané časové pokrytí ve zvoleném měsíci. Pod každým zdrojem vidíš i pokrytí typů metrik, historii a staged soubory, které se ještě nepočítají.</p></div><div class="field"><label>Měsíc · detail</label><input id="coverageMonth" type="month" value="'+localMonth()+'"></div></div>'+
+  card.innerHTML='<div class="coverage-top"><div><h2 style="margin-bottom:4px">Data Coverage <span class="v152-badge">V175</span></h2><p class="muted" style="margin-bottom:0">Overall = pouze uzavřená / splatná Data Hub období. Aktuální den a týden jsou průběžné; Team Rating, Store Metrics a Monthly Store Card nesnižují Overall před měsíční uzávěrkou. U metrických zdrojů se kontroluje časové i typové pokrytí.</p></div><div class="field"><label>Měsíc · detail</label><input id="coverageMonth" type="month" value="'+localMonth()+'"></div></div>'+
    '<div style="display:flex;align-items:baseline;gap:10px;margin:14px 0"><span id="coverageOverall" class="coverage-overall">—</span><span id="coverageThrough" class="muted"></span></div><div id="coverageSources"></div>';
   $('#coverageMonth').onchange=loadCoverage;
  }
