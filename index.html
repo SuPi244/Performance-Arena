@@ -2145,7 +2145,7 @@ function targetForMetric(name){const k=norm(cleanMetricName(name));if(k.includes
 const IGNORED=['packing time per item','venue related cs tickets ratio','merchant rejection ratio','avg packing time'];
 const state={bootstrap:null,worker:null,player:null,history:null,team:null,stores:null,storeHistory:null,storeCard:null,unifiedData:null,unifiedLoading:null,quickLeaderboard:null,teamMetric:null,teamMetricCache:{},teamMetricLoading:{},range:'all',rangeStart:'',rangeEnd:'',storeRangeStart:'',storeRangeEnd:'',teamMode:'all',teamGranularity:'auto',lbMode:'people',compareWorker:'',compareStore:'',storeRange:'all',inbound:null,leaderMetric:null,achievementMode:'all',hubTrendGranularity:'auto'};
 let charts={};
-const CACHE_PREFIX='arena_cache_v17_';
+const CACHE_PREFIX='arena_cache_v18_';
 const CACHE_TTLS={bootstrap:30*60*1000,player:5*60*1000,player_history:20*60*1000,leaderboard:10*60*1000,team_metric:30*60*1000,team_history:30*60*1000,stores_history:30*60*1000,store_history:30*60*1000,player_inbound:20*60*1000};
 const cacheInFlight={};
 function cacheKey(action,params={}){return CACHE_PREFIX+action+'|'+Object.keys(params).sort().map(k=>k+'='+String(params[k])).join('&')}
@@ -2461,16 +2461,9 @@ function seasonFrameFromDate(reference){
   return {seasonIndex:seasonIndex+1,start:seasonStart,end:seasonEnd,daysLeft:Math.ceil(ms/86400000),key:personalWeekKey(seasonStart)};
 }
 function getSeasonFrame(){
-  const hs=state.history,weeks=hs?.weeks||[];
-  if(weeks.length){
-    const spans=historyWeekSpans(hs),latest=spans.at(-1)?.start;
-    if(latest)return seasonFrameFromDate(latest);
-  }
-  const team=state.team;
-  if(team?.labels?.length){
-    const spans=weekSpans(team.labels,team.weekMeta||null),latest=spans.at(-1)?.start;
-    if(latest)return seasonFrameFromDate(latest);
-  }
+  // The active season is a calendar/game rule, not a property of the newest
+  // imported row. Future Quinyx schedules or delayed metric imports must never
+  // move the whole Arena into the next/previous season.
   return seasonFrameFromDate(new Date());
 }
 function indicesForDateWindow(labels,weekMeta,start,end){
@@ -4295,7 +4288,7 @@ function renderEmployeeTeamPulse(){
  const full=rows.filter(function(x){return x.known>0&&x.misses===0}).length;
  const almost=rows.filter(function(x){return x.known>0&&x.misses===1}).length;
  if(summary)summary.innerHTML='<span class="good">✓ '+full+' lidí · všechna známá KPI na cíli</span><span>'+almost+' lidí · 1 KPI mimo</span><span>'+rows.length+' aktivních lidí</span>';
- setText('employeeTeamPulseMeta','AKTUÁLNÍ STAV · Data Hub + historie · poslední dostupné KPI v aktuální sezóně');
+ setText('employeeTeamPulseMeta','AKTUÁLNÍ STAV · Data Hub / Supabase · poslední dostupné KPI v aktuální sezóně');
  const shown=employeeTeamPulseExpanded?rows:rows.slice(0,5);
  box.innerHTML=shown.map(function(x){
    const good=Math.max(0,x.known-x.misses),score=x.known?good+'/'+x.known:'—',tone=x.known&&x.misses===0?'full':x.misses<=1?'mid':'low',me=x.name===state.worker;
@@ -5210,7 +5203,7 @@ function buildMetricCards(){
     cards.push({d,avg,tr,canvasId,compObj,sliced,compSliced,teamSliced,unified});
   });
 
-  const kpiNames=['avg picking time','item count total','items picked via scanner ratio','missing incorrect items rate'];
+  const kpiNames=['avg picking time','scanner ratio','items picked via scanner ratio','missing / incorrect','missing incorrect items rate','pofr','perfect order fulfilment ratio','perfect order fulfillment ratio'];
   document.getElementById('personalKpis').innerHTML='';
   document.getElementById('personalMetrics').innerHTML='';
   cards.forEach(c=>{
