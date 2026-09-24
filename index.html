@@ -2144,7 +2144,7 @@ function targetForMetric(name){const k=norm(cleanMetricName(name));if(k.includes
 const IGNORED=['packing time per item','venue related cs tickets ratio','merchant rejection ratio','avg packing time'];
 const state={bootstrap:null,worker:null,player:null,history:null,team:null,stores:null,storeHistory:null,storeCard:null,unifiedData:null,unifiedLoading:null,quickLeaderboard:null,teamMetric:null,teamMetricCache:{},teamMetricLoading:{},range:'all',rangeStart:'',rangeEnd:'',storeRangeStart:'',storeRangeEnd:'',teamMode:'all',teamGranularity:'auto',lbMode:'people',compareWorker:'',compareStore:'',storeRange:'all',inbound:null,leaderMetric:null,achievementMode:'all',hubTrendGranularity:'auto'};
 let charts={};
-const CACHE_PREFIX='arena_cache_v13_';
+const CACHE_PREFIX='arena_cache_v14_';
 const CACHE_TTLS={bootstrap:30*60*1000,player:5*60*1000,player_history:20*60*1000,leaderboard:10*60*1000,team_metric:30*60*1000,team_history:30*60*1000,stores_history:30*60*1000,store_history:30*60*1000,player_inbound:20*60*1000};
 const cacheInFlight={};
 function cacheKey(action,params={}){return CACHE_PREFIX+action+'|'+Object.keys(params).sort().map(k=>k+'='+String(params[k])).join('&')}
@@ -2543,13 +2543,14 @@ function seasonUnifiedDefForHeader(header){
 function seasonCompleteHubWeekKeys(frame){
   const keys=new Set();
   Object.values(state.unifiedData?.people||{}).forEach(function(p){
-    const s=p.weekly?.avg_picking_time;
-    (s?.labels||[]).forEach(function(k,i){
-      const v=Number(s.values?.[i]),d=dateOnly(k);
-      if(!Number.isFinite(v)||!d)return;
-      const end=addDays(d,6);
-      if(frame&&((end<frame.start)||(d>frame.end)))return;
-      keys.add(String(k));
+    Object.values(p?.weekly||{}).forEach(function(s){
+      (s?.labels||[]).forEach(function(k,i){
+        const v=Number(s.values?.[i]),d=dateOnly(k);
+        if(!Number.isFinite(v)||!d)return;
+        const end=addDays(d,6);
+        if(frame&&((end<frame.start)||(d>frame.end)))return;
+        keys.add(String(k));
+      });
     });
   });
   return [...keys].sort();
@@ -2831,17 +2832,54 @@ async function refreshLiveArenaIfStale(force=false){
  if(!state.worker)return null;
  if(!force&&now-liveArenaRefreshAt<60000)return state.storeCard;
  liveArenaRefreshAt=now;
+ if(force){
+   state.teamMetricCache={};
+   state.teamMetricLoading={};
+ }
  const jobs=[
    loadStoreCardLive(state.worker,{force:true}),
    loadUnifiedArenaData(true).catch(function(e){console.warn('Unified live refresh',e);return null})
  ];
  const out=await Promise.all(jobs);
  if(out[0])state.storeCard=out[0];
+
+ // One refresh path for every surface. Data Hub writes can no longer update
+ // Home while leaving Personal/Team/Efficiency charts on an older snapshot.
  renderStoreCardLive();
  renderHome();
+ renderAchievements();
+ renderQuests();
  if(loginRole==='admin')renderAdminDashboard();
+ const active=document.querySelector('.page.active')?.id||'';
+ if(active==='page-personal'&&state.history)buildMetricCards();
+ if(active==='page-team')await renderTeam();
+ if(active==='page-efficiency')renderHubTrend();
+ if(active==='page-leaderboard')renderLeaderboard();
+ if(active==='page-store'){drawStore();renderStoreQuests().catch(()=>{})}
+ if(active==='page-correlation')await renderCorrelation();
+ if(active==='page-bottlenecks')await renderBottlenecks();
  return state.storeCard;
 }
+
+const ARENA_DATA_REVISION_KEY='arena_data_revision_v1';
+let arenaSeenRevision='';
+function startArenaFreshnessWatch(){
+ try{arenaSeenRevision=localStorage.getItem(ARENA_DATA_REVISION_KEY)||''}catch(e){}
+ window.addEventListener('storage',function(e){
+   if(e.key!==ARENA_DATA_REVISION_KEY||!e.newValue||e.newValue===arenaSeenRevision)return;
+   arenaSeenRevision=e.newValue;
+   refreshLiveArenaIfStale(true).catch(function(err){console.warn('Data Hub push refresh',err)});
+ });
+ window.addEventListener('focus',function(){
+   refreshLiveArenaIfStale(false).catch(function(err){console.warn('Arena focus refresh',err)});
+ });
+ setInterval(function(){
+   if(document.visibilityState==='visible'){
+     refreshLiveArenaIfStale(false).catch(function(err){console.warn('Arena periodic refresh',err)});
+   }
+ },60000);
+}
+startArenaFreshnessWatch();
 function enhancedFmt(v,unit){
  if(v===null||v===undefined||v==='')return'—';
  if(unit==='percent')return liveFmt(v,'percent');
@@ -4784,6 +4822,18 @@ function personalHubSeriesForMetric(metricName){
   }
   const exact=all.find(s=>norm(s.label)===wanted&&(s.values||[]).some(v=>v!=null&&Number.isFinite(Number(v))));
   if(exact)return exact;
+
+  // Store Card exposes only the live/scoring subset. Fall back to the unified
+  // Supabase history so every Data Hub metric can refresh the personal graphs.
+  const person=unifiedPersonByName(state.worker);
+  const def=(state.unifiedData?.metrics||[]).find(function(d){
+    const names=[d.label,...(d.legacy_names||[]),String(d.id||'').replaceAll('_',' ')].map(norm).filter(Boolean);
+    return names.some(function(x){return x===wanted||x.includes(wanted)||wanted.includes(x)});
+  });
+  const us=def&&person?.weekly?.[def.id];
+  if(us&&(us.values||[]).some(v=>v!=null&&Number.isFinite(Number(v)))){
+    return {...us,metric_id:def.id,label:def.label,unit:def.unit,granularity:'week',source:'arena_unified_data'};
+  }
   return null;
 }
 function mergedPersonalMetricSeries(legacyValues,legacyLabels,legacySpans,metricName){
@@ -5546,7 +5596,11 @@ async function loadPlayer(name){
     state.player=data;
     state.worker=data.worker;
     loadStoreCardLive(data.worker).then(sc=>{if(state.worker===data.worker){state.storeCard=sc;renderStoreCardLive();renderHome();renderAchievements();renderQuests();if(loginRole==='admin')renderAdminDashboard();if(document.getElementById('page-personal')?.classList.contains('active')){renderPersonalFriendlySummary();if(state.history)buildMetricCards();}}}).catch(()=>{});
-    loadUnifiedArenaData().then(function(){if(state.worker===data.worker)renderHome()}).catch(function(e){console.warn('Unified Home preload',e)});
+    loadUnifiedArenaData().then(function(){
+      if(state.worker!==data.worker)return;
+      renderHome();
+      if(document.getElementById('page-personal')?.classList.contains('active')&&state.history)buildMetricCards();
+    }).catch(function(e){console.warn('Unified Home preload',e)});
     const sel=document.getElementById('workerSelect');
     if(sel)sel.value=data.worker;
     populateCompare();
