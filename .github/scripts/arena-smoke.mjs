@@ -53,6 +53,13 @@ async function login(page,profile,kind){
 async function inspectHomeMomentum(page){
   const out={presets:{},snapshot:null,season:{}};
   out.snapshot=await page.locator('#homeOpsSnapshot').innerText().catch(()=>null);
+  out.scoreCardDebug=await page.evaluate(()=>({
+    version:state.storeCard?.version||null,
+    missing:state.storeCard?.live_personal?.missing_items_ratio??null,
+    projected_missing:state.storeCard?.projection?.me?.live_metrics?.missing??null,
+    projected_points:state.storeCard?.projection?.me?.total_points??null,
+    audit:state.storeCard?.projection?.data_audit||null
+  }));
   out.questDebug=await page.evaluate(()=>{
     const activeWeek=typeof latestCompleteQuestWeek==='function'?latestCompleteQuestWeek():null;
     const key=typeof questWeekKey==='function'?questWeekKey(activeWeek):null;
@@ -251,6 +258,10 @@ for(const run of report.runs){
 }
 for(const run of report.runs){
   if(run.profile!=='MartinPo'||!run.homeMomentum)continue;
+  const sc=run.homeMomentum.scoreCardDebug||{};
+  if(sc.version!=='player-store-card-v27')issues.push(run.scope+'/home: Store Card endpoint is '+String(sc.version)+' instead of v27');
+  if(sc.audit?.team_observation_rows<2000)issues.push(run.scope+'/home: Store Card team observations still truncated: '+JSON.stringify(sc.audit));
+  if(sc.projected_missing==null||Math.abs(Number(sc.projected_missing)-0.47)>.02)issues.push(run.scope+'/home: Martin projected Missing expected about 0.47 %, got '+String(sc.projected_missing));
   const qd=run.homeMomentum.questDebug||{};
   if(qd.active_week!=='2026-09-14')issues.push(run.scope+'/home: weekly quests use '+String(qd.active_week)+' instead of latest complete KPI week 2026-09-14');
   if(!qd.zero_miss||Number(qd.zero_miss.val)!==0||qd.zero_miss.done!==true)issues.push(run.scope+'/home: Zero-Miss Hunt is not completed from 2026-09-14 Missing=0; '+JSON.stringify(qd.zero_miss));
