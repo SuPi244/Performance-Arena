@@ -2145,7 +2145,7 @@ function targetForMetric(name){const k=norm(cleanMetricName(name));if(k.includes
 const IGNORED=['packing time per item','venue related cs tickets ratio','merchant rejection ratio','avg packing time'];
 const state={bootstrap:null,worker:null,player:null,history:null,team:null,stores:null,storeHistory:null,storeCard:null,unifiedData:null,unifiedLoading:null,quickLeaderboard:null,teamMetric:null,teamMetricCache:{},teamMetricLoading:{},range:'all',rangeStart:'',rangeEnd:'',storeRangeStart:'',storeRangeEnd:'',teamMode:'all',teamGranularity:'auto',lbMode:'people',compareWorker:'',compareStore:'',storeRange:'all',inbound:null,leaderMetric:null,achievementMode:'all',hubTrendGranularity:'auto'};
 let charts={};
-const CACHE_PREFIX='arena_cache_v19_';
+const CACHE_PREFIX='arena_cache_v20_';
 const CACHE_TTLS={bootstrap:30*60*1000,player:5*60*1000,player_history:20*60*1000,leaderboard:10*60*1000,team_metric:30*60*1000,team_history:30*60*1000,stores_history:30*60*1000,store_history:30*60*1000,player_inbound:20*60*1000};
 const cacheInFlight={};
 function cacheKey(action,params={}){return CACHE_PREFIX+action+'|'+Object.keys(params).sort().map(k=>k+'='+String(params[k])).join('&')}
@@ -3213,6 +3213,7 @@ const STORE_CARD_COMPONENT_META={
 };
 function scComponentMeta(x){return STORE_CARD_COMPONENT_META[x?.key]||{label:String(x?.key||'Metrika'),unit:'number'}}
 function scMetricValue(v,unit){
+ if(v===null||v===undefined||v==='')return'—';
  const n=Number(v);if(!Number.isFinite(n))return'—';
  if(unit==='count')return Math.round(n).toLocaleString('cs-CZ');
  if(unit==='percent')return fmt(n,2)+' %';
@@ -3229,7 +3230,8 @@ function scGapValue(gap,unit){
  return fmt(n,2);
 }
 function scMilestoneGap(x,target){
- const v=Number(x?.value),t=Number(target);
+ if(x?.value===null||x?.value===undefined||x?.value===''||target===null||target===undefined||target==='')return null;
+ const v=Number(x.value),t=Number(target);
  if(!Number.isFinite(v)||!Number.isFinite(t))return null;
  const lower=x?.direction==='lower';
  return lower?Math.max(0,v-t):Math.max(0,t-v);
