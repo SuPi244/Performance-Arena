@@ -4216,8 +4216,9 @@ function getMetricValFromWeek(week,aliases){
  return null;
 }
 function questDefsForWeek(week){
-  const weeks=currentQuestWeeks();
-  const idx=Math.max(0,weeks.indexOf(week));
+  const weeks=currentQuestWeeks(),weekKey=questWeekKey(week);
+  const found=weeks.findIndex(function(w){return questWeekKey(w)===weekKey});
+  const idx=Math.max(0,found);
   const prev=idx>0?weeks[idx-1]:null;
   const pick=getMetricValFromWeek(week,['Avg Picking Time','Picking Time']);
   const scan=getMetricValFromWeek(week,['Items Picked Via Scanner Ratio','Scanner Ratio']);
